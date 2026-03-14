@@ -27,21 +27,27 @@ export interface UnifiedVisitor {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export function normalizeVector(raw: any): UnifiedVisitor {
+  // Vector sends events with a "trigger" field and nested "contactCreated" object
+  const contact = raw.contactCreated || raw;
+  const name = contact.contactName || contact.firstName
+    ? [contact.firstName, contact.lastName].filter(Boolean).join(" ") || contact.contactName
+    : null;
+
   return {
     source: "vector",
-    sourceId: raw.id || raw.visitor_id || String(Date.now()),
-    companyName: raw.company?.name || raw.company_name || null,
-    companyDomain: raw.company?.domain || raw.company_domain || null,
-    companyIndustry: raw.company?.industry || null,
-    companySize: raw.company?.employee_count || raw.company?.size || null,
-    companyLocation: raw.company?.location || null,
-    personName: null,
-    personEmail: null,
-    personTitle: null,
-    personLinkedin: null,
-    pageUrl: raw.page_url || raw.url || null,
+    sourceId: raw.id || raw.visitor_id || contact.contactEmail || String(Date.now()),
+    companyName: contact.companyName || raw.company?.name || raw.company_name || null,
+    companyDomain: contact.companyDomain || raw.company?.domain || raw.company_domain || null,
+    companyIndustry: contact.industry || raw.company?.industry || null,
+    companySize: contact.companySize || raw.company?.employee_count || raw.company?.size || null,
+    companyLocation: contact.location || contact.country || raw.company?.location || null,
+    personName: name || null,
+    personEmail: contact.contactEmail || contact.email || null,
+    personTitle: contact.contactTitle || contact.jobTitle || null,
+    personLinkedin: contact.contactLinkedinUrl || contact.linkedinUrl || null,
+    pageUrl: contact.firstVisitPageUrl || raw.page_url || raw.url || null,
     referrer: raw.referrer || null,
-    visitDate: raw.visited_at || raw.timestamp || new Date().toISOString(),
+    visitDate: raw.timestamp || contact.lastVisitTimestamp || raw.visited_at || new Date().toISOString(),
     visitCount: raw.visit_count || 1,
   };
 }
