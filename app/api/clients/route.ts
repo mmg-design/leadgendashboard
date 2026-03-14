@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getAllClients,
   createClient,
+  updateClient,
   clientExists,
   type ClientConfig,
 } from "@/lib/clients";
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
               enabled: true,
               webhookEnabled: true,
               projectId: integrations.snitcher.projectId || "",
+              workspaceId: integrations.snitcher.workspaceId || "",
             }
           : undefined,
         clarity: integrations?.clarity?.enabled
@@ -84,5 +86,26 @@ export async function POST(req: NextRequest) {
       { error: "Failed to create client" },
       { status: 500 }
     );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { slug, iconUrl, integrations } = body;
+
+    if (!slug) {
+      return NextResponse.json({ error: "Missing slug" }, { status: 400 });
+    }
+
+    if (!(await clientExists(slug))) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+
+    await updateClient(slug, { iconUrl, integrations });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("Client update error:", err);
+    return NextResponse.json({ error: "Failed to update client" }, { status: 500 });
   }
 }

@@ -62,6 +62,25 @@ export async function createClient(config: ClientConfig): Promise<void> {
   });
 }
 
+export async function updateClient(
+  slug: string,
+  updates: { iconUrl?: string; integrations?: ClientConfig["integrations"] }
+): Promise<void> {
+  const db = await getDb();
+  const current = await getClient(slug);
+  if (!current) throw new Error("Client not found");
+
+  const newIconUrl = updates.iconUrl !== undefined ? updates.iconUrl : current.iconUrl;
+  const newIntegrations = updates.integrations
+    ? { ...current.integrations, ...updates.integrations }
+    : current.integrations;
+
+  await db.execute({
+    sql: "UPDATE clients SET icon_url = ?, integrations = ? WHERE slug = ?",
+    args: [newIconUrl || null, JSON.stringify(newIntegrations), slug],
+  });
+}
+
 export async function clientExists(slug: string): Promise<boolean> {
   const db = await getDb();
   const result = await db.execute({
