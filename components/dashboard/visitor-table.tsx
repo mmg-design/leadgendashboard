@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Radar, ExternalLink, Building2 } from "lucide-react";
+import { Radar, ExternalLink, Building2, RefreshCw, Loader2 } from "lucide-react";
 
 interface Visitor {
   company_name: string | null;
@@ -22,12 +23,14 @@ interface Visitor {
 
 interface IntegrationConfig {
   vector?: { siteId?: string };
-  snitcher?: { projectId?: string };
+  snitcher?: { projectId?: string; workspaceId?: string };
 }
 
 interface VisitorTableProps {
   visitors: Visitor[];
   integrations?: IntegrationConfig;
+  clientSlug: string;
+  onSync?: () => void;
 }
 
 const sourceColors: Record<string, string> = {
@@ -82,8 +85,33 @@ function getPrimarySourceUrl(visitor: Visitor, integrations?: IntegrationConfig)
   return null;
 }
 
-export function VisitorTable({ visitors, integrations }: VisitorTableProps) {
+export function VisitorTable({ visitors, integrations, clientSlug, onSync }: VisitorTableProps) {
   const topVisitors = visitors.slice(0, 4);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch(`/api/sync-snitcher?client=${clientSlug}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: 30 }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setSyncResult(`Error: ${data.error}`);
+      } else {
+        setSyncResult(`Synced ${data.synced} companies`);
+        onSync?.();
+      }
+    } catch {
+      setSyncResult("Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   return (
     <Card className="h-full flex flex-col">
@@ -160,21 +188,40 @@ export function VisitorTable({ visitors, integrations }: VisitorTableProps) {
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center py-4">
               <div className="text-[28px] font-semibold text-[#0B4F6C] tracking-tight">0</div>
-              <p className="text-[10px] text-muted-foreground/50 mt-1">Waiting for webhook data</p>
+              <p className="text-[10px] text-muted-foreground/50 mt-1">No visitor data yet</p>
             </div>
           )}
         </div>
 
+        {syncResult && (
+          <p className={`text-[10px] text-center mb-2 ${syncResult.startsWith("Error") ? "text-red-500" : "text-emerald-600"}`}>
+            {syncResult}
+          </p>
+        )}
+
         {visitors.length > 0 ? (
-          <div className="text-center">
+          <div className="flex items-center justify-between">
             <span className="text-[10px] text-muted-foreground/50">
               {visitors.length} compan{visitors.length === 1 ? "y" : "ies"} identified
             </span>
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="inline-flex items-center gap-1 text-[10px] text-[#0B4F6C]/60 hover:text-[#0B4F6C] transition-colors"
+            >
+              {syncing ? <Loader2 size={9} className="animate-spin" /> : <RefreshCw size={9} />}
+              Sync
+            </button>
           </div>
         ) : (
-          <div className="text-[10px] text-muted-foreground/40 text-center">
-            Vector + Snitcher
-          </div>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 text-[12px] font-medium rounded-lg bg-[#0B4F6C]/8 text-[#0B4F6C] hover:bg-[#0B4F6C]/15 transition-colors"
+          >
+            {syncing ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+            {syncing ? "Syncing..." : "Sync from Snitcher"}
+          </button>
         )}
       </CardContent>
     </Card>

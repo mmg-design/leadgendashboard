@@ -203,6 +203,14 @@ export default function ClientDashboard() {
           <VisitorTable
             visitors={visitors?.visitors || []}
             integrations={clientConfig?.integrations}
+            clientSlug={clientSlug}
+            onSync={() => {
+              const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
+              fetch(`/api/visitors?client=${clientSlug}&days=${days}`)
+                .then((r) => r.json())
+                .then(setVisitors)
+                .catch(() => {});
+            }}
           />
           <AIAnalysisCard
             clientName={clientName}

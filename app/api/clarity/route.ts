@@ -38,45 +38,63 @@ export async function GET(req: NextRequest) {
 
   let pageEngagement: ClarityPageData[] = [];
   try {
+    // numOfDays max is 3 (Clarity API limit)
     const res = await fetch(
-      `https://www.clarity.ms/export-data/api/v1/project-live-insights?numOfDays=7&dimension1=URL`,
+      `https://www.clarity.ms/export-data/api/v1/project-live-insights?numOfDays=3&dimension1=URL`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          "x-clarity-project-id": projectId,
+          "Content-Type": "application/json",
         },
       }
     );
 
     if (res.ok) {
+      // Response is an array of metric groups: [{metricName, information[]}, ...]
       const data = await res.json();
-      if (data?.information?.length) {
-        pageEngagement = data.information
-          .filter((item: any) => item.dimensionValue)
-          .map((item: any) => {
-            const sessions = Number(item.sessions) || 0;
-            const pagesPerSession = Number(item.pagesPerSession) || 0;
-            const scrollDepth = Number(item.scrollDepth) || 0;
-            const activeTime = Number(item.activeTimeInSeconds) || 0;
+      const metricGroups = Array.isArray(data) ? data : [];
 
-            const scrollScore = Math.min(scrollDepth, 100);
-            const timeScore = Math.min((activeTime / 120) * 100, 100);
-            const pagesScore = Math.min((pagesPerSession / 3) * 100, 100);
-            const engagementScore = Math.round(
-              scrollScore * 0.4 + timeScore * 0.35 + pagesScore * 0.25
-            );
+      // Build a map of URL -> metrics from all metric groups
+      const urlMap: Record<string, { sessions: number; scrollDepth: number; pagesPerSession: number; activeTime: number }> = {};
 
-            return {
-              page: item.dimensionValue,
-              engagementScore,
-              totalSessions: sessions,
-            };
-          })
-          .sort((a: ClarityPageData, b: ClarityPageData) => b.engagementScore - a.engagementScore)
-          .slice(0, 10);
+      for (const group of metricGroups) {
+        if (!group.information) continue;
+        for (const item of group.information) {
+          const url = item.Url || item.URL;
+          if (!url) continue;
+          if (!urlMap[url]) {
+            urlMap[url] = { sessions: 0, scrollDepth: 0, pagesPerSession: 0, activeTime: 0 };
+          }
+          if (group.metricName === "Traffic") {
+            urlMap[url].sessions = Number(item.totalSessionCount) || 0;
+            urlMap[url].pagesPerSession = Number(item.pagesPerSessionPercentage) || 0;
+          } else if (group.metricName === "ScrollDepth") {
+            urlMap[url].scrollDepth = Number(item.averageScrollDepth) || 0;
+          } else if (group.metricName === "EngagementTime") {
+            urlMap[url].activeTime = Number(item.activeTime) || 0;
+          }
+        }
       }
+
+      pageEngagement = Object.entries(urlMap)
+        .map(([url, metrics]) => {
+          const scrollScore = Math.min(metrics.scrollDepth, 100);
+          const timeScore = Math.min((metrics.activeTime / 120) * 100, 100);
+          const pagesScore = Math.min((metrics.pagesPerSession / 3) * 100, 100);
+          const engagementScore = Math.round(
+            scrollScore * 0.4 + timeScore * 0.35 + pagesScore * 0.25
+          );
+          return {
+            page: url,
+            engagementScore,
+            totalSessions: metrics.sessions,
+          };
+        })
+        .sort((a, b) => b.engagementScore - a.engagementScore)
+        .slice(0, 10);
     } else {
-      console.log(`Clarity API responded ${res.status} — using recording link only`);
+      const body = await res.text();
+      console.log(`Clarity API responded ${res.status}: ${body}`);
     }
   } catch (err) {
     console.error("Clarity API error:", err);

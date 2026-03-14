@@ -18,6 +18,7 @@ export interface ClientConfig {
       enabled: boolean;
       webhookEnabled?: boolean;
       projectId?: string;
+      workspaceId?: string;
     };
     clarity?: {
       enabled: boolean;
