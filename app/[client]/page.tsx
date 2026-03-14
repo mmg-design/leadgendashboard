@@ -20,6 +20,11 @@ import {
   Users,
   Building2,
   ArrowDownUp,
+  Settings,
+  Save,
+  X,
+  Loader2,
+  Check,
 } from "lucide-react";
 
 interface GAData {
@@ -64,6 +69,97 @@ export default function ClientDashboard() {
   const [visitors, setVisitors] = useState<VisitorData | null>(null);
   const [clarity, setClarity] = useState<ClarityData | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Settings panel state
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
+    name: "",
+    iconUrl: "",
+    gaPropertyId: "",
+    clarityProjectId: "",
+    snitcherProjectId: "",
+    snitcherWorkspaceId: "",
+    vectorSiteId: "",
+  });
+
+  // Populate settings form when clientConfig loads
+  useEffect(() => {
+    if (clientConfig) {
+      setSettingsForm({
+        name: clientConfig.name || "",
+        iconUrl: clientConfig.iconUrl || "",
+        gaPropertyId: clientConfig.integrations?.googleAnalytics?.propertyId || "",
+        clarityProjectId: clientConfig.integrations?.clarity?.projectId || "",
+        snitcherProjectId: clientConfig.integrations?.snitcher?.projectId || "",
+        snitcherWorkspaceId: clientConfig.integrations?.snitcher?.workspaceId || "",
+        vectorSiteId: clientConfig.integrations?.vector?.siteId || "",
+      });
+    }
+  }, [clientConfig]);
+
+  async function handleSaveSettings() {
+    setSaving(true);
+    setSaveSuccess(false);
+    try {
+      const integrations: any = {};
+
+      if (settingsForm.gaPropertyId) {
+        integrations.googleAnalytics = { enabled: true, propertyId: settingsForm.gaPropertyId };
+      } else {
+        integrations.googleAnalytics = { enabled: false, propertyId: "" };
+      }
+
+      if (settingsForm.clarityProjectId) {
+        integrations.clarity = { enabled: true, projectId: settingsForm.clarityProjectId };
+      } else {
+        integrations.clarity = { enabled: false, projectId: "" };
+      }
+
+      if (settingsForm.snitcherProjectId || settingsForm.snitcherWorkspaceId) {
+        integrations.snitcher = {
+          enabled: true,
+          webhookEnabled: true,
+          projectId: settingsForm.snitcherProjectId,
+          workspaceId: settingsForm.snitcherWorkspaceId,
+        };
+      } else {
+        integrations.snitcher = { enabled: false, webhookEnabled: false, projectId: "", workspaceId: "" };
+      }
+
+      if (settingsForm.vectorSiteId) {
+        integrations.vector = { enabled: true, webhookEnabled: true, siteId: settingsForm.vectorSiteId };
+      } else {
+        integrations.vector = { enabled: false, webhookEnabled: false, siteId: "" };
+      }
+
+      const res = await fetch("/api/clients", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug: clientSlug,
+          name: settingsForm.name,
+          iconUrl: settingsForm.iconUrl,
+          integrations,
+        }),
+      });
+
+      if (res.ok) {
+        setSaveSuccess(true);
+        setClientName(settingsForm.name);
+        // Refresh client config
+        const data = await fetch("/api/clients").then((r) => r.json());
+        const match = data.clients?.find((c: any) => c.slug === clientSlug);
+        if (match) setClientConfig(match);
+        setTimeout(() => setSaveSuccess(false), 2000);
+      }
+    } catch (err) {
+      console.error("Failed to save settings:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   useEffect(() => {
     fetch(`/api/clients`)
@@ -138,15 +234,156 @@ export default function ClientDashboard() {
               {clientName}
             </h1>
           </div>
-          <Tabs value={range} onValueChange={setRange}>
-            <TabsList className="h-8">
-              <TabsTrigger value="7d" className="text-xs px-3 h-7">7d</TabsTrigger>
-              <TabsTrigger value="30d" className="text-xs px-3 h-7">30d</TabsTrigger>
-              <TabsTrigger value="90d" className="text-xs px-3 h-7">90d</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex items-center gap-3">
+            <Tabs value={range} onValueChange={setRange}>
+              <TabsList className="h-8">
+                <TabsTrigger value="7d" className="text-xs px-3 h-7">7d</TabsTrigger>
+                <TabsTrigger value="30d" className="text-xs px-3 h-7">30d</TabsTrigger>
+                <TabsTrigger value="90d" className="text-xs px-3 h-7">90d</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <button
+              onClick={() => setSettingsOpen(!settingsOpen)}
+              className={`p-2 rounded-lg transition-colors ${
+                settingsOpen
+                  ? "bg-[#0B4F6C]/10 text-[#0B4F6C]"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+              title="Client Settings"
+            >
+              <Settings size={16} />
+            </button>
+          </div>
         </div>
       </header>
+
+      {/* Settings Panel */}
+      {settingsOpen && (
+        <div className="bg-white border-b border-[#0B4F6C]/[0.08] shadow-sm">
+          <div className="max-w-7xl mx-auto px-8 py-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-[15px] font-semibold text-[#0B4F6C] tracking-tight">
+                Client Settings
+              </h2>
+              <button
+                onClick={() => setSettingsOpen(false)}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* General */}
+              <div className="space-y-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  General
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Client Name</label>
+                  <input
+                    type="text"
+                    value={settingsForm.name}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, name: e.target.value })}
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Icon URL</label>
+                  <input
+                    type="text"
+                    value={settingsForm.iconUrl}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, iconUrl: e.target.value })}
+                    placeholder="/clients/slug/icon.png"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">GA4 Property ID</label>
+                  <input
+                    type="text"
+                    value={settingsForm.gaPropertyId}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, gaPropertyId: e.target.value })}
+                    placeholder="properties/123456789"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                  />
+                </div>
+              </div>
+
+              {/* Integrations */}
+              <div className="space-y-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Integrations
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Clarity Project ID</label>
+                  <input
+                    type="text"
+                    value={settingsForm.clarityProjectId}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, clarityProjectId: e.target.value })}
+                    placeholder="abc123xyz"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Snitcher Project Hash</label>
+                  <input
+                    type="text"
+                    value={settingsForm.snitcherProjectId}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, snitcherProjectId: e.target.value })}
+                    placeholder="abc123"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Snitcher Workspace UUID</label>
+                  <input
+                    type="text"
+                    value={settingsForm.snitcherWorkspaceId}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, snitcherWorkspaceId: e.target.value })}
+                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Vector Site ID</label>
+                  <input
+                    type="text"
+                    value={settingsForm.vectorSiteId}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, vectorSiteId: e.target.value })}
+                    placeholder="site_xxxxx"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Save button */}
+            <div className="flex items-center gap-3 mt-6 pt-4 border-t border-border/50">
+              <button
+                onClick={handleSaveSettings}
+                disabled={saving}
+                className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-white bg-[#0B4F6C] rounded-lg hover:bg-[#0B4F6C]/90 disabled:opacity-50 transition-colors"
+              >
+                {saving ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : saveSuccess ? (
+                  <Check size={14} />
+                ) : (
+                  <Save size={14} />
+                )}
+                {saving ? "Saving..." : saveSuccess ? "Saved!" : "Save Changes"}
+              </button>
+              <button
+                onClick={() => setSettingsOpen(false)}
+                className="px-4 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Dashboard */}
       <main className="max-w-7xl mx-auto px-8 py-8">
