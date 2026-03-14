@@ -197,6 +197,7 @@ export default function ClientDashboard() {
             <ClarityRecordingLink
               topSessionUrl={clarity.topSessionUrl}
               projectId={clarity.projectId}
+              pageEngagement={clarity.pageEngagement}
             />
           )}
           <VisitorTable
