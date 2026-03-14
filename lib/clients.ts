@@ -1,0 +1,69 @@
+import { getDb } from "./db";
+
+export interface ClientConfig {
+  name: string;
+  slug: string;
+  domain: string;
+  integrations: {
+    googleAnalytics?: {
+      enabled: boolean;
+      propertyId: string;
+    };
+    vector?: {
+      enabled: boolean;
+      webhookEnabled?: boolean;
+      siteId?: string;
+    };
+    snitcher?: {
+      enabled: boolean;
+      webhookEnabled?: boolean;
+      projectId?: string;
+    };
+    clarity?: {
+      enabled: boolean;
+      projectId: string;
+    };
+  };
+}
+
+function rowToConfig(row: Record<string, unknown>): ClientConfig {
+  return {
+    name: row.name as string,
+    slug: row.slug as string,
+    domain: row.domain as string,
+    integrations: JSON.parse(row.integrations as string),
+  };
+}
+
+export async function getAllClients(): Promise<ClientConfig[]> {
+  const db = await getDb();
+  const result = await db.execute("SELECT * FROM clients ORDER BY name");
+  return result.rows.map((row) => rowToConfig(row as Record<string, unknown>));
+}
+
+export async function getClient(slug: string): Promise<ClientConfig | null> {
+  const db = await getDb();
+  const result = await db.execute({
+    sql: "SELECT * FROM clients WHERE slug = ?",
+    args: [slug],
+  });
+  if (result.rows.length === 0) return null;
+  return rowToConfig(result.rows[0] as Record<string, unknown>);
+}
+
+export async function createClient(config: ClientConfig): Promise<void> {
+  const db = await getDb();
+  await db.execute({
+    sql: "INSERT INTO clients (slug, name, domain, integrations) VALUES (?, ?, ?, ?)",
+    args: [config.slug, config.name, config.domain, JSON.stringify(config.integrations)],
+  });
+}
+
+export async function clientExists(slug: string): Promise<boolean> {
+  const db = await getDb();
+  const result = await db.execute({
+    sql: "SELECT 1 FROM clients WHERE slug = ?",
+    args: [slug],
+  });
+  return result.rows.length > 0;
+}

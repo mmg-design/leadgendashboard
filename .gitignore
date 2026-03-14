@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# sqlite data (local dev only)
+/data/
+
+# google service account credentials
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!components.json
