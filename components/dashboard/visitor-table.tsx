@@ -51,12 +51,7 @@ function getSourceUrl(
       return `https://app.vector.co`;
     }
     case "snitcher": {
-      const projectId = integrations?.snitcher?.projectId;
-      const base = projectId
-        ? `https://app.snitcher.com/projects/${projectId}`
-        : `https://app.snitcher.com`;
-      if (companyDomain) return `${base}/search?q=${encodeURIComponent(companyDomain)}`;
-      return base;
+      return `https://app.snitcher.com/dashboard`;
     }
     default:
       return null;
@@ -86,7 +81,6 @@ function getPrimarySourceUrl(visitor: Visitor, integrations?: IntegrationConfig)
 }
 
 export function VisitorTable({ visitors, integrations, clientSlug, onSync }: VisitorTableProps) {
-  const topVisitors = visitors.slice(0, 4);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
 
@@ -120,7 +114,7 @@ export function VisitorTable({ visitors, integrations, clientSlug, onSync }: Vis
           <div className="p-2 rounded-lg bg-[#0B4F6C]/8">
             <Radar size={16} className="text-[#0B4F6C]/70" />
           </div>
-          <div className="text-[13px] font-medium text-foreground/80">
+          <div className="text-[17px] font-headline font-normal text-foreground/80">
             Identified Visitors
           </div>
         </div>
@@ -129,9 +123,9 @@ export function VisitorTable({ visitors, integrations, clientSlug, onSync }: Vis
         </p>
 
         {/* Visitor list */}
-        <div className="flex-1 space-y-1.5 mb-3">
-          {topVisitors.length > 0 ? (
-            topVisitors.map((v, i) => {
+        <div className="flex-1 space-y-1.5 mb-3 overflow-y-auto max-h-[280px] pr-1">
+          {visitors.length > 0 ? (
+            visitors.map((v, i) => {
               const sourcesArr = v.sources.split(",").map((s) => s.trim());
               const sourceIdMap = parseSourceIds(v.source_ids);
               const primaryUrl = getPrimarySourceUrl(v, integrations);

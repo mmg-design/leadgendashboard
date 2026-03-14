@@ -44,7 +44,7 @@ export function TopPages({ data, clarityEngagement }: TopPagesProps) {
       <CardHeader>
         <div className="flex items-center gap-2">
           <FileText size={15} className="text-muted-foreground/60" />
-          <CardTitle className="text-[13px] font-medium text-muted-foreground">Top Pages</CardTitle>
+          <CardTitle className="text-[17px] font-headline font-normal text-muted-foreground">Top Pages</CardTitle>
           {clarityEngagement && clarityEngagement.length > 0 && (
             <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground/50">
               <Gauge size={10} />

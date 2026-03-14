@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { getHealth, parseSessionDuration } from "@/lib/health";
 import { TrafficChart } from "@/components/dashboard/traffic-chart";
 import { VisitorTable } from "@/components/dashboard/visitor-table";
 import { SourceBars } from "@/components/dashboard/source-bars";
@@ -119,7 +121,20 @@ export default function ClientDashboard() {
               &larr; All Clients
             </Link>
             <div className="w-px h-4 bg-border" />
-            <h1 className="text-[15px] font-semibold tracking-tight text-[#0B4F6C]">
+            {clientConfig?.iconUrl ? (
+              <Image
+                src={clientConfig.iconUrl}
+                alt={`${clientName} icon`}
+                width={32}
+                height={32}
+                className="rounded-lg shrink-0"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-[#0B4F6C]/8 flex items-center justify-center shrink-0">
+                <Building2 size={16} className="text-[#0B4F6C]/40" />
+              </div>
+            )}
+            <h1 className="text-[24px] font-headline font-normal tracking-tight text-[#0B4F6C]">
               {clientName}
             </h1>
           </div>
@@ -149,6 +164,7 @@ export default function ClientDashboard() {
             subtitle={`Last ${range}`}
             icon={<Activity size={16} />}
             tooltip="How many times someone visited the site. If one person comes back 3 times, that's 3 sessions. More sessions = more traffic coming in."
+            health={ga ? getHealth("sessions", ga.summary.sessions, range) : null}
           />
           <StatCard
             title="Pageviews"
@@ -156,6 +172,7 @@ export default function ClientDashboard() {
             subtitle={`Last ${range}`}
             icon={<Eye size={16} />}
             tooltip="Total pages looked at across all visits. If someone clicks through 4 pages in one session, that's 4 pageviews. Higher than sessions means people are exploring."
+            health={ga && ga.summary.sessions > 0 ? getHealth("pagesPerSession", ga.summary.pageviews / ga.summary.sessions) : null}
           />
           <StatCard
             title="Unique Visitors"
@@ -170,6 +187,7 @@ export default function ClientDashboard() {
             subtitle="Vector + Snitcher"
             icon={<Building2 size={16} />}
             tooltip="Companies we caught visiting the site using IP tracking tools. These are potential leads — real businesses checking you out. Even a few per week is valuable."
+            health={visitors?.stats?.unique_companies != null ? getHealth("companiesIdentified", visitors.stats.unique_companies, range) : null}
           />
           <StatCard
             title="Bounce Rate"
@@ -177,6 +195,7 @@ export default function ClientDashboard() {
             subtitle={ga?.summary.avgSessionDuration ? `Avg ${ga.summary.avgSessionDuration}` : "—"}
             icon={<ArrowDownUp size={16} />}
             tooltip="The % of visitors who left after seeing just one page. Lower is better — it means people are sticking around and clicking through. Under 50% is solid."
+            health={ga?.summary.bounceRate ? getHealth("bounceRate", parseFloat(ga.summary.bounceRate)) : null}
           />
         </div>
 
@@ -234,7 +253,7 @@ export default function ClientDashboard() {
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] font-medium text-muted-foreground w-16 shrink-0">Vector</span>
                       <code className="text-[11px] bg-muted/50 px-2 py-1 rounded font-mono text-foreground/70 select-all flex-1 truncate">
-                        {typeof window !== "undefined" ? window.location.origin : ""}/api/vector?client={clientSlug}
+                        {process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "")}/api/vector?client={clientSlug}
                       </code>
                     </div>
                   )}
@@ -242,7 +261,7 @@ export default function ClientDashboard() {
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] font-medium text-muted-foreground w-16 shrink-0">Snitcher</span>
                       <code className="text-[11px] bg-muted/50 px-2 py-1 rounded font-mono text-foreground/70 select-all flex-1 truncate">
-                        {typeof window !== "undefined" ? window.location.origin : ""}/api/snitcher?client={clientSlug}
+                        {process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "")}/api/snitcher?client={clientSlug}
                       </code>
                     </div>
                   )}

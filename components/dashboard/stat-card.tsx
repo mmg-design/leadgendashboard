@@ -9,11 +9,17 @@ interface StatCardProps {
   subtitle?: string;
   icon?: React.ReactNode;
   tooltip?: string;
+  health?: "good" | "warning" | null;
 }
 
-export function StatCard({ title, value, subtitle, icon, tooltip }: StatCardProps) {
+const healthColors = {
+  good: "border-emerald-400",
+  warning: "border-amber-400",
+};
+
+export function StatCard({ title, value, subtitle, icon, tooltip, health }: StatCardProps) {
   return (
-    <Card className="overflow-visible relative hover:z-50">
+    <Card className={`overflow-visible relative hover:z-50 ${health ? `border-[2px] ${healthColors[health]}` : ""}`}>
       <CardContent className="pt-1">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-1.5">
@@ -36,7 +42,7 @@ export function StatCard({ title, value, subtitle, icon, tooltip }: StatCardProp
             <div className="text-[#0B4F6C]/30">{icon}</div>
           )}
         </div>
-        <div className="text-[28px] font-semibold tracking-tight leading-none text-[#0B4F6C]">
+        <div className="text-[36px] font-headline font-normal tracking-tight leading-none text-[#0B4F6C]">
           {value}
         </div>
         {subtitle && (

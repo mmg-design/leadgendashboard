@@ -25,7 +25,7 @@ export function ClarityRecordingLink({ topSessionUrl, projectId, pageEngagement 
           <div className="p-2 rounded-lg bg-[#0B4F6C]/8">
             <Video size={16} className="text-[#0B4F6C]/70" />
           </div>
-          <div className="text-[13px] font-medium text-foreground/80">
+          <div className="text-[17px] font-headline font-normal text-foreground/80">
             Session Recordings
           </div>
         </div>

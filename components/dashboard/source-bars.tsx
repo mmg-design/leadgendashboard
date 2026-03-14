@@ -22,7 +22,7 @@ export function SourceBars({ data, title = "Traffic Sources" }: SourceBarsProps)
       <CardHeader>
         <div className="flex items-center gap-2">
           <Globe size={15} className="text-muted-foreground/60" />
-          <CardTitle className="text-[13px] font-medium text-muted-foreground">{title}</CardTitle>
+          <CardTitle className="text-[17px] font-headline font-normal text-muted-foreground">{title}</CardTitle>
         </div>
       </CardHeader>
       <CardContent>

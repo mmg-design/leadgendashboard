@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClient } from "@/lib/clients";
+import { getDb } from "@/lib/db";
 
 interface ClarityPageData {
   page: string;
@@ -12,6 +13,8 @@ interface ClarityResponse {
   pageEngagement: ClarityPageData[];
   projectId: string;
 }
+
+const CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours (Clarity allows ~10 req/day)
 
 export async function GET(req: NextRequest) {
   const client = req.nextUrl.searchParams.get("client") || "example-client";
@@ -35,6 +38,22 @@ export async function GET(req: NextRequest) {
   }
 
   const topSessionUrl = `https://clarity.microsoft.com/projects/view/${projectId}/dashboard`;
+
+  // Check cache first
+  const db = await getDb();
+  const cached = await db.execute({
+    sql: `SELECT data, fetched_at FROM analytics_cache
+          WHERE client_slug = ? AND metric_type = 'clarity_engagement' AND date_range = 'live'`,
+    args: [client],
+  });
+
+  if (cached.rows.length > 0) {
+    const fetchedAt = new Date(cached.rows[0].fetched_at as string).getTime();
+    if (Date.now() - fetchedAt < CACHE_TTL_MS) {
+      const cachedData = JSON.parse(cached.rows[0].data as string);
+      return NextResponse.json({ topSessionUrl, pageEngagement: cachedData, projectId });
+    }
+  }
 
   let pageEngagement: ClarityPageData[] = [];
   try {
@@ -92,6 +111,22 @@ export async function GET(req: NextRequest) {
         })
         .sort((a, b) => b.engagementScore - a.engagementScore)
         .slice(0, 10);
+
+      // Cache the result
+      if (pageEngagement.length > 0) {
+        await db.execute({
+          sql: `INSERT OR REPLACE INTO analytics_cache (client_slug, metric_type, date_range, data, fetched_at)
+                VALUES (?, 'clarity_engagement', 'live', ?, datetime('now'))`,
+          args: [client, JSON.stringify(pageEngagement)],
+        });
+      }
+    } else if (res.status === 429) {
+      // Rate limited — serve stale cache if available
+      if (cached.rows.length > 0) {
+        const staleData = JSON.parse(cached.rows[0].data as string);
+        return NextResponse.json({ topSessionUrl, pageEngagement: staleData, projectId });
+      }
+      console.log("Clarity API rate limited (429) — no cache available");
     } else {
       const body = await res.text();
       console.log(`Clarity API responded ${res.status}: ${body}`);

@@ -4,6 +4,7 @@ export interface ClientConfig {
   name: string;
   slug: string;
   domain: string;
+  iconUrl?: string;
   integrations: {
     googleAnalytics?: {
       enabled: boolean;
@@ -32,6 +33,7 @@ function rowToConfig(row: Record<string, unknown>): ClientConfig {
     name: row.name as string,
     slug: row.slug as string,
     domain: row.domain as string,
+    iconUrl: (row.icon_url as string) || undefined,
     integrations: JSON.parse(row.integrations as string),
   };
 }
@@ -55,8 +57,8 @@ export async function getClient(slug: string): Promise<ClientConfig | null> {
 export async function createClient(config: ClientConfig): Promise<void> {
   const db = await getDb();
   await db.execute({
-    sql: "INSERT INTO clients (slug, name, domain, integrations) VALUES (?, ?, ?, ?)",
-    args: [config.slug, config.name, config.domain, JSON.stringify(config.integrations)],
+    sql: "INSERT INTO clients (slug, name, domain, icon_url, integrations) VALUES (?, ?, ?, ?, ?)",
+    args: [config.slug, config.name, config.domain, config.iconUrl || null, JSON.stringify(config.integrations)],
   });
 }
 

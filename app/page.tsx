@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Radar,
@@ -23,6 +24,7 @@ interface ClientConfig {
   name: string;
   slug: string;
   domain: string;
+  iconUrl?: string;
   integrations: Record<string, { enabled: boolean; [key: string]: any }>;
 }
 
@@ -80,6 +82,7 @@ export default function Home() {
   // Form state
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
+  const [iconUrl, setIconUrl] = useState("");
   const [integrations, setIntegrations] = useState<Record<string, { enabled: boolean; [key: string]: any }>>({
     googleAnalytics: { enabled: false, propertyId: "" },
     vector: { enabled: false, siteId: "" },
@@ -115,6 +118,7 @@ export default function Home() {
   const resetForm = () => {
     setName("");
     setDomain("");
+    setIconUrl("");
     setIntegrations({
       googleAnalytics: { enabled: false, propertyId: "" },
       vector: { enabled: false, siteId: "" },
@@ -134,7 +138,7 @@ export default function Home() {
       const res = await fetch("/api/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, domain, integrations }),
+        body: JSON.stringify({ name, domain, iconUrl: iconUrl || undefined, integrations }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -162,7 +166,7 @@ export default function Home() {
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-2">
             <Radar size={20} className="text-[#0B4F6C]" />
-            <h1 className="text-[22px] font-semibold tracking-tight text-[#0B4F6C]">
+            <h1 className="text-[34px] font-headline font-normal tracking-tight text-[#0B4F6C]">
               Lead Gen Dashboard
             </h1>
           </div>
@@ -184,7 +188,7 @@ export default function Home() {
                   <Plus size={16} className="text-[#0B4F6C]" />
                 </div>
                 <div>
-                  <div className="text-[14px] font-semibold text-[#0B4F6C]">
+                  <div className="text-[18px] font-headline font-normal text-[#0B4F6C]">
                     Add New Client
                   </div>
                   <div className="text-[12px] text-muted-foreground">
@@ -240,6 +244,21 @@ export default function Home() {
                         </div>
                         <p className="text-[10px] text-muted-foreground/50 mt-1">Their website URL without https:// — just the domain like &quot;mmg.studio&quot;</p>
                       </div>
+                    </div>
+
+                    {/* Icon URL */}
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                        Icon URL <span className="font-normal normal-case">(optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={iconUrl}
+                        onChange={(e) => setIconUrl(e.target.value)}
+                        placeholder="e.g. /clients/my-client/icon.svg or https://..."
+                        className="w-full px-3 py-2 text-[13px] rounded-lg border border-border bg-white/60 focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30 transition-all placeholder:text-muted-foreground/40"
+                      />
+                      <p className="text-[10px] text-muted-foreground/50 mt-1">Path or URL to the client&apos;s logo/icon — displayed in the dashboard header</p>
                     </div>
 
                     {/* Integrations */}
@@ -371,7 +390,20 @@ export default function Home() {
               <Link key={client.slug} href={`/${client.slug}`}>
                 <Card className="hover:shadow-[0_4px_16px_rgba(11,79,108,0.1)] hover:border-[#0B4F6C]/[0.12] transition-all cursor-pointer">
                   <CardHeader>
-                    <CardTitle className="text-[14px] text-[#0B4F6C]">
+                    <CardTitle className="flex items-center gap-2.5 text-[20px] font-headline font-normal text-[#0B4F6C]">
+                      {client.iconUrl ? (
+                        <Image
+                          src={client.iconUrl}
+                          alt={`${client.name} icon`}
+                          width={28}
+                          height={28}
+                          className="rounded-md shrink-0"
+                        />
+                      ) : (
+                        <div className="w-7 h-7 rounded-md bg-[#0B4F6C]/8 flex items-center justify-center shrink-0">
+                          <Building2 size={14} className="text-[#0B4F6C]/40" />
+                        </div>
+                      )}
                       {client.name}
                     </CardTitle>
                   </CardHeader>

@@ -22,7 +22,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, domain, integrations } = body;
+    const { name, domain, iconUrl, integrations } = body;
 
     if (!name || !domain) {
       return NextResponse.json(
@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       name,
       slug,
       domain,
+      iconUrl: iconUrl || undefined,
       integrations: {
         googleAnalytics: integrations?.googleAnalytics?.enabled
           ? {

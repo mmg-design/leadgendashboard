@@ -64,7 +64,7 @@ export function AIAnalysisCard({ clientName, range, ga, visitors, clarity }: AIA
       <div className="px-5 pt-4 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles size={14} className="text-white/70" />
-          <span className="text-[13px] font-semibold text-white tracking-tight">
+          <span className="text-[17px] font-headline font-normal text-white tracking-tight">
             AI Insights
           </span>
         </div>

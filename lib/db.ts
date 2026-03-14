@@ -56,10 +56,18 @@ async function initSchema(db: Client) {
       slug TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
       domain TEXT NOT NULL,
+      icon_url TEXT,
       integrations TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // Migration: add icon_url column if missing (existing DBs)
+  try {
+    await db.execute("SELECT icon_url FROM clients LIMIT 1");
+  } catch {
+    await db.execute("ALTER TABLE clients ADD COLUMN icon_url TEXT");
+  }
 }
 
 export async function getDb(): Promise<Client> {
