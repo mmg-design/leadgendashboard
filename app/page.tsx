@@ -32,9 +32,9 @@ const integrationMeta = [
     label: "Google Analytics 4",
     icon: BarChart3,
     badge: "GA4",
-    tooltip: "Go to analytics.google.com → Admin (gear icon) → Property Settings. The Property ID is the numeric ID at the top of the page (e.g. 430286560). Note: This dashboard uses a service account for auth — the GA4 property must grant 'Viewer' access to the service account email in your credentials JSON.",
+    tooltip: "This pulls traffic data — sessions, pageviews, top pages, etc. Open analytics.google.com, click the gear icon (Admin), then Property Settings. The Property ID is the number at the top (like 430286560). Ask Andy if you need help with service account access.",
     fields: [
-      { name: "propertyId", label: "Property ID", placeholder: "e.g. 430286560" },
+      { name: "propertyId", label: "Property ID", placeholder: "e.g. 430286560", hint: "The number from GA4 → Admin → Property Settings" },
     ],
   },
   {
@@ -42,9 +42,9 @@ const integrationMeta = [
     label: "Vector.co",
     icon: Eye,
     badge: "Vector",
-    tooltip: "Go to app.vector.co → select the site for this client. The Site ID is in the URL: app.vector.co/sites/{siteId}. After creating this client, copy the Vector webhook URL shown on the client dashboard and paste it into Vector → Settings → Webhooks.",
+    tooltip: "Vector identifies who's visiting the site by name and email (US visitors only). It sends data to us automatically via webhook. After you create this client, go to the client dashboard — you'll see a webhook URL at the bottom. Copy that URL and paste it in Vector → Integrations → Webhook.",
     fields: [
-      { name: "siteId", label: "Site ID", placeholder: "From Vector dashboard URL" },
+      { name: "siteId", label: "Site ID (optional)", placeholder: "From the Vector URL, like: app.vector.co/sites/abc123", hint: "Optional — leave blank if you're not sure" },
     ],
   },
   {
@@ -52,9 +52,10 @@ const integrationMeta = [
     label: "Snitcher",
     icon: Search,
     badge: "Snitcher",
-    tooltip: "Go to app.snitcher.com → select the project for this client. The Project ID is in the URL: app.snitcher.com/projects/{projectId}. After creating this client, copy the Snitcher webhook URL shown on the client dashboard and paste it into Snitcher → Settings → Integrations → Webhooks.",
+    tooltip: "Snitcher identifies which companies are visiting the site. We pull data directly from Snitcher's API, so you need the Workspace ID. Open app.snitcher.com — the Workspace ID is the code in the URL right after snitcher.com/ (looks like V9Gl4nA5). The full UUID is fetched automatically.",
     fields: [
-      { name: "projectId", label: "Project ID", placeholder: "From Snitcher dashboard URL" },
+      { name: "workspaceId", label: "Workspace UUID", placeholder: "e.g. 0fdba883-26fa-4464-b101-fc05b445fa1e", hint: "Go to Snitcher → Settings → API → copy your Workspace UUID" },
+      { name: "projectId", label: "Project Hash (optional)", placeholder: "e.g. V9Gl4nA5", hint: "The short code in the URL: app.snitcher.com/{this-part}/dashboard" },
     ],
   },
   {
@@ -62,9 +63,9 @@ const integrationMeta = [
     label: "Microsoft Clarity",
     icon: Video,
     badge: "Clarity",
-    tooltip: "Go to clarity.microsoft.com → select the project for this client. The Project ID is shown in the URL (e.g. clarity.microsoft.com/projects/{projectId}) and also under Settings → Overview. The Clarity API token is set globally in .env.local — it works across all projects.",
+    tooltip: "Clarity shows which pages people engage with most — scroll depth, time spent, clicks. Open clarity.microsoft.com, pick the project, and the Project ID is the short code in the URL (like vsqtrrcn93).",
     fields: [
-      { name: "projectId", label: "Project ID", placeholder: "e.g. vsqtrrcn93" },
+      { name: "projectId", label: "Project ID", placeholder: "e.g. vsqtrrcn93", hint: "The code in the URL: clarity.microsoft.com/projects/view/{this-part}" },
     ],
   },
 ];
@@ -82,7 +83,7 @@ export default function Home() {
   const [integrations, setIntegrations] = useState<Record<string, { enabled: boolean; [key: string]: any }>>({
     googleAnalytics: { enabled: false, propertyId: "" },
     vector: { enabled: false, siteId: "" },
-    snitcher: { enabled: false, projectId: "" },
+    snitcher: { enabled: false, projectId: "", workspaceId: "" },
     clarity: { enabled: false, projectId: "" },
   });
 
@@ -117,7 +118,7 @@ export default function Home() {
     setIntegrations({
       googleAnalytics: { enabled: false, propertyId: "" },
       vector: { enabled: false, siteId: "" },
-      snitcher: { enabled: false, projectId: "" },
+      snitcher: { enabled: false, projectId: "", workspaceId: "" },
       clarity: { enabled: false, projectId: "" },
     });
     setError(null);
@@ -220,6 +221,7 @@ export default function Home() {
                             className="w-full pl-9 pr-3 py-2 text-[13px] rounded-lg border border-border bg-white/60 focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30 transition-all placeholder:text-muted-foreground/40"
                           />
                         </div>
+                        <p className="text-[10px] text-muted-foreground/50 mt-1">The client&apos;s business name — this shows up as the dashboard title</p>
                       </div>
                       <div>
                         <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
@@ -236,6 +238,7 @@ export default function Home() {
                             className="w-full pl-9 pr-3 py-2 text-[13px] rounded-lg border border-border bg-white/60 focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30 transition-all placeholder:text-muted-foreground/40"
                           />
                         </div>
+                        <p className="text-[10px] text-muted-foreground/50 mt-1">Their website URL without https:// — just the domain like &quot;mmg.studio&quot;</p>
                       </div>
                     </div>
 
@@ -292,16 +295,23 @@ export default function Home() {
 
                               {/* Config fields when enabled */}
                               {enabled && int.fields.length > 0 && (
-                                <div className="mt-2.5 pl-[42px] space-y-2">
-                                  {int.fields.map((field) => (
-                                    <input
-                                      key={field.name}
-                                      type="text"
-                                      value={integrations[int.key]?.[field.name] || ""}
-                                      onChange={(e) => setField(int.key, field.name, e.target.value)}
-                                      placeholder={field.placeholder}
-                                      className="w-full px-2.5 py-1.5 text-[12px] rounded-md border border-border/60 bg-white/80 focus:outline-none focus:ring-1 focus:ring-[#0B4F6C]/20 placeholder:text-muted-foreground/40"
-                                    />
+                                <div className="mt-2.5 pl-[42px] space-y-2.5">
+                                  {int.fields.map((field: any) => (
+                                    <div key={field.name}>
+                                      <label className="block text-[10px] font-medium text-muted-foreground/70 mb-0.5">
+                                        {field.label}
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={integrations[int.key]?.[field.name] || ""}
+                                        onChange={(e) => setField(int.key, field.name, e.target.value)}
+                                        placeholder={field.placeholder}
+                                        className="w-full px-2.5 py-1.5 text-[12px] rounded-md border border-border/60 bg-white/80 focus:outline-none focus:ring-1 focus:ring-[#0B4F6C]/20 placeholder:text-muted-foreground/40"
+                                      />
+                                      {field.hint && (
+                                        <p className="text-[10px] text-muted-foreground/50 mt-0.5">{field.hint}</p>
+                                      )}
+                                    </div>
                                   ))}
                                 </div>
                               )}
