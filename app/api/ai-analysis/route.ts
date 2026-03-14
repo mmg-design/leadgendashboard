@@ -19,26 +19,19 @@ export async function POST(req: NextRequest) {
     // Build a rich context from all dashboard data
     const dataContext = buildDataContext(clientName, range, ga, visitors, clarity);
 
-    const prompt = `You are a senior digital marketing strategist analyzing website visitor data for a client. Based on the following dashboard data (including Microsoft Clarity engagement scores when available), provide a concise, actionable analysis.
+    const prompt = `You are a digital marketing strategist. Give a brief, punchy analysis of this website data. Keep it short — a busy client should read the whole thing in 15 seconds.
 
 ${dataContext}
 
 Respond in this exact JSON format (no markdown fences, just raw JSON):
 {
-  "summary": "2-3 sentence overview of what the data tells us about this client's website performance and lead generation",
-  "insights": [
-    "Insight 1 about traffic patterns or notable trends",
-    "Insight 2 about visitor behavior or source effectiveness",
-    "Insight 3 about identified companies or lead quality"
-  ],
+  "summary": "2 sentences max. Plain English. What's working, what's not.",
   "actions": [
-    "Specific action item 1 the team should take this week",
-    "Specific action item 2 to improve lead generation",
-    "Specific action item 3 to optimize the website",
-    "Specific action item 4 for outreach or follow-up"
+    "One quick-win action (max 12 words)",
+    "One growth action (max 12 words)",
+    "One thing to investigate (max 12 words)"
   ],
-  "topPageAnalysis": "Brief analysis of which pages are performing best and what that means for the business",
-  "leadScore": "low|medium|high — overall assessment of lead generation health"
+  "leadScore": "low|medium|high"
 }`;
 
     const result = await model.generateContent(prompt);

@@ -148,30 +148,35 @@ export default function ClientDashboard() {
             value={ga?.summary.sessions?.toLocaleString() || "—"}
             subtitle={`Last ${range}`}
             icon={<Activity size={16} />}
+            tooltip="How many times someone visited the site. If one person comes back 3 times, that's 3 sessions. More sessions = more traffic coming in."
           />
           <StatCard
             title="Pageviews"
             value={ga?.summary.pageviews?.toLocaleString() || "—"}
             subtitle={`Last ${range}`}
             icon={<Eye size={16} />}
+            tooltip="Total pages looked at across all visits. If someone clicks through 4 pages in one session, that's 4 pageviews. Higher than sessions means people are exploring."
           />
           <StatCard
             title="Unique Visitors"
             value={ga?.summary.uniqueVisitors?.toLocaleString() || "—"}
             subtitle={`Last ${range}`}
             icon={<Users size={16} />}
+            tooltip="How many different people visited. Unlike sessions, repeat visits from the same person only count once. This is your true audience size."
           />
           <StatCard
             title="Companies ID'd"
             value={visitors?.stats?.unique_companies ?? "—"}
             subtitle="Vector + Snitcher"
             icon={<Building2 size={16} />}
+            tooltip="Companies we caught visiting the site using IP tracking tools. These are potential leads — real businesses checking you out. Even a few per week is valuable."
           />
           <StatCard
             title="Bounce Rate"
             value={ga?.summary.bounceRate || "—"}
             subtitle={ga?.summary.avgSessionDuration ? `Avg ${ga.summary.avgSessionDuration}` : "—"}
             icon={<ArrowDownUp size={16} />}
+            tooltip="The % of visitors who left after seeing just one page. Lower is better — it means people are sticking around and clicking through. Under 50% is solid."
           />
         </div>
 
@@ -186,32 +191,24 @@ export default function ClientDashboard() {
           {ga?.topPages && <TopPages data={ga.topPages} clarityEngagement={clarity?.pageEngagement} />}
         </div>
 
-        {/* Session Recording Link */}
-        {clarity?.topSessionUrl && (
-          <div className="mb-4">
+        {/* Session Recordings + Identified Visitors + AI Insights */}
+        <div className="grid gap-4 md:grid-cols-3 mb-8">
+          {clarity?.topSessionUrl && (
             <ClarityRecordingLink
               topSessionUrl={clarity.topSessionUrl}
               projectId={clarity.projectId}
             />
-          </div>
-        )}
-
-        {/* AI Analysis */}
-        <div className="mb-8">
+          )}
+          <VisitorTable
+            visitors={visitors?.visitors || []}
+            integrations={clientConfig?.integrations}
+          />
           <AIAnalysisCard
             clientName={clientName}
             range={range}
             ga={ga}
             visitors={visitors}
             clarity={clarity}
-          />
-        </div>
-
-        {/* Identified visitors */}
-        <div className="mb-8">
-          <VisitorTable
-            visitors={visitors?.visitors || []}
-            integrations={clientConfig?.integrations}
           />
         </div>
 

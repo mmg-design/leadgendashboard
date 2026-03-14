@@ -4,18 +4,12 @@ import { useState } from "react";
 import {
   Sparkles,
   Loader2,
-  TrendingUp,
-  Lightbulb,
-  CheckCircle2,
-  FileText,
   AlertCircle,
 } from "lucide-react";
 
 interface AIAnalysis {
   summary: string;
-  insights: string[];
   actions: string[];
-  topPageAnalysis: string;
   leadScore: "low" | "medium" | "high";
 }
 
@@ -61,136 +55,91 @@ export function AIAnalysisCard({ clientName, range, ga, visitors, clarity }: AIA
   };
 
   return (
-    <div className="col-span-full rounded-xl overflow-hidden shadow-[0_2px_12px_rgba(11,79,108,0.12)]"
+    <div className="h-full rounded-xl overflow-hidden shadow-[0_2px_12px_rgba(11,79,108,0.12)] flex flex-col"
       style={{
         background: "linear-gradient(135deg, #0B4F6C 0%, #0d6180 40%, #11809e 100%)",
       }}
     >
       {/* Header */}
-      <div className="px-6 pt-5 pb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <Sparkles size={16} className="text-white/70" />
-          <span className="text-[14px] font-semibold text-white tracking-tight">
+      <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Sparkles size={14} className="text-white/70" />
+          <span className="text-[13px] font-semibold text-white tracking-tight">
             AI Insights
           </span>
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-white/15 text-white/70 uppercase tracking-wider">
-            Gemini
-          </span>
         </div>
-        <button
-          onClick={runAnalysis}
-          disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-semibold rounded-lg bg-white text-[#0B4F6C] hover:bg-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-        >
-          {loading ? (
-            <>
-              <Loader2 size={12} className="animate-spin" />
-              Analyzing…
-            </>
-          ) : (
-            <>
-              <Sparkles size={12} />
-              {analysis ? "Re-analyze" : "Analyze Data"}
-            </>
-          )}
-        </button>
+        <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/15 text-white/60 uppercase tracking-wider">
+          Gemini
+        </span>
       </div>
 
       {/* Content */}
-      <div className="px-6 pb-6">
+      <div className="px-5 pb-4 flex-1 flex flex-col">
         {!analysis && !loading && !error && (
-          <div className="text-center py-8">
-            <Sparkles size={28} className="mx-auto mb-3 text-white/20" />
-            <p className="text-[13px] text-white/50 max-w-md mx-auto leading-relaxed">
-              Click &ldquo;Analyze Data&rdquo; to get AI-powered insights about your traffic, lead generation, and actionable next steps.
+          <div className="flex-1 flex flex-col items-center justify-center text-center">
+            <Sparkles size={22} className="mb-2 text-white/20" />
+            <p className="text-[11px] text-white/45 leading-relaxed mb-4 max-w-[180px]">
+              Get a quick AI-powered snapshot of your traffic and leads.
             </p>
+            <button
+              onClick={runAnalysis}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-semibold rounded-lg bg-white text-[#0B4F6C] hover:bg-white/90 transition-all shadow-sm"
+            >
+              <Sparkles size={11} />
+              Analyze Data
+            </button>
           </div>
         )}
 
         {loading && (
-          <div className="text-center py-8">
-            <Loader2 size={28} className="mx-auto mb-3 text-white/60 animate-spin" />
-            <p className="text-[13px] text-white/60">
-              Analyzing your dashboard data…
-            </p>
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <Loader2 size={22} className="mb-2 text-white/60 animate-spin" />
+            <p className="text-[11px] text-white/50">Analyzing…</p>
           </div>
         )}
 
         {error && (
-          <div className="flex items-start gap-2.5 p-3 bg-red-500/20 rounded-lg border border-red-400/20">
-            <AlertCircle size={14} className="text-red-300 mt-0.5 shrink-0" />
-            <p className="text-[12px] text-red-200">{error}</p>
+          <div className="flex items-start gap-2 p-2.5 bg-red-500/20 rounded-lg border border-red-400/20">
+            <AlertCircle size={12} className="text-red-300 mt-0.5 shrink-0" />
+            <p className="text-[11px] text-red-200">{error}</p>
           </div>
         )}
 
         {analysis && !loading && (
-          <div className="space-y-5">
-            {/* Summary + Lead Score */}
-            <div className="flex items-start gap-3">
-              <div className="flex-1">
-                <p className="text-[13px] text-white/85 leading-relaxed">
-                  {analysis.summary}
-                </p>
-              </div>
-              <div
-                className={`shrink-0 px-2.5 py-1 rounded-md border text-[11px] font-semibold uppercase tracking-wider ${scoreConfig[analysis.leadScore]?.color || scoreConfig.medium.color}`}
-              >
-                {scoreConfig[analysis.leadScore]?.label || "Medium"} Lead Health
-              </div>
+          <div className="flex-1 flex flex-col gap-3">
+            {/* Lead Score */}
+            <div
+              className={`self-start px-2 py-0.5 rounded-md border text-[10px] font-semibold uppercase tracking-wider ${scoreConfig[analysis.leadScore]?.color || scoreConfig.medium.color}`}
+            >
+              {scoreConfig[analysis.leadScore]?.label || "Medium"} Lead Health
             </div>
 
-            <div className="h-px bg-white/10" />
+            {/* Summary */}
+            <p className="text-[11px] text-white/80 leading-relaxed">
+              {analysis.summary}
+            </p>
 
-            {/* Insights */}
-            <div>
-              <div className="flex items-center gap-1.5 mb-2.5">
-                <Lightbulb size={13} className="text-amber-300/80" />
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-white/50">
-                  Key Insights
-                </span>
-              </div>
-              <div className="space-y-2">
-                {analysis.insights.map((insight, i) => (
-                  <div key={i} className="flex items-start gap-2.5">
-                    <TrendingUp size={11} className="text-cyan-300/60 mt-1 shrink-0" />
-                    <p className="text-[12px] text-white/75 leading-relaxed">{insight}</p>
-                  </div>
-                ))}
-              </div>
+            {/* Actions */}
+            <div className="space-y-1.5">
+              {analysis.actions.map((action, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <span className="text-[10px] font-bold text-emerald-300/70 mt-0.5 shrink-0">
+                    {i + 1}.
+                  </span>
+                  <p className="text-[10px] text-white/65 leading-relaxed">{action}</p>
+                </div>
+              ))}
             </div>
 
-            {/* Action Items */}
-            <div>
-              <div className="flex items-center gap-1.5 mb-2.5">
-                <CheckCircle2 size={13} className="text-emerald-300/80" />
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-white/50">
-                  Action Items
-                </span>
-              </div>
-              <div className="space-y-2">
-                {analysis.actions.map((action, i) => (
-                  <div key={i} className="flex items-start gap-2.5">
-                    <span className="text-[11px] font-bold text-emerald-300/70 mt-0.5 shrink-0 w-4">
-                      {i + 1}.
-                    </span>
-                    <p className="text-[12px] text-white/75 leading-relaxed">{action}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Page Analysis */}
-            <div>
-              <div className="flex items-center gap-1.5 mb-2.5">
-                <FileText size={13} className="text-blue-300/80" />
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-white/50">
-                  Page Performance
-                </span>
-              </div>
-              <p className="text-[12px] text-white/75 leading-relaxed">
-                {analysis.topPageAnalysis}
-              </p>
-            </div>
+            {/* Re-analyze */}
+            <button
+              onClick={runAnalysis}
+              disabled={loading}
+              className="mt-auto inline-flex items-center justify-center gap-1.5 w-full px-3 py-1.5 text-[11px] font-medium rounded-lg bg-white/15 text-white/80 hover:bg-white/25 transition-all"
+            >
+              <Sparkles size={10} />
+              Re-analyze
+            </button>
           </div>
         )}
       </div>
