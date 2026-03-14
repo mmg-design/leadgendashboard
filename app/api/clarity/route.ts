@@ -143,3 +143,23 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(response);
 }
+
+// POST: seed/update the Clarity engagement cache
+export async function POST(req: NextRequest) {
+  try {
+    const { client, pageEngagement } = await req.json();
+    if (!client || !Array.isArray(pageEngagement)) {
+      return NextResponse.json({ error: "Missing client or pageEngagement" }, { status: 400 });
+    }
+    const db = await getDb();
+    await db.execute({
+      sql: `INSERT OR REPLACE INTO analytics_cache (client_slug, metric_type, date_range, data, fetched_at)
+            VALUES (?, 'clarity_engagement', 'live', ?, datetime('now'))`,
+      args: [client, JSON.stringify(pageEngagement)],
+    });
+    return NextResponse.json({ ok: true, cached: pageEngagement.length });
+  } catch (err) {
+    console.error("Clarity cache seed error:", err);
+    return NextResponse.json({ error: "Failed to seed cache" }, { status: 500 });
+  }
+}
