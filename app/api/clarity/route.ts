@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const topSessionUrl = `https://clarity.microsoft.com/projects/${projectId}/recordings?sortby=sessionDuration&sortOrder=desc`;
+  const topSessionUrl = `https://clarity.microsoft.com/projects/view/${projectId}/recordings`;
 
   let pageEngagement: ClarityPageData[] = [];
   try {
