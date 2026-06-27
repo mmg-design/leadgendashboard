@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -26,6 +26,8 @@ import {
   X,
   Loader2,
   Check,
+  ImageIcon,
+  UploadCloud,
 } from "lucide-react";
 
 interface GAData {
@@ -73,6 +75,43 @@ interface ClickUpData {
   engagementStartDate: string | null;
 }
 
+interface ClientConfig {
+  name: string;
+  slug: string;
+  domain: string;
+  iconUrl?: string;
+  integrations: {
+    googleAnalytics?: {
+      enabled: boolean;
+      propertyId: string;
+    };
+    clarity?: {
+      enabled: boolean;
+      projectId: string;
+    };
+    seRanking?: {
+      enabled: boolean;
+      projectId: string;
+    };
+    clickup?: {
+      enabled: boolean;
+      listIds: string[];
+      engagementStartDate?: string;
+    };
+  };
+}
+
+type SettingsIntegrations = {
+  googleAnalytics: { enabled: boolean; propertyId: string };
+  clarity: { enabled: boolean; projectId: string };
+  seRanking: { enabled: boolean; projectId: string };
+  clickup: { enabled: boolean; listIds: string[]; engagementStartDate?: string };
+};
+
+type ClientsResponse = {
+  clients?: ClientConfig[];
+};
+
 export default function ClientDashboard() {
   const params = useParams();
   const clientSlug = params.client as string;
@@ -81,7 +120,7 @@ export default function ClientDashboard() {
   const [clientName, setClientName] = useState(
     clientSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
   );
-  const [clientConfig, setClientConfig] = useState<any>(null);
+  const [clientConfig, setClientConfig] = useState<ClientConfig | null>(null);
   const [ga, setGa] = useState<GAData | null>(null);
   const [clarity, setClarity] = useState<ClarityData | null>(null);
   const [seRanking, setSeRanking] = useState<SERankingData | null>(null);
@@ -96,6 +135,10 @@ export default function ClientDashboard() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [iconUploading, setIconUploading] = useState(false);
+  const [iconUploadError, setIconUploadError] = useState<string | null>(null);
+  const [iconDragging, setIconDragging] = useState(false);
+  const iconInputRef = useRef<HTMLInputElement | null>(null);
   const [settingsForm, setSettingsForm] = useState({
     name: "",
     iconUrl: "",
@@ -120,6 +163,53 @@ export default function ClientDashboard() {
     }
   }, [clientConfig]);
 
+  async function uploadIcon(file: File | undefined) {
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setIconUploadError("Choose an image file.");
+      return;
+    }
+
+    setIconUploading(true);
+    setIconUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("slug", clientSlug);
+      formData.append("icon", file);
+
+      const res = await fetch("/api/clients/icon", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json() as { iconUrl?: string; error?: string };
+
+      if (!res.ok || !data.iconUrl) {
+        throw new Error(data.error || "Failed to upload icon");
+      }
+
+      const iconUrl = data.iconUrl;
+      setSettingsForm((current) => ({ ...current, iconUrl }));
+      setClientConfig((current) => current ? { ...current, iconUrl } : current);
+    } catch (err) {
+      setIconUploadError(err instanceof Error ? err.message : "Failed to upload icon");
+    } finally {
+      setIconUploading(false);
+      if (iconInputRef.current) iconInputRef.current.value = "";
+    }
+  }
+
+  function handleIconInputChange(e: ChangeEvent<HTMLInputElement>) {
+    uploadIcon(e.target.files?.[0]);
+  }
+
+  function handleIconDrop(e: DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    setIconDragging(false);
+    uploadIcon(e.dataTransfer.files?.[0]);
+  }
+
   async function handleSaveSettings() {
     setSaving(true);
     setSaveSuccess(false);
@@ -129,7 +219,7 @@ export default function ClientDashboard() {
         .map((s) => s.trim())
         .filter(Boolean);
 
-      const integrations: any = {
+      const integrations: SettingsIntegrations = {
         googleAnalytics: settingsForm.gaPropertyId
           ? { enabled: true, propertyId: settingsForm.gaPropertyId }
           : { enabled: false, propertyId: "" },
@@ -163,8 +253,8 @@ export default function ClientDashboard() {
       if (res.ok) {
         setSaveSuccess(true);
         setClientName(settingsForm.name);
-        const data = await fetch("/api/clients").then((r) => r.json());
-        const match = data.clients?.find((c: any) => c.slug === clientSlug);
+        const data = await fetch("/api/clients").then((r) => r.json()) as ClientsResponse;
+        const match = data.clients?.find((c) => c.slug === clientSlug);
         if (match) setClientConfig(match);
         setTimeout(() => setSaveSuccess(false), 2000);
       }
@@ -179,8 +269,8 @@ export default function ClientDashboard() {
   useEffect(() => {
     fetch(`/api/clients`)
       .then((r) => r.json())
-      .then((data) => {
-        const match = data.clients?.find((c: any) => c.slug === clientSlug);
+      .then((data: ClientsResponse) => {
+        const match = data.clients?.find((c) => c.slug === clientSlug);
         if (match) {
           setClientName(match.name);
           setClientConfig(match);
@@ -334,14 +424,50 @@ export default function ClientDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Icon URL</label>
-                  <input
-                    type="text"
-                    value={settingsForm.iconUrl}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, iconUrl: e.target.value })}
-                    placeholder="/clients/slug/icon.png"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
-                  />
+                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Project Icon</label>
+                  <label
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIconDragging(true);
+                    }}
+                    onDragLeave={() => setIconDragging(false)}
+                    onDrop={handleIconDrop}
+                    className={`relative flex size-24 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed bg-background transition-colors ${
+                      iconDragging
+                        ? "border-[#0B4F6C] bg-[#0B4F6C]/5"
+                        : "border-border hover:border-[#0B4F6C]/40 hover:bg-[#0B4F6C]/[0.03]"
+                    }`}
+                    title="Upload project icon"
+                  >
+                    <input
+                      ref={iconInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                      className="sr-only"
+                      onChange={handleIconInputChange}
+                    />
+                    {settingsForm.iconUrl ? (
+                      <Image
+                        src={settingsForm.iconUrl}
+                        alt={`${settingsForm.name || clientName} icon preview`}
+                        fill
+                        sizes="96px"
+                        className="object-contain p-3"
+                      />
+                    ) : (
+                      <ImageIcon size={24} className="text-[#0B4F6C]/35" />
+                    )}
+                    <span className="absolute inset-x-0 bottom-0 flex h-7 items-center justify-center bg-white/90 text-[#0B4F6C] shadow-[0_-1px_0_rgba(11,79,108,0.08)]">
+                      {iconUploading ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <UploadCloud size={13} />
+                      )}
+                    </span>
+                  </label>
+                  {iconUploadError && (
+                    <p className="mt-1 text-[10px] text-red-600">{iconUploadError}</p>
+                  )}
                 </div>
               </div>
 
