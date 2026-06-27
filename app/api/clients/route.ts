@@ -41,6 +41,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const clickupListIds = typeof integrations?.clickup?.listIds === "string"
+      ? integrations.clickup.listIds.split(/[\s,]+/).map((s: string) => s.trim()).filter(Boolean)
+      : Array.isArray(integrations?.clickup?.listIds)
+      ? integrations.clickup.listIds
+      : [];
+
     const config: ClientConfig = {
       name,
       slug,
@@ -48,32 +54,22 @@ export async function POST(req: NextRequest) {
       iconUrl: iconUrl || undefined,
       integrations: {
         googleAnalytics: integrations?.googleAnalytics?.enabled
-          ? {
-              enabled: true,
-              propertyId: integrations.googleAnalytics.propertyId || "",
-            }
-          : undefined,
-        vector: integrations?.vector?.enabled
-          ? {
-              enabled: true,
-              webhookEnabled: true,
-              siteId: integrations.vector.siteId || "",
-            }
-          : undefined,
-        snitcher: integrations?.snitcher?.enabled
-          ? {
-              enabled: true,
-              webhookEnabled: true,
-              projectId: integrations.snitcher.projectId || "",
-              workspaceId: integrations.snitcher.workspaceId || "",
-            }
+          ? { enabled: true, propertyId: integrations.googleAnalytics.propertyId || "" }
           : undefined,
         clarity: integrations?.clarity?.enabled
-          ? {
-              enabled: true,
-              projectId: integrations.clarity.projectId || "",
-            }
+          ? { enabled: true, projectId: integrations.clarity.projectId || "" }
           : undefined,
+        seRanking: integrations?.seRanking?.enabled
+          ? { enabled: true, projectId: integrations.seRanking.projectId || "" }
+          : undefined,
+        clickup:
+          integrations?.clickup?.enabled && clickupListIds.length > 0
+            ? {
+                enabled: true,
+                listIds: clickupListIds,
+                engagementStartDate: integrations.clickup.engagementStartDate || undefined,
+              }
+            : undefined,
       },
     };
 

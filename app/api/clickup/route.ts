@@ -1,0 +1,168 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getClient } from "@/lib/clients";
+
+const CLICKUP_BASE = "https://api.clickup.com/api/v2";
+
+async function cuFetch(path: string, apiKey: string) {
+  const res = await fetch(`${CLICKUP_BASE}${path}`, {
+    headers: { Authorization: apiKey },
+    next: { revalidate: 300 },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`ClickUp ${res.status}: ${text.slice(0, 200)}`);
+  }
+  return res.json();
+}
+
+export async function GET(req: NextRequest) {
+  const clientSlug = req.nextUrl.searchParams.get("client");
+  if (!clientSlug) return NextResponse.json({ error: "Missing client" }, { status: 400 });
+
+  const apiKey = process.env.CLICKUP_API_KEY;
+  if (!apiKey) return NextResponse.json({ error: "CLICKUP_API_KEY not set" }, { status: 503 });
+
+  try {
+    const clientConfig = await getClient(clientSlug);
+    const cuConfig = clientConfig?.integrations?.clickup;
+    if (!cuConfig?.enabled) {
+      return NextResponse.json({ error: "ClickUp not enabled" }, { status: 404 });
+    }
+    const listIds: string[] = cuConfig.listIds ?? [];
+    if (listIds.length === 0) {
+      return NextResponse.json({ error: "No ClickUp lists configured" }, { status: 400 });
+    }
+
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 86400000;
+    const sevenDaysAgo = now - 7 * 86400000;
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const listResults = await Promise.all(
+      listIds.map(async (listId) => {
+        const [listInfo, activeTasks, closedTasks] = await Promise.all([
+          cuFetch(`/list/${listId}`, apiKey),
+          cuFetch(`/list/${listId}/task?include_closed=false&subtasks=true`, apiKey),
+          cuFetch(
+            `/list/${listId}/task?include_closed=true&statuses[]=complete&date_done_gt=${thirtyDaysAgo}`,
+            apiKey
+          ),
+        ]);
+        return {
+          listId,
+          listName: (listInfo.name as string) || listId,
+          activeTasks: (activeTasks.tasks as any[]) || [],
+          closedTasks: (closedTasks.tasks as any[]) || [],
+        };
+      })
+    );
+
+    const allActive: any[] = [];
+    const allCompleted: any[] = [];
+    const phaseGroups: Record<string, number> = {};
+    const memberMap = new Map<string, { name: string; email: string; color?: string }>();
+
+    for (const result of listResults) {
+      const phase = result.listName;
+      const tagged = (tasks: any[]) => tasks.map((t) => ({ ...t, _phase: phase }));
+
+      allActive.push(...tagged(result.activeTasks));
+      allCompleted.push(...tagged(result.closedTasks));
+      phaseGroups[phase] = (phaseGroups[phase] ?? 0) + result.activeTasks.length;
+
+      for (const task of [...result.activeTasks, ...result.closedTasks]) {
+        if (Array.isArray(task.assignees)) {
+          for (const a of task.assignees) {
+            const key = String(a.id ?? a.email ?? a.username);
+            if (!memberMap.has(key)) {
+              memberMap.set(key, {
+                name: a.username || a.email || "Team member",
+                email: a.email || "",
+                color: a.color,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    const overdueCount = allActive.filter(
+      (t) => t.due_date && Number(t.due_date) < now
+    ).length;
+
+    const completedThisMonthCount = allCompleted.filter(
+      (t) => t.date_done && Number(t.date_done) >= startOfMonth.getTime()
+    ).length;
+
+    const activityFeed = allCompleted
+      .filter((t) => t.date_done)
+      .sort((a, b) => Number(b.date_done) - Number(a.date_done))
+      .slice(0, 10)
+      .map((t) => ({
+        id: t.id as string,
+        name: t.name as string,
+        phase: t._phase as string,
+        completedAt: new Date(Number(t.date_done)).toISOString(),
+      }));
+
+    // Tasks updated in last 7 days — fetch comments for up to 5
+    const recentlyUpdated = allActive
+      .filter((t) => t.date_updated && Number(t.date_updated) >= sevenDaysAgo)
+      .sort((a, b) => Number(b.date_updated) - Number(a.date_updated))
+      .slice(0, 5);
+
+    const tasksWithComments: {
+      id: string;
+      name: string;
+      phase: string;
+      latestComment: string;
+      commentDate: string;
+    }[] = [];
+
+    await Promise.all(
+      recentlyUpdated.map(async (task) => {
+        try {
+          const data = await cuFetch(`/task/${task.id}/comment`, apiKey);
+          const comments: any[] = data.comments || [];
+          if (comments.length > 0) {
+            const latest = comments[comments.length - 1];
+            const text =
+              typeof latest.comment_text === "string"
+                ? latest.comment_text
+                : latest.comment?.map((c: any) => c.text || "").join("") || "";
+            if (text.trim()) {
+              tasksWithComments.push({
+                id: task.id as string,
+                name: task.name as string,
+                phase: task._phase as string,
+                latestComment: text,
+                commentDate: new Date(Number(latest.date)).toISOString(),
+              });
+            }
+          }
+        } catch {
+          // ignore per-task comment failures
+        }
+      })
+    );
+
+    return NextResponse.json({
+      activeTaskCount: allActive.length,
+      completedThisMonthCount,
+      overdueCount,
+      phaseGroups: Object.entries(phaseGroups).map(([phase, count]) => ({ phase, count })),
+      activityFeed,
+      tasksWithComments: tasksWithComments.slice(0, 5),
+      teamMembers: Array.from(memberMap.values()),
+      engagementStartDate: cuConfig.engagementStartDate ?? null,
+    });
+  } catch (err: any) {
+    console.error("ClickUp error:", err);
+    return NextResponse.json(
+      { error: err.message || "Failed to fetch ClickUp data" },
+      { status: 500 }
+    );
+  }
+}

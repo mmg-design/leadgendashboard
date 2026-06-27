@@ -10,20 +10,18 @@ export interface ClientConfig {
       enabled: boolean;
       propertyId: string;
     };
-    vector?: {
-      enabled: boolean;
-      webhookEnabled?: boolean;
-      siteId?: string;
-    };
-    snitcher?: {
-      enabled: boolean;
-      webhookEnabled?: boolean;
-      projectId?: string;
-      workspaceId?: string;
-    };
     clarity?: {
       enabled: boolean;
       projectId: string;
+    };
+    seRanking?: {
+      enabled: boolean;
+      projectId: string;
+    };
+    clickup?: {
+      enabled: boolean;
+      listIds: string[];
+      engagementStartDate?: string;
     };
   };
 }

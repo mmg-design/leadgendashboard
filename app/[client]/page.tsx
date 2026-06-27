@@ -5,14 +5,15 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { StatCard } from "@/components/dashboard/stat-card";
-import { getHealth, parseSessionDuration } from "@/lib/health";
+import { getHealth } from "@/lib/health";
 import { TrafficChart } from "@/components/dashboard/traffic-chart";
-import { VisitorTable } from "@/components/dashboard/visitor-table";
 import { SourceBars } from "@/components/dashboard/source-bars";
 import { TopPages } from "@/components/dashboard/top-pages";
 import { AIAnalysisCard } from "@/components/dashboard/ai-analysis";
 import { ClarityRecordingLink } from "@/components/dashboard/clarity-recording";
-import { Card, CardContent } from "@/components/ui/card";
+import { SearchPerformance } from "@/components/dashboard/search-performance";
+import { ActiveWork } from "@/components/dashboard/active-work";
+import { WorkSummary } from "@/components/dashboard/work-summary";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Activity,
@@ -40,20 +41,36 @@ interface GAData {
   topPages: { page: string; views: number }[];
 }
 
-interface VisitorData {
-  visitors: any[];
-  stats: {
-    unique_companies: number;
-    identified_people: number;
-    total_visits: number;
-    active_sources: number;
-  };
-}
-
 interface ClarityData {
   topSessionUrl: string;
   pageEngagement: { page: string; engagementScore: number; totalSessions: number }[];
   projectId: string;
+}
+
+interface SERankingData {
+  totalKeywords: number;
+  movedUp: number;
+  movedDown: number;
+  top5: { id: string; keyword: string; position: number; delta: number | null }[];
+  currentVisibility: number | null;
+  visibilityHistory: { date: string; score: number }[];
+}
+
+interface ClickUpData {
+  activeTaskCount: number;
+  completedThisMonthCount: number;
+  overdueCount: number;
+  phaseGroups: { phase: string; count: number }[];
+  activityFeed: { id: string; name: string; phase: string; completedAt: string }[];
+  tasksWithComments: {
+    id: string;
+    name: string;
+    phase: string;
+    latestComment: string;
+    commentDate: string;
+  }[];
+  teamMembers: { name: string; email: string; color?: string }[];
+  engagementStartDate: string | null;
 }
 
 export default function ClientDashboard() {
@@ -66,9 +83,14 @@ export default function ClientDashboard() {
   );
   const [clientConfig, setClientConfig] = useState<any>(null);
   const [ga, setGa] = useState<GAData | null>(null);
-  const [visitors, setVisitors] = useState<VisitorData | null>(null);
   const [clarity, setClarity] = useState<ClarityData | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [seRanking, setSeRanking] = useState<SERankingData | null>(null);
+  const [seRankingLoading, setSeRankingLoading] = useState(false);
+  const [seRankingError, setSeRankingError] = useState<string | null>(null);
+  const [clickUp, setClickUp] = useState<ClickUpData | null>(null);
+  const [clickUpLoading, setClickUpLoading] = useState(false);
+  const [clickUpError, setClickUpError] = useState<string | null>(null);
+  const [gaError, setGaError] = useState<string | null>(null);
 
   // Settings panel state
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -79,12 +101,11 @@ export default function ClientDashboard() {
     iconUrl: "",
     gaPropertyId: "",
     clarityProjectId: "",
-    snitcherProjectId: "",
-    snitcherWorkspaceId: "",
-    vectorSiteId: "",
+    seRankingProjectId: "",
+    clickupListIds: "",
+    clickupEngagementStart: "",
   });
 
-  // Populate settings form when clientConfig loads
   useEffect(() => {
     if (clientConfig) {
       setSettingsForm({
@@ -92,9 +113,9 @@ export default function ClientDashboard() {
         iconUrl: clientConfig.iconUrl || "",
         gaPropertyId: clientConfig.integrations?.googleAnalytics?.propertyId || "",
         clarityProjectId: clientConfig.integrations?.clarity?.projectId || "",
-        snitcherProjectId: clientConfig.integrations?.snitcher?.projectId || "",
-        snitcherWorkspaceId: clientConfig.integrations?.snitcher?.workspaceId || "",
-        vectorSiteId: clientConfig.integrations?.vector?.siteId || "",
+        seRankingProjectId: clientConfig.integrations?.seRanking?.projectId || "",
+        clickupListIds: (clientConfig.integrations?.clickup?.listIds || []).join(", "),
+        clickupEngagementStart: clientConfig.integrations?.clickup?.engagementStartDate || "",
       });
     }
   }, [clientConfig]);
@@ -103,36 +124,30 @@ export default function ClientDashboard() {
     setSaving(true);
     setSaveSuccess(false);
     try {
-      const integrations: any = {};
+      const clickupListIds = settingsForm.clickupListIds
+        .split(/[\s,]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
 
-      if (settingsForm.gaPropertyId) {
-        integrations.googleAnalytics = { enabled: true, propertyId: settingsForm.gaPropertyId };
-      } else {
-        integrations.googleAnalytics = { enabled: false, propertyId: "" };
-      }
-
-      if (settingsForm.clarityProjectId) {
-        integrations.clarity = { enabled: true, projectId: settingsForm.clarityProjectId };
-      } else {
-        integrations.clarity = { enabled: false, projectId: "" };
-      }
-
-      if (settingsForm.snitcherProjectId || settingsForm.snitcherWorkspaceId) {
-        integrations.snitcher = {
-          enabled: true,
-          webhookEnabled: true,
-          projectId: settingsForm.snitcherProjectId,
-          workspaceId: settingsForm.snitcherWorkspaceId,
-        };
-      } else {
-        integrations.snitcher = { enabled: false, webhookEnabled: false, projectId: "", workspaceId: "" };
-      }
-
-      if (settingsForm.vectorSiteId) {
-        integrations.vector = { enabled: true, webhookEnabled: true, siteId: settingsForm.vectorSiteId };
-      } else {
-        integrations.vector = { enabled: false, webhookEnabled: false, siteId: "" };
-      }
+      const integrations: any = {
+        googleAnalytics: settingsForm.gaPropertyId
+          ? { enabled: true, propertyId: settingsForm.gaPropertyId }
+          : { enabled: false, propertyId: "" },
+        clarity: settingsForm.clarityProjectId
+          ? { enabled: true, projectId: settingsForm.clarityProjectId }
+          : { enabled: false, projectId: "" },
+        seRanking: settingsForm.seRankingProjectId
+          ? { enabled: true, projectId: settingsForm.seRankingProjectId }
+          : { enabled: false, projectId: "" },
+        clickup:
+          clickupListIds.length > 0
+            ? {
+                enabled: true,
+                listIds: clickupListIds,
+                engagementStartDate: settingsForm.clickupEngagementStart || undefined,
+              }
+            : { enabled: false, listIds: [] },
+      };
 
       const res = await fetch("/api/clients", {
         method: "PATCH",
@@ -148,7 +163,6 @@ export default function ClientDashboard() {
       if (res.ok) {
         setSaveSuccess(true);
         setClientName(settingsForm.name);
-        // Refresh client config
         const data = await fetch("/api/clients").then((r) => r.json());
         const match = data.clients?.find((c: any) => c.slug === clientSlug);
         if (match) setClientConfig(match);
@@ -161,6 +175,7 @@ export default function ClientDashboard() {
     }
   }
 
+  // Load client config + clarity
   useEffect(() => {
     fetch(`/api/clients`)
       .then((r) => r.json())
@@ -175,40 +190,70 @@ export default function ClientDashboard() {
 
     fetch(`/api/clarity?client=${clientSlug}`)
       .then((r) => r.json())
-      .then((data) => {
-        if (!data.error) setClarity(data);
-      })
+      .then((data) => { if (!data.error) setClarity(data); })
       .catch(() => {});
   }, [clientSlug]);
 
+  // Load SE Ranking (only when enabled)
+  useEffect(() => {
+    if (!clientConfig?.integrations?.seRanking?.enabled) return;
+    setSeRankingLoading(true);
+    setSeRankingError(null);
+    fetch(`/api/seranking?client=${clientSlug}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) setSeRankingError(data.error);
+        else setSeRanking(data);
+      })
+      .catch(() => setSeRankingError("Failed to load SE Ranking data"))
+      .finally(() => setSeRankingLoading(false));
+  }, [clientSlug, clientConfig]);
+
+  // Load ClickUp (only when enabled)
+  useEffect(() => {
+    if (!clientConfig?.integrations?.clickup?.enabled) return;
+    setClickUpLoading(true);
+    setClickUpError(null);
+    fetch(`/api/clickup?client=${clientSlug}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) setClickUpError(data.error);
+        else setClickUp(data);
+      })
+      .catch(() => setClickUpError("Failed to load ClickUp data"))
+      .finally(() => setClickUpLoading(false));
+  }, [clientSlug, clientConfig]);
+
+  // Load GA4
   useEffect(() => {
     fetch(`/api/ga?client=${clientSlug}&range=${range}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.error) {
-          setError(data.details || data.error);
+          setGaError(data.details || data.error);
           setGa(null);
         } else {
-          setError(null);
+          setGaError(null);
           setGa(data);
         }
       })
-      .catch(() => setError("Failed to load analytics"));
+      .catch(() => setGaError("Failed to load analytics"));
   }, [clientSlug, range]);
 
-  useEffect(() => {
-    const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
-    fetch(`/api/visitors?client=${clientSlug}&days=${days}`)
-      .then((r) => r.json())
-      .then(setVisitors)
-      .catch(() => {});
-  }, [clientSlug, range]);
+  const seRankingEnabled = !!clientConfig?.integrations?.seRanking?.enabled;
+  const clickupEnabled = !!clientConfig?.integrations?.clickup?.enabled;
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-[#0B4F6C]/[0.06]" style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.9) 0%, rgba(228,242,247,0.8) 100%)" }}>
-        <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
+      <header
+        className="bg-white/80 backdrop-blur-md border-b border-[#0B4F6C]/[0.06]"
+        style={{
+          background:
+            "linear-gradient(90deg, rgba(255,255,255,0.9) 0%, rgba(228,242,247,0.8) 100%)",
+        }}
+      >
+        <div className="max-w-[1400px] mx-auto px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link
               href="/"
@@ -260,7 +305,7 @@ export default function ClientDashboard() {
       {/* Settings Panel */}
       {settingsOpen && (
         <div className="bg-white border-b border-[#0B4F6C]/[0.08] shadow-sm">
-          <div className="max-w-7xl mx-auto px-8 py-6">
+          <div className="max-w-[1400px] mx-auto px-8 py-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-[15px] font-semibold text-[#0B4F6C] tracking-tight">
                 Client Settings
@@ -273,7 +318,7 @@ export default function ClientDashboard() {
               </button>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-3">
               {/* General */}
               <div className="space-y-3">
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -298,6 +343,13 @@ export default function ClientDashboard() {
                     className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
                   />
                 </div>
+              </div>
+
+              {/* Analytics */}
+              <div className="space-y-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Analytics
+                </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground/70 mb-1 block">GA4 Property ID</label>
                   <input
@@ -307,13 +359,6 @@ export default function ClientDashboard() {
                     placeholder="properties/123456789"
                     className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
                   />
-                </div>
-              </div>
-
-              {/* Integrations */}
-              <div className="space-y-3">
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Integrations
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Clarity Project ID</label>
@@ -325,40 +370,47 @@ export default function ClientDashboard() {
                     className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
                   />
                 </div>
-                <div>
-                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Snitcher Project Hash</label>
-                  <input
-                    type="text"
-                    value={settingsForm.snitcherProjectId}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, snitcherProjectId: e.target.value })}
-                    placeholder="abc123"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
-                  />
+              </div>
+
+              {/* SEO & Project Work */}
+              <div className="space-y-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  SEO &amp; Project Work
                 </div>
                 <div>
-                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Snitcher Workspace UUID</label>
+                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">SE Ranking Project ID</label>
                   <input
                     type="text"
-                    value={settingsForm.snitcherWorkspaceId}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, snitcherWorkspaceId: e.target.value })}
-                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    value={settingsForm.seRankingProjectId}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, seRankingProjectId: e.target.value })}
+                    placeholder="123456"
                     className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
                   />
+                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">From the SE Ranking project URL</p>
                 </div>
                 <div>
-                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Vector Site ID</label>
+                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">ClickUp List IDs</label>
                   <input
                     type="text"
-                    value={settingsForm.vectorSiteId}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, vectorSiteId: e.target.value })}
-                    placeholder="site_xxxxx"
+                    value={settingsForm.clickupListIds}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, clickupListIds: e.target.value })}
+                    placeholder="901234567, 901234568"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                  />
+                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">Comma-separated, from ClickUp list URLs</p>
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Engagement Start Date</label>
+                  <input
+                    type="date"
+                    value={settingsForm.clickupEngagementStart}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, clickupEngagementStart: e.target.value })}
                     className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Save button */}
             <div className="flex items-center gap-3 mt-6 pt-4 border-t border-border/50">
               <button
                 onClick={handleSaveSettings}
@@ -386,127 +438,124 @@ export default function ClientDashboard() {
       )}
 
       {/* Dashboard */}
-      <main className="max-w-7xl mx-auto px-8 py-8">
-        {error && (
+      <main className="max-w-[1400px] mx-auto px-8 py-8">
+        {gaError && (
           <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg text-[13px] border border-red-100">
-            {error}
+            {gaError}
           </div>
         )}
 
-        {/* Stat cards */}
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-5 mb-8">
-          <StatCard
-            title="Sessions"
-            value={ga?.summary.sessions?.toLocaleString() || "—"}
-            subtitle={`Last ${range}`}
-            icon={<Activity size={16} />}
-            tooltip="How many times someone visited the site. If one person comes back 3 times, that's 3 sessions. More sessions = more traffic coming in."
-            health={ga ? getHealth("sessions", ga.summary.sessions, range) : null}
-          />
-          <StatCard
-            title="Pageviews"
-            value={ga?.summary.pageviews?.toLocaleString() || "—"}
-            subtitle={`Last ${range}`}
-            icon={<Eye size={16} />}
-            tooltip="Total pages looked at across all visits. If someone clicks through 4 pages in one session, that's 4 pageviews. Higher than sessions means people are exploring."
-            health={ga && ga.summary.sessions > 0 ? getHealth("pagesPerSession", ga.summary.pageviews / ga.summary.sessions) : null}
-          />
-          <StatCard
-            title="Unique Visitors"
-            value={ga?.summary.uniqueVisitors?.toLocaleString() || "—"}
-            subtitle={`Last ${range}`}
-            icon={<Users size={16} />}
-            tooltip="How many different people visited. Unlike sessions, repeat visits from the same person only count once. This is your true audience size."
-          />
-          <StatCard
-            title="Companies ID'd"
-            value={visitors?.stats?.unique_companies ?? "—"}
-            subtitle="Vector + Snitcher"
-            icon={<Building2 size={16} />}
-            tooltip="Companies we caught visiting the site using IP tracking tools. These are potential leads — real businesses checking you out. Even a few per week is valuable."
-            health={visitors?.stats?.unique_companies != null ? getHealth("companiesIdentified", visitors.stats.unique_companies, range) : null}
-          />
-          <StatCard
-            title="Bounce Rate"
-            value={ga?.summary.bounceRate || "—"}
-            subtitle={ga?.summary.avgSessionDuration ? `Avg ${ga.summary.avgSessionDuration}` : "—"}
-            icon={<ArrowDownUp size={16} />}
-            tooltip="The % of visitors who left after seeing just one page. Lower is better — it means people are sticking around and clicking through. Under 50% is solid."
-            health={ga?.summary.bounceRate ? getHealth("bounceRate", parseFloat(ga.summary.bounceRate)) : null}
-          />
-        </div>
-
-        {/* Traffic chart */}
-        <div className="mb-8">
-          {ga?.dailySessions && <TrafficChart data={ga.dailySessions} />}
-        </div>
-
-        {/* Sources + Top Pages */}
-        <div className="grid gap-4 md:grid-cols-2 mb-8">
-          {ga?.topSources && <SourceBars data={ga.topSources} />}
-          {ga?.topPages && <TopPages data={ga.topPages} clarityEngagement={clarity?.pageEngagement} />}
-        </div>
-
-        {/* Session Recordings + Identified Visitors + AI Insights */}
-        <div className="grid gap-4 md:grid-cols-3 mb-8">
-          {clarity?.topSessionUrl && (
-            <ClarityRecordingLink
-              topSessionUrl={clarity.topSessionUrl}
-              projectId={clarity.projectId}
-              pageEngagement={clarity.pageEngagement}
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
+          {/* ── Left column ── */}
+          <div className="min-w-0 space-y-6">
+            {/* Search Performance */}
+            <SearchPerformance
+              data={seRanking}
+              loading={seRankingLoading}
+              error={seRankingError}
+              enabled={seRankingEnabled}
             />
-          )}
-          <VisitorTable
-            visitors={visitors?.visitors || []}
-            integrations={clientConfig?.integrations}
-            clientSlug={clientSlug}
-            onSync={() => {
-              const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
-              fetch(`/api/visitors?client=${clientSlug}&days=${days}`)
-                .then((r) => r.json())
-                .then(setVisitors)
-                .catch(() => {});
-            }}
-          />
-          <AIAnalysisCard
-            clientName={clientName}
-            range={range}
-            ga={ga}
-            visitors={visitors}
-            clarity={clarity}
-          />
-        </div>
 
-        {/* Webhook URLs */}
-        {clientConfig && (clientConfig.integrations?.vector?.enabled || clientConfig.integrations?.snitcher?.enabled) && (
-          <div className="mb-8">
-            <Card>
-              <CardContent className="py-4">
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                  Webhook URLs
-                </div>
-                <div className="space-y-2">
-                  {clientConfig.integrations?.vector?.enabled && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-medium text-muted-foreground w-16 shrink-0">Vector</span>
-                      <code className="text-[11px] bg-muted/50 px-2 py-1 rounded font-mono text-foreground/70 select-all flex-1 truncate">
-                        {process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "")}/api/vector?client={clientSlug}
-                      </code>
-                    </div>
+            {/* Website Performance */}
+            <div className="space-y-4">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
+                Website Performance
+              </div>
+
+              {/* Stat cards */}
+              <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+                <StatCard
+                  title="Sessions"
+                  value={ga?.summary.sessions?.toLocaleString() || "—"}
+                  subtitle={`Last ${range}`}
+                  icon={<Activity size={16} />}
+                  tooltip="How many times someone visited the site. If one person comes back 3 times, that's 3 sessions."
+                  health={ga ? getHealth("sessions", ga.summary.sessions, range) : null}
+                />
+                <StatCard
+                  title="Pageviews"
+                  value={ga?.summary.pageviews?.toLocaleString() || "—"}
+                  subtitle={`Last ${range}`}
+                  icon={<Eye size={16} />}
+                  tooltip="Total pages looked at across all visits. Higher than sessions means people are exploring."
+                  health={
+                    ga && ga.summary.sessions > 0
+                      ? getHealth("pagesPerSession", ga.summary.pageviews / ga.summary.sessions)
+                      : null
+                  }
+                />
+                <StatCard
+                  title="Unique Visitors"
+                  value={ga?.summary.uniqueVisitors?.toLocaleString() || "—"}
+                  subtitle={`Last ${range}`}
+                  icon={<Users size={16} />}
+                  tooltip="How many different people visited. Repeat visits from the same person only count once."
+                />
+                <StatCard
+                  title="Bounce Rate"
+                  value={ga?.summary.bounceRate || "—"}
+                  subtitle={ga?.summary.avgSessionDuration ? `Avg ${ga.summary.avgSessionDuration}` : "—"}
+                  icon={<ArrowDownUp size={16} />}
+                  tooltip="The % of visitors who left after seeing just one page. Under 50% is solid."
+                  health={
+                    ga?.summary.bounceRate
+                      ? getHealth("bounceRate", parseFloat(ga.summary.bounceRate))
+                      : null
+                  }
+                />
+              </div>
+
+              {/* Traffic chart */}
+              {ga?.dailySessions && <TrafficChart data={ga.dailySessions} />}
+
+              {/* Sources + Top Pages */}
+              {(ga?.topSources || ga?.topPages) && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {ga?.topSources && <SourceBars data={ga.topSources} />}
+                  {ga?.topPages && (
+                    <TopPages data={ga.topPages} clarityEngagement={clarity?.pageEngagement} />
                   )}
-                  {clientConfig.integrations?.snitcher?.enabled && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-medium text-muted-foreground w-16 shrink-0">Snitcher</span>
-                      <code className="text-[11px] bg-muted/50 px-2 py-1 rounded font-mono text-foreground/70 select-all flex-1 truncate">
-                        {process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "")}/api/snitcher?client={clientSlug}
-                      </code>
-                    </div>
-                  )}
                 </div>
-              </CardContent>
-            </Card>
+              )}
+
+              {/* Recordings + AI */}
+              <div className="grid gap-4 md:grid-cols-2">
+                {clarity?.topSessionUrl && (
+                  <ClarityRecordingLink
+                    topSessionUrl={clarity.topSessionUrl}
+                    projectId={clarity.projectId}
+                    pageEngagement={clarity.pageEngagement}
+                  />
+                )}
+                <AIAnalysisCard
+                  clientName={clientName}
+                  range={range}
+                  ga={ga}
+                  visitors={null}
+                  clarity={clarity}
+                />
+              </div>
+            </div>
+
+            {/* Active Work */}
+            <ActiveWork
+              data={clickUp}
+              loading={clickUpLoading}
+              error={clickUpError}
+              enabled={clickupEnabled}
+            />
           </div>
-        )}
+
+          {/* ── Right column ── */}
+          <div className="xl:sticky xl:top-8">
+            <WorkSummary
+              clientName={clientName}
+              data={clickUp}
+              loading={clickUpLoading}
+              enabled={clickupEnabled}
+            />
+          </div>
+        </div>
       </main>
     </div>
   );

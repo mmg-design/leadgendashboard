@@ -10,7 +10,6 @@ import {
   ChevronDown,
   ChevronUp,
   BarChart3,
-  Eye,
   Search,
   Video,
   Loader2,
@@ -18,6 +17,7 @@ import {
   Globe,
   Building2,
   Info,
+  ListTodo,
 } from "lucide-react";
 
 interface ClientConfig {
@@ -40,27 +40,6 @@ const integrationMeta = [
     ],
   },
   {
-    key: "vector",
-    label: "Vector.co",
-    icon: Eye,
-    badge: "Vector",
-    tooltip: "Vector identifies who's visiting the site by name and email (US visitors only). It sends data to us automatically via webhook. After you create this client, go to the client dashboard — you'll see a webhook URL at the bottom. Copy that URL and paste it in Vector → Integrations → Webhook.",
-    fields: [
-      { name: "siteId", label: "Site ID (optional)", placeholder: "From the Vector URL, like: app.vector.co/sites/abc123", hint: "Optional — leave blank if you're not sure" },
-    ],
-  },
-  {
-    key: "snitcher",
-    label: "Snitcher",
-    icon: Search,
-    badge: "Snitcher",
-    tooltip: "Snitcher identifies which companies are visiting the site. We pull data directly from Snitcher's API, so you need the Workspace ID. Open app.snitcher.com — the Workspace ID is the code in the URL right after snitcher.com/ (looks like V9Gl4nA5). The full UUID is fetched automatically.",
-    fields: [
-      { name: "workspaceId", label: "Workspace UUID", placeholder: "e.g. 0fdba883-26fa-4464-b101-fc05b445fa1e", hint: "Go to Snitcher → Settings → API → copy your Workspace UUID" },
-      { name: "projectId", label: "Project Hash (optional)", placeholder: "e.g. V9Gl4nA5", hint: "The short code in the URL: app.snitcher.com/{this-part}/dashboard" },
-    ],
-  },
-  {
     key: "clarity",
     label: "Microsoft Clarity",
     icon: Video,
@@ -68,6 +47,27 @@ const integrationMeta = [
     tooltip: "Clarity shows which pages people engage with most — scroll depth, time spent, clicks. Open clarity.microsoft.com, pick the project, and the Project ID is the short code in the URL (like vsqtrrcn93).",
     fields: [
       { name: "projectId", label: "Project ID", placeholder: "e.g. vsqtrrcn93", hint: "The code in the URL: clarity.microsoft.com/projects/view/{this-part}" },
+    ],
+  },
+  {
+    key: "seRanking",
+    label: "SE Ranking",
+    icon: Search,
+    badge: "SEO",
+    tooltip: "SE Ranking tracks keyword positions and domain visibility. Open app.seranking.com, go to your project, and copy the numeric project ID from the URL.",
+    fields: [
+      { name: "projectId", label: "Project ID", placeholder: "e.g. 123456", hint: "The number in the SE Ranking project URL" },
+    ],
+  },
+  {
+    key: "clickup",
+    label: "ClickUp",
+    icon: ListTodo,
+    badge: "Tasks",
+    tooltip: "ClickUp shows active work, completed tasks, and recent comments. Open a list in ClickUp, copy the numeric list ID from the URL (like 901234567). You can add multiple list IDs separated by commas.",
+    fields: [
+      { name: "listIds", label: "List IDs (comma-separated)", placeholder: "e.g. 901234567, 901234568", hint: "From the ClickUp list URL: app.clickup.com/.../list/{this-number}" },
+      { name: "engagementStartDate", label: "Engagement start date", placeholder: "YYYY-MM-DD", hint: "When this client's engagement began" },
     ],
   },
 ];
@@ -85,9 +85,9 @@ export default function Home() {
   const [iconUrl, setIconUrl] = useState("");
   const [integrations, setIntegrations] = useState<Record<string, { enabled: boolean; [key: string]: any }>>({
     googleAnalytics: { enabled: false, propertyId: "" },
-    vector: { enabled: false, siteId: "" },
-    snitcher: { enabled: false, projectId: "", workspaceId: "" },
     clarity: { enabled: false, projectId: "" },
+    seRanking: { enabled: false, projectId: "" },
+    clickup: { enabled: false, listIds: "", engagementStartDate: "" },
   });
 
   const fetchClients = () => {
@@ -121,9 +121,9 @@ export default function Home() {
     setIconUrl("");
     setIntegrations({
       googleAnalytics: { enabled: false, propertyId: "" },
-      vector: { enabled: false, siteId: "" },
-      snitcher: { enabled: false, projectId: "", workspaceId: "" },
       clarity: { enabled: false, projectId: "" },
+      seRanking: { enabled: false, projectId: "" },
+      clickup: { enabled: false, listIds: "", engagementStartDate: "" },
     });
     setError(null);
   };
@@ -417,7 +417,7 @@ export default function Home() {
                           key={s}
                           className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#0B4F6C]/[0.06] text-[#0B4F6C]/70 tracking-wide uppercase"
                         >
-                          {s === "googleAnalytics" ? "GA4" : s}
+                          {s === "googleAnalytics" ? "GA4" : s === "seRanking" ? "SEO" : s === "clickup" ? "Tasks" : s}
                         </span>
                       ))}
                     </div>
