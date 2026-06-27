@@ -159,6 +159,17 @@ export default function ClientDashboard() {
     clickupEngagementStart: "",
   });
 
+  async function readUploadResponse(res: Response) {
+    const text = await res.text();
+    if (!text) return {};
+
+    try {
+      return JSON.parse(text) as { iconUrl?: string; error?: string };
+    } catch {
+      return { error: text.slice(0, 160) };
+    }
+  }
+
   useEffect(() => {
     if (clientConfig) {
       setSettingsForm({
@@ -198,10 +209,10 @@ export default function ClientDashboard() {
         method: "POST",
         body: formData,
       });
-      const data = await res.json() as { iconUrl?: string; error?: string };
+      const data = await readUploadResponse(res);
 
       if (!res.ok || !data.iconUrl) {
-        throw new Error(data.error || "Failed to upload icon");
+        throw new Error(data.error || `Upload failed with status ${res.status}`);
       }
 
       const iconUrl = data.iconUrl;
@@ -373,6 +384,7 @@ export default function ClientDashboard() {
                 alt={`${clientName} icon`}
                 width={32}
                 height={32}
+                unoptimized={clientConfig.iconUrl.startsWith("data:")}
                 className="rounded-lg shrink-0"
               />
             ) : (
@@ -467,6 +479,7 @@ export default function ClientDashboard() {
                         alt={`${settingsForm.name || clientName} icon preview`}
                         fill
                         sizes="96px"
+                        unoptimized={settingsForm.iconUrl.startsWith("data:")}
                         className="object-contain p-3"
                       />
                     ) : (

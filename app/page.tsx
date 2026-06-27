@@ -20,12 +20,23 @@ import {
   ListTodo,
 } from "lucide-react";
 
+type IntegrationConfig = {
+  enabled: boolean;
+} & Record<string, string | boolean | string[] | undefined>;
+
+interface IntegrationField {
+  name: string;
+  label: string;
+  placeholder: string;
+  hint: string;
+}
+
 interface ClientConfig {
   name: string;
   slug: string;
   domain: string;
   iconUrl?: string;
-  integrations: Record<string, { enabled: boolean; [key: string]: any }>;
+  integrations: Record<string, IntegrationConfig>;
 }
 
 const integrationMeta = [
@@ -83,7 +94,7 @@ export default function Home() {
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [iconUrl, setIconUrl] = useState("");
-  const [integrations, setIntegrations] = useState<Record<string, { enabled: boolean; [key: string]: any }>>({
+  const [integrations, setIntegrations] = useState<Record<string, IntegrationConfig>>({
     googleAnalytics: { enabled: false, propertyId: "" },
     clarity: { enabled: false, projectId: "" },
     seRanking: { enabled: false, projectId: "" },
@@ -315,14 +326,14 @@ export default function Home() {
                               {/* Config fields when enabled */}
                               {enabled && int.fields.length > 0 && (
                                 <div className="mt-2.5 pl-[42px] space-y-2.5">
-                                  {int.fields.map((field: any) => (
+                                  {int.fields.map((field: IntegrationField) => (
                                     <div key={field.name}>
                                       <label className="block text-[10px] font-medium text-muted-foreground/70 mb-0.5">
                                         {field.label}
                                       </label>
                                       <input
                                         type="text"
-                                        value={integrations[int.key]?.[field.name] || ""}
+                                        value={String(integrations[int.key]?.[field.name] || "")}
                                         onChange={(e) => setField(int.key, field.name, e.target.value)}
                                         placeholder={field.placeholder}
                                         className="w-full px-2.5 py-1.5 text-[12px] rounded-md border border-border/60 bg-white/80 focus:outline-none focus:ring-1 focus:ring-[#0B4F6C]/20 placeholder:text-muted-foreground/40"
@@ -397,6 +408,7 @@ export default function Home() {
                           alt={`${client.name} icon`}
                           width={28}
                           height={28}
+                          unoptimized={client.iconUrl.startsWith("data:")}
                           className="rounded-md shrink-0"
                         />
                       ) : (

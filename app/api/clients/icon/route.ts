@@ -1,6 +1,5 @@
-import { mkdir, rm, writeFile } from "fs/promises";
-import path from "path";
 import { NextRequest, NextResponse } from "next/server";
+import sharp from "sharp";
 import { clientExists, updateClient } from "@/lib/clients";
 
 const MAX_ICON_BYTES = 15 * 1024 * 1024;
@@ -21,8 +20,6 @@ const FILE_EXTENSIONS: Record<string, string> = {
   gif: "gif",
   svg: "svg",
 };
-const ICON_EXTENSIONS = Array.from(new Set(Object.values(FILE_EXTENSIONS)));
-
 function getIconExtension(file: File): string | null {
   const mimeExtension = MIME_EXTENSIONS[file.type.toLowerCase()];
   if (mimeExtension) return mimeExtension;
@@ -62,19 +59,17 @@ export async function POST(req: NextRequest) {
     }
 
     const bytes = Buffer.from(await icon.arrayBuffer());
-    const clientDir = path.join(process.cwd(), "public", "clients", slug);
-    await mkdir(clientDir, { recursive: true });
+    const normalizedIcon = await sharp(bytes, { limitInputPixels: 24_000_000 })
+      .rotate()
+      .resize(512, 512, {
+        fit: "contain",
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 82, effort: 4 })
+      .toBuffer();
 
-    await Promise.all(
-      ICON_EXTENSIONS.map((ext) =>
-        rm(path.join(clientDir, `icon.${ext}`), { force: true })
-      )
-    );
-
-    const fileName = `icon.${extension}`;
-    await writeFile(path.join(clientDir, fileName), bytes);
-
-    const iconUrl = `/clients/${slug}/${fileName}?v=${Date.now()}`;
+    const iconUrl = `data:image/webp;base64,${normalizedIcon.toString("base64")}`;
     await updateClient(slug, { iconUrl });
 
     return NextResponse.json({ iconUrl });
