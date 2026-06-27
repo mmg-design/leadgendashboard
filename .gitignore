@@ -49,3 +49,7 @@ next-env.d.ts
 !package-lock.json
 !tsconfig.json
 !components.json
+
+# ShipStudio metadata
+.shipstudio/
+.env*.local
