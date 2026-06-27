@@ -3,14 +3,33 @@ import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { clientExists, updateClient } from "@/lib/clients";
 
-const MAX_ICON_BYTES = 5 * 1024 * 1024;
+const MAX_ICON_BYTES = 15 * 1024 * 1024;
 const MIME_EXTENSIONS: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/pjpeg": "jpg",
   "image/webp": "webp",
   "image/gif": "gif",
   "image/svg+xml": "svg",
 };
+const FILE_EXTENSIONS: Record<string, string> = {
+  png: "png",
+  jpg: "jpg",
+  jpeg: "jpg",
+  webp: "webp",
+  gif: "gif",
+  svg: "svg",
+};
+const ICON_EXTENSIONS = Array.from(new Set(Object.values(FILE_EXTENSIONS)));
+
+function getIconExtension(file: File): string | null {
+  const mimeExtension = MIME_EXTENSIONS[file.type.toLowerCase()];
+  if (mimeExtension) return mimeExtension;
+
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  return extension ? FILE_EXTENSIONS[extension] || null : null;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,13 +49,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Icon image is required" }, { status: 400 });
     }
 
-    const extension = MIME_EXTENSIONS[icon.type];
+    const extension = getIconExtension(icon);
     if (!extension) {
-      return NextResponse.json({ error: "Unsupported image type" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Use a PNG, JPG, WebP, GIF, or SVG image." },
+        { status: 400 }
+      );
     }
 
     if (icon.size > MAX_ICON_BYTES) {
-      return NextResponse.json({ error: "Icon must be 5MB or smaller" }, { status: 400 });
+      return NextResponse.json({ error: "Icon must be 15MB or smaller." }, { status: 400 });
     }
 
     const bytes = Buffer.from(await icon.arrayBuffer());
@@ -44,7 +66,7 @@ export async function POST(req: NextRequest) {
     await mkdir(clientDir, { recursive: true });
 
     await Promise.all(
-      Object.values(MIME_EXTENSIONS).map((ext) =>
+      ICON_EXTENSIONS.map((ext) =>
         rm(path.join(clientDir, `icon.${ext}`), { force: true })
       )
     );

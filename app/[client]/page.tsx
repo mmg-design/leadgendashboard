@@ -112,6 +112,16 @@ type ClientsResponse = {
   clients?: ClientConfig[];
 };
 
+const MAX_ICON_BYTES = 15 * 1024 * 1024;
+const ICON_FILE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif", "svg"];
+
+function isSupportedIconFile(file: File) {
+  if (file.type.startsWith("image/")) return true;
+
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  return extension ? ICON_FILE_EXTENSIONS.includes(extension) : false;
+}
+
 export default function ClientDashboard() {
   const params = useParams();
   const clientSlug = params.client as string;
@@ -166,8 +176,13 @@ export default function ClientDashboard() {
   async function uploadIcon(file: File | undefined) {
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      setIconUploadError("Choose an image file.");
+    if (!isSupportedIconFile(file)) {
+      setIconUploadError("Use a PNG, JPG, WebP, GIF, or SVG image.");
+      return;
+    }
+
+    if (file.size > MAX_ICON_BYTES) {
+      setIconUploadError("Icon must be 15MB or smaller.");
       return;
     }
 
