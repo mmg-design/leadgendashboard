@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "mmg.studio";
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "data.mmg.studio";
 const RESERVED_SUBDOMAINS = new Set(["www", "app", "admin", "dashboard"]);
 
 export function middleware(req: NextRequest) {
@@ -22,7 +22,9 @@ export function middleware(req: NextRequest) {
   const url = req.nextUrl.clone();
   url.pathname = `/${subdomain}${url.pathname === "/" ? "" : url.pathname}`;
 
-  return NextResponse.rewrite(url);
+  const res = NextResponse.rewrite(url);
+  res.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  return res;
 }
 
 export const config = {
