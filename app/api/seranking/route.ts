@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClient } from "@/lib/clients";
 
-const SE_RANKING_BASE = "https://api4.seranking.com";
+const SE_RANKING_BASE = "https://api.seranking.com";
 
-async function serankingFetch(path: string, apiKey: string) {
-  const res = await fetch(`${SE_RANKING_BASE}${path}`, {
+async function serankingFetch(path: string, apiKey: string, params?: Record<string, string>) {
+  let url = `${SE_RANKING_BASE}${path}`;
+  if (params) {
+    url += "?" + new URLSearchParams(params).toString();
+  }
+  const res = await fetch(url, {
     headers: { Authorization: `Token ${apiKey}` },
     next: { revalidate: 3600 },
   });
@@ -36,38 +40,47 @@ export async function GET(req: NextRequest) {
     const today = new Date();
     const fmt = (d: Date) => d.toISOString().split("T")[0];
     const todayStr = fmt(today);
-    const weekAgo = new Date(today.getTime() - 7 * 86400000);
-    const weekAgoStr = fmt(weekAgo);
-    const thirtyDaysAgo = new Date(today.getTime() - 30 * 86400000);
-    const thirtyDaysAgoStr = fmt(thirtyDaysAgo);
+    const weekAgoStr = fmt(new Date(today.getTime() - 8 * 86400000));
+    const thirtyDaysAgoStr = fmt(new Date(today.getTime() - 30 * 86400000));
 
-    const [keywords, posToday, posWeekAgo, visHistory] = await Promise.all([
-      serankingFetch(`/sites/${projectId}/keywords`, apiKey),
-      serankingFetch(`/sites/${projectId}/positions?date=${todayStr}`, apiKey),
-      serankingFetch(`/sites/${projectId}/positions?date=${weekAgoStr}`, apiKey),
-      serankingFetch(`/sites/${projectId}/history?from=${thirtyDaysAgoStr}&to=${todayStr}`, apiKey),
+    const [keywords, positions, visHistory] = await Promise.all([
+      serankingFetch("/v1/project-management/keywords", apiKey, { site_id: projectId }),
+      serankingFetch("/v1/project-management/sites/positions", apiKey, {
+        site_id: projectId,
+        date_from: weekAgoStr,
+        date_to: todayStr,
+      }),
+      serankingFetch("/v1/project-management/sites/positions/history", apiKey, {
+        site_id: projectId,
+        type: "visibility",
+        date_from: thirtyDaysAgoStr,
+        date_to: todayStr,
+      }),
     ]);
 
+    // Build keyword name map
     const kwMap = new Map<string, string>();
     if (Array.isArray(keywords)) {
       for (const kw of keywords) {
-        kwMap.set(String(kw.id), kw.keyword || kw.name || "");
+        kwMap.set(String(kw.id), kw.name || "");
       }
     }
 
-    const todayMap = new Map<string, number>();
-    const weekAgoMap = new Map<string, number>();
-
-    if (Array.isArray(posToday)) {
-      for (const p of posToday) {
-        const pos = Number(p.position);
-        if (pos > 0) todayMap.set(String(p.keyword_id ?? p.id), pos);
-      }
-    }
-    if (Array.isArray(posWeekAgo)) {
-      for (const p of posWeekAgo) {
-        const pos = Number(p.position);
-        if (pos > 0) weekAgoMap.set(String(p.keyword_id ?? p.id), pos);
+    // Positions: array of {site_engine_id, keywords[{id, positions[{date,pos,change}]}]}
+    // Use first (primary) search engine
+    const positionsByKw = new Map<string, { latest: number; weekAgo: number | null }>();
+    if (Array.isArray(positions) && positions.length > 0) {
+      const engineData = positions[0];
+      if (Array.isArray(engineData.keywords)) {
+        for (const kwPos of engineData.keywords) {
+          const posArr = kwPos.positions || [];
+          const latestPos = Number(posArr[posArr.length - 1]?.pos ?? 0);
+          const weekAgoPos = Number(posArr[0]?.pos ?? 0);
+          positionsByKw.set(String(kwPos.id), {
+            latest: latestPos,
+            weekAgo: weekAgoPos > 0 ? weekAgoPos : null,
+          });
+        }
       }
     }
 
@@ -76,16 +89,15 @@ export async function GET(req: NextRequest) {
     const kwDetails: { id: string; keyword: string; position: number; delta: number | null }[] = [];
 
     for (const [kwId, kwText] of kwMap) {
-      const cur = todayMap.get(kwId);
-      if (cur == null) continue;
-      const prev = weekAgoMap.get(kwId);
-      let delta: number | null = null;
-      if (prev != null) {
-        delta = prev - cur; // positive = better rank
+      const posData = positionsByKw.get(kwId);
+      if (!posData || posData.latest === 0) continue;
+      const delta =
+        posData.weekAgo != null ? posData.weekAgo - posData.latest : null;
+      if (delta != null) {
         if (delta > 0) movedUp++;
         else if (delta < 0) movedDown++;
       }
-      kwDetails.push({ id: kwId, keyword: kwText, position: cur, delta });
+      kwDetails.push({ id: kwId, keyword: kwText, position: posData.latest, delta });
     }
 
     const top5 = kwDetails
@@ -93,11 +105,24 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => a.position - b.position)
       .slice(0, 5);
 
-    const visibilityHistory = Array.isArray(visHistory)
-      ? visHistory
-          .filter((v: any) => v.date && v.visibility != null)
-          .map((v: any) => ({ date: v.date as string, score: Number(v.visibility) }))
-      : [];
+    // Visibility history: array of {name, data:[{date,value}]} — take max across engines per date
+    const visibilityMap = new Map<string, number>();
+    if (Array.isArray(visHistory)) {
+      for (const engine of visHistory) {
+        for (const point of engine.data ?? []) {
+          if (point.date) {
+            visibilityMap.set(
+              point.date,
+              Math.max(visibilityMap.get(point.date) ?? 0, Number(point.value ?? 0))
+            );
+          }
+        }
+      }
+    }
+
+    const visibilityHistory = Array.from(visibilityMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, score]) => ({ date, score }));
 
     const currentVisibility =
       visibilityHistory.length > 0
