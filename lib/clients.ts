@@ -21,6 +21,8 @@ export interface ClientConfig {
     clickup?: {
       enabled: boolean;
       listIds: string[];
+      workspaceId?: string;
+      teamMemberIds?: string[];
       engagementStartDate?: string;
     };
   };
