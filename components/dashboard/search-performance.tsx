@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown } from "lucide-react";
+import { Search, TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown, ChevronDown, ChevronUp } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
 interface KeywordRow {
@@ -16,6 +17,7 @@ interface SearchPerformanceData {
   movedUp: number;
   movedDown: number;
   top5: KeywordRow[];
+  allKeywords?: KeywordRow[];
   currentVisibility: number | null;
   visibilityHistory: { date: string; score: number }[];
 }
@@ -45,6 +47,12 @@ function DeltaBadge({ delta }: { delta: number | null }) {
 }
 
 function PositionBadge({ position }: { position: number }) {
+  if (position === 0)
+    return (
+      <span className="text-[11px] font-medium px-1.5 py-0.5 rounded border tabular-nums bg-muted/30 text-muted-foreground/40 border-border">
+        —
+      </span>
+    );
   const color =
     position <= 3
       ? "bg-emerald-50 text-emerald-700 border-emerald-200"
@@ -61,6 +69,8 @@ function PositionBadge({ position }: { position: number }) {
 }
 
 export function SearchPerformance({ data, loading, error, enabled }: SearchPerformanceProps) {
+  const [expanded, setExpanded] = useState(false);
+
   if (!enabled) {
     return (
       <Card className="opacity-60">
@@ -124,8 +134,10 @@ export function SearchPerformance({ data, loading, error, enabled }: SearchPerfo
     );
   }
 
-  const allKeywords = data.top5;
-  const unchanged = allKeywords.filter((k) => k.delta === 0 || k.delta === null).length;
+  const keywords = data.allKeywords ?? data.top5;
+  const ranked = keywords.filter((k) => k.position > 0);
+  const unranked = keywords.filter((k) => k.position === 0);
+  const unchanged = keywords.filter((k) => k.delta === 0).length;
 
   return (
     <Card>
@@ -140,7 +152,7 @@ export function SearchPerformance({ data, loading, error, enabled }: SearchPerfo
       </CardHeader>
       <CardContent className="space-y-5">
 
-        {/* Visibility score + sparkline — prominently at top */}
+        {/* Visibility score + sparkline */}
         <div className="flex items-center gap-4 p-4 rounded-xl bg-[#0B4F6C]/[0.04] border border-[#0B4F6C]/[0.08]">
           <div>
             <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">
@@ -157,21 +169,9 @@ export function SearchPerformance({ data, loading, error, enabled }: SearchPerfo
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data.visibilityHistory}>
                   <XAxis dataKey="date" hide />
-                  <Line
-                    type="monotone"
-                    dataKey="score"
-                    stroke="#0B4F6C"
-                    strokeWidth={2}
-                    dot={false}
-                  />
+                  <Line type="monotone" dataKey="score" stroke="#0B4F6C" strokeWidth={2} dot={false} />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#fff",
-                      border: "1px solid rgba(0,0,0,0.06)",
-                      borderRadius: "6px",
-                      fontSize: "11px",
-                      padding: "4px 8px",
-                    }}
+                    contentStyle={{ backgroundColor: "#fff", border: "1px solid rgba(0,0,0,0.06)", borderRadius: "6px", fontSize: "11px", padding: "4px 8px" }}
                     formatter={(v) => [`${Number(v).toFixed(1)}%`, "Visibility"]}
                     labelFormatter={(label) => label}
                   />
@@ -188,9 +188,7 @@ export function SearchPerformance({ data, loading, error, enabled }: SearchPerfo
         {/* Summary row */}
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg bg-muted/30 px-3 py-2.5 text-center">
-            <div className="text-[22px] font-light text-foreground tabular-nums">
-              {data.totalKeywords}
-            </div>
+            <div className="text-[22px] font-light text-foreground tabular-nums">{data.totalKeywords}</div>
             <div className="text-[10px] text-muted-foreground mt-0.5">Keywords tracked</div>
           </div>
           <div className="rounded-lg bg-emerald-50 px-3 py-2.5 text-center">
@@ -210,16 +208,22 @@ export function SearchPerformance({ data, loading, error, enabled }: SearchPerfo
         </div>
 
         {/* Keyword table */}
-        {allKeywords.length > 0 ? (
+        {keywords.length > 0 ? (
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Top keywords by rank
+                All keywords ({keywords.length})
               </div>
-              {unchanged > 0 && (
-                <span className="text-[10px] text-muted-foreground/60">{unchanged} unchanged this week</span>
-              )}
+              <div className="flex items-center gap-3">
+                {unchanged > 0 && (
+                  <span className="text-[10px] text-muted-foreground/60">{unchanged} unchanged</span>
+                )}
+                {unranked.length > 0 && (
+                  <span className="text-[10px] text-muted-foreground/60">{unranked.length} not yet ranked</span>
+                )}
+              </div>
             </div>
+
             {/* Column headers */}
             <div className="flex items-center gap-3 px-2 pb-1 border-b border-border/40 mb-1">
               <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-5">#</span>
@@ -227,33 +231,52 @@ export function SearchPerformance({ data, loading, error, enabled }: SearchPerfo
               <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-12 text-center">Rank</span>
               <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-12 text-right">7d change</span>
             </div>
-            <div className="space-y-0.5">
-              {allKeywords.map((kw, i) => (
-                <div
-                  key={kw.id}
-                  className="flex items-center gap-3 py-2 px-2 rounded-md hover:bg-muted/30 transition-colors"
-                >
-                  <span className="text-[11px] font-medium text-muted-foreground/40 w-5 text-right shrink-0">
-                    {i + 1}
-                  </span>
-                  <span className="text-[12px] text-foreground/80 flex-1 truncate" title={kw.keyword}>
-                    {kw.keyword}
-                  </span>
-                  <div className="w-12 flex justify-center shrink-0">
-                    <PositionBadge position={kw.position} />
+
+            {/* Scrollable list */}
+            <div
+              className={`overflow-y-auto transition-all duration-200 ${expanded ? "max-h-[600px]" : "max-h-[260px]"}`}
+              style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(0,0,0,0.1) transparent" }}
+            >
+              <div className="space-y-0.5">
+                {keywords.map((kw, i) => (
+                  <div
+                    key={kw.id}
+                    className={`flex items-center gap-3 py-2 px-2 rounded-md hover:bg-muted/30 transition-colors ${kw.position === 0 ? "opacity-50" : ""}`}
+                  >
+                    <span className="text-[11px] font-medium text-muted-foreground/40 w-5 text-right shrink-0">
+                      {i + 1}
+                    </span>
+                    <span className="text-[12px] text-foreground/80 flex-1 truncate" title={kw.keyword}>
+                      {kw.keyword}
+                    </span>
+                    <div className="w-12 flex justify-center shrink-0">
+                      <PositionBadge position={kw.position} />
+                    </div>
+                    <div className="w-12 flex justify-end shrink-0">
+                      <DeltaBadge delta={kw.position === 0 ? null : kw.delta} />
+                    </div>
                   </div>
-                  <div className="w-12 flex justify-end shrink-0">
-                    <DeltaBadge delta={kw.delta} />
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+
+            {/* Toggle button */}
+            {keywords.length > 5 && (
+              <button
+                onClick={() => setExpanded((e) => !e)}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground rounded-md hover:bg-muted/30 transition-colors"
+              >
+                {expanded ? (
+                  <><ChevronUp size={12} /> Collapse</>
+                ) : (
+                  <><ChevronDown size={12} /> Show all {keywords.length} keywords</>
+                )}
+              </button>
+            )}
           </div>
         ) : (
           <div className="py-6 text-center">
-            <p className="text-[12px] text-muted-foreground/60">
-              No keywords ranked in top 100 yet.
-            </p>
+            <p className="text-[12px] text-muted-foreground/60">No keywords tracked yet.</p>
             <p className="text-[11px] text-muted-foreground/40 mt-1">
               Rankings typically appear within 1–3 days of project setup.
             </p>

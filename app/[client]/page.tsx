@@ -58,6 +58,7 @@ interface SERankingData {
   movedUp: number;
   movedDown: number;
   top5: { id: string; keyword: string; position: number; delta: number | null }[];
+  allKeywords?: { id: string; keyword: string; position: number; delta: number | null }[];
   currentVisibility: number | null;
   visibilityHistory: { date: string; score: number }[];
 }
@@ -77,6 +78,7 @@ interface ClickUpData {
   }[];
   teamMembers: { name: string; email: string; color?: string }[];
   engagementStartDate: string | null;
+  timeTrackedThisMonthMs: number;
 }
 
 interface ClientConfig {

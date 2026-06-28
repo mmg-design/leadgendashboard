@@ -90,20 +90,25 @@ export async function GET(req: NextRequest) {
 
     for (const [kwId, kwText] of kwMap) {
       const posData = positionsByKw.get(kwId);
-      if (!posData || posData.latest === 0) continue;
-      const delta =
-        posData.weekAgo != null ? posData.weekAgo - posData.latest : null;
+      const latest = posData?.latest ?? 0;
+      const weekAgo = posData?.weekAgo ?? null;
+      const delta = weekAgo != null && latest > 0 ? weekAgo - latest : null;
       if (delta != null) {
         if (delta > 0) movedUp++;
         else if (delta < 0) movedDown++;
       }
-      kwDetails.push({ id: kwId, keyword: kwText, position: posData.latest, delta });
+      kwDetails.push({ id: kwId, keyword: kwText, position: latest, delta });
     }
 
-    const top5 = kwDetails
-      .filter((k) => k.position > 0 && k.position <= 100)
-      .sort((a, b) => a.position - b.position)
-      .slice(0, 5);
+    // Sort: ranked first (ascending position), then unranked alphabetically
+    const allKeywords = kwDetails.sort((a, b) => {
+      if (a.position > 0 && b.position > 0) return a.position - b.position;
+      if (a.position > 0) return -1;
+      if (b.position > 0) return 1;
+      return a.keyword.localeCompare(b.keyword);
+    });
+
+    const top5 = allKeywords.filter((k) => k.position > 0).slice(0, 5);
 
     // Visibility history: array of {name, data:[{date,value}]} — take max across engines per date
     const visibilityMap = new Map<string, number>();
@@ -134,6 +139,7 @@ export async function GET(req: NextRequest) {
       movedUp,
       movedDown,
       top5,
+      allKeywords,
       currentVisibility,
       visibilityHistory,
     });

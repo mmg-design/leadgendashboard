@@ -154,6 +154,28 @@ export async function GET(req: NextRequest) {
       })
     );
 
+    // Time tracking for this month
+    let timeTrackedThisMonthMs = 0;
+    try {
+      // Get workspace ID: stored in config or fetched from /team
+      let workspaceId: string = (cuConfig as any).workspaceId ?? "";
+      if (!workspaceId) {
+        const teamData = await cuFetch("/team", apiKey);
+        workspaceId = teamData?.teams?.[0]?.id ?? "";
+      }
+      if (workspaceId) {
+        const listIdParams = listIds.map((id) => `list_id[]=${id}`).join("&");
+        const timeData = await cuFetch(
+          `/team/${workspaceId}/time_entries?start_date=${startOfMonth.getTime()}&end_date=${now}&${listIdParams}`,
+          apiKey
+        );
+        const entries: any[] = timeData?.data ?? [];
+        timeTrackedThisMonthMs = entries.reduce((sum, e) => sum + Number(e.duration || 0), 0);
+      }
+    } catch {
+      // time tracking is optional — don't fail the whole response
+    }
+
     return NextResponse.json({
       activeTaskCount: allActive.length,
       completedThisMonthCount,
@@ -163,6 +185,7 @@ export async function GET(req: NextRequest) {
       tasksWithComments: tasksWithComments.slice(0, 5),
       teamMembers: Array.from(memberMap.values()),
       engagementStartDate: cuConfig.engagementStartDate ?? null,
+      timeTrackedThisMonthMs,
     });
   } catch (err: any) {
     console.error("ClickUp error:", err);
