@@ -3,90 +3,99 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Gauge } from "lucide-react";
 
-interface ClarityPageData {
+interface PageRow {
   page: string;
-  engagementScore: number;
-  totalSessions: number;
+  views: number;
+  engagementScore?: number;
+  avgDuration?: number;
 }
 
 interface TopPagesProps {
-  data: { page: string; views: number }[];
-  clarityEngagement?: ClarityPageData[];
+  data: PageRow[];
+  clarityEngagement?: any[];
 }
 
-function getEngagementColor(score: number) {
-  if (score >= 70) return "text-emerald-600 bg-emerald-50 border-emerald-200";
-  if (score >= 40) return "text-amber-600 bg-amber-50 border-amber-200";
-  return "text-red-500 bg-red-50 border-red-200";
-}
-
-function matchPageToClarity(gaPage: string, clarityPages: ClarityPageData[]): ClarityPageData | null {
-  // Clarity URLs are full URLs, GA pages are paths — try matching by path suffix
-  for (const cp of clarityPages) {
-    try {
-      const url = new URL(cp.page);
-      if (url.pathname === gaPage || url.pathname === gaPage + "/") {
-        return cp;
-      }
-    } catch {
-      // If it's not a full URL, try direct match
-      if (cp.page === gaPage) return cp;
-    }
-  }
-  return null;
-}
-
-export function TopPages({ data, clarityEngagement }: TopPagesProps) {
-  const max = Math.max(...data.map((d) => d.views));
+function EngagementMeter({ score }: { score: number }) {
+  const color =
+    score >= 70 ? "bg-emerald-500" : score >= 45 ? "bg-[#0B4F6C]" : score >= 20 ? "bg-amber-400" : "bg-red-400";
+  const textColor =
+    score >= 70 ? "text-emerald-700 bg-emerald-50 border-emerald-200" :
+    score >= 45 ? "text-[#0B4F6C] bg-[#0B4F6C]/8 border-[#0B4F6C]/20" :
+    score >= 20 ? "text-amber-700 bg-amber-50 border-amber-200" :
+    "text-red-600 bg-red-50 border-red-200";
 
   return (
-    <Card>
+    <div className="flex items-center gap-1.5 shrink-0">
+      <div className="w-14 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${score}%` }} />
+      </div>
+      <span
+        className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border tabular-nums ${textColor}`}
+        title="GA4 Engagement Rate — % of sessions on this page where the user actively engaged (scrolled, clicked, or stayed 10+ seconds)"
+      >
+        {score}
+      </span>
+    </div>
+  );
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}m ${s}s`;
+}
+
+export function TopPages({ data }: TopPagesProps) {
+  const max = Math.max(...data.map((d) => d.views), 1);
+  const hasEngagement = data.some((d) => d.engagementScore !== undefined && d.engagementScore > 0);
+
+  return (
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <div className="flex items-center gap-2">
           <FileText size={15} className="text-muted-foreground/60" />
           <CardTitle className="text-[17px] font-headline font-normal text-muted-foreground">Top Pages</CardTitle>
-          {clarityEngagement && clarityEngagement.length > 0 && (
+          {hasEngagement && (
             <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground/50">
               <Gauge size={10} />
-              Engagement via Clarity
+              Engagement
             </span>
           )}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         <div className="space-y-3">
-          {data.map((page, index) => {
-            const clarityMatch = clarityEngagement?.length
-              ? matchPageToClarity(page.page, clarityEngagement)
-              : null;
-            const showEngagement = index < 3 && clarityMatch;
-
+          {data.map((page) => {
+            const score = page.engagementScore ?? 0;
             return (
-              <div key={page.page} className="flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <div className="text-[13px] font-medium text-foreground/80 truncate">
-                      {page.page}
-                    </div>
-                    {showEngagement && (
-                      <span
-                        className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${getEngagementColor(clarityMatch.engagementScore)}`}
-                        title={`Clarity engagement score: ${clarityMatch.engagementScore}/100 (${clarityMatch.totalSessions} sessions)`}
-                      >
-                        <Gauge size={9} />
-                        {clarityMatch.engagementScore}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden">
+              <div key={page.page} className="group">
+                <div className="flex items-center gap-2 mb-1">
+                  <span
+                    className="text-[12px] font-medium text-foreground/80 truncate flex-1"
+                    title={page.page}
+                  >
+                    {page.page === "/" ? "Home" : page.page}
+                  </span>
+                  {hasEngagement && <EngagementMeter score={score} />}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-[#0B4F6C]/60"
+                      className="h-full rounded-full bg-[#0B4F6C]/50"
                       style={{ width: `${(page.views / max) * 100}%` }}
                     />
                   </div>
-                </div>
-                <div className="text-[13px] font-medium tabular-nums w-12 text-right text-muted-foreground">
-                  {page.views}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[11px] tabular-nums text-muted-foreground w-10 text-right">
+                      {page.views.toLocaleString()}
+                    </span>
+                    {page.avgDuration !== undefined && page.avgDuration > 0 && (
+                      <span className="text-[10px] text-muted-foreground/50 tabular-nums w-10">
+                        {formatDuration(page.avgDuration)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             );

@@ -10,7 +10,6 @@ import { TrafficChart } from "@/components/dashboard/traffic-chart";
 import { SourceBars } from "@/components/dashboard/source-bars";
 import { TopPages } from "@/components/dashboard/top-pages";
 import { AIAnalysisCard } from "@/components/dashboard/ai-analysis";
-import { ClarityRecordingLink } from "@/components/dashboard/clarity-recording";
 import { SearchPerformance } from "@/components/dashboard/search-performance";
 import { ActiveWork } from "@/components/dashboard/active-work";
 import { WorkSummary } from "@/components/dashboard/work-summary";
@@ -42,7 +41,7 @@ interface GAData {
   };
   dailySessions: { date: string; sessions: number; pageviews: number }[];
   topSources: { source: string; sessions: number }[];
-  topPages: { page: string; views: number }[];
+  topPages: { page: string; views: number; engagementScore?: number; avgDuration?: number }[];
 }
 
 interface ClarityData {
@@ -666,33 +665,19 @@ export default function ClientDashboard() {
               {(ga?.topSources || ga?.topPages) && (
                 <div className="grid gap-4 md:grid-cols-2">
                   {ga?.topSources && <SourceBars data={ga.topSources} />}
-                  {ga?.topPages && (
-                    <TopPages data={ga.topPages} clarityEngagement={clarity?.pageEngagement} />
-                  )}
+                  {ga?.topPages && <TopPages data={ga.topPages} />}
                 </div>
               )}
 
-              {/* Recordings + AI */}
-              <div className="grid gap-4 md:grid-cols-2">
-                {clarity?.topSessionUrl && (
-                  <ClarityRecordingLink
-                    topSessionUrl={clarity.topSessionUrl}
-                    projectId={clarity.projectId}
-                    pageEngagement={clarity.pageEngagement}
-                    rageClicks={clarity.rageClicks}
-                    deadClicks={clarity.deadClicks}
-                    homepageScrollDepth={clarity.homepageScrollDepth}
-                  />
-                )}
-                <AIAnalysisCard
-                  clientName={clientName}
-                  range={range}
-                  ga={ga}
-                  clarity={clarity}
-                  seRanking={seRanking}
-                  clickUp={clickUp}
-                />
-              </div>
+              {/* AI Insights */}
+              <AIAnalysisCard
+                clientName={clientName}
+                range={range}
+                ga={ga}
+                clarity={clarity}
+                seRanking={seRanking}
+                clickUp={clickUp}
+              />
             </div>
 
             {/* Active Work */}

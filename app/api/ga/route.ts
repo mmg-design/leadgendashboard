@@ -100,7 +100,11 @@ export async function GET(req: NextRequest) {
       property: `properties/${propertyId}`,
       dateRanges: [{ startDate, endDate: "today" }],
       dimensions: [{ name: "pagePath" }],
-      metrics: [{ name: "screenPageViews" }],
+      metrics: [
+        { name: "screenPageViews" },
+        { name: "engagementRate" },
+        { name: "averageSessionDuration" },
+      ],
       orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
       limit: 10,
     });
@@ -147,6 +151,8 @@ export async function GET(req: NextRequest) {
     const topPages = (pagesReport?.rows || []).map((row) => ({
       page: row.dimensionValues?.[0]?.value || "/",
       views: parseInt(row.metricValues?.[0]?.value || "0"),
+      engagementScore: Math.round(parseFloat(row.metricValues?.[1]?.value || "0") * 100),
+      avgDuration: Math.round(parseFloat(row.metricValues?.[2]?.value || "0")),
     }));
 
     const data = {
