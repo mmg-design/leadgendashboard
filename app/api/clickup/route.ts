@@ -154,42 +154,33 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    // Time tracking for this month
-    // Build set of task IDs from all fetched tasks in our lists
-    const ourTaskIds = new Set<string>();
-    for (const result of listResults) {
-      for (const t of [...result.activeTasks, ...result.closedTasks]) {
-        if (t.id) ourTaskIds.add(t.id as string);
-      }
-    }
-
-    // Member numeric IDs (keys of memberMap when a.id was set)
-    const memberUserIds = Array.from(memberMap.keys()).filter((k) => /^\d+$/.test(k));
+    // Time tracking: sum time entries per-task (returns all users, not just auth user)
+    // Collect unique task IDs across both lists
+    const allTaskIds = Array.from(
+      new Set(
+        listResults.flatMap((r) =>
+          [...r.activeTasks, ...r.closedTasks].map((t) => t.id as string).filter(Boolean)
+        )
+      )
+    );
 
     let timeTrackedThisMonthMs = 0;
     try {
-      let workspaceId: string = (cuConfig as any).workspaceId ?? "";
-      if (!workspaceId) {
-        const teamData = await cuFetch("/team", apiKey);
-        workspaceId = teamData?.teams?.[0]?.id ?? "";
+      const startMs = startOfMonth.getTime();
+      // Batch per-task time entry calls (GET /task/{id}/time_entries returns ALL users)
+      const timeResults = await Promise.allSettled(
+        allTaskIds.map((taskId) =>
+          cuFetch(`/task/${taskId}/time_entries?start_date=${startMs}&end_date=${now}`, apiKey)
+        )
+      );
+      for (const result of timeResults) {
+        if (result.status === "fulfilled") {
+          const entries: any[] = result.value?.data ?? [];
+          timeTrackedThisMonthMs += entries.reduce((sum: number, e: any) => sum + Number(e.duration || 0), 0);
+        }
       }
-      if (workspaceId) {
-        // Query by assignee so all members' entries are returned (not just auth user)
-        const assigneeParams = memberUserIds.length
-          ? "&" + memberUserIds.map((id) => `assignee[]=${id}`).join("&")
-          : "";
-        const timeData = await cuFetch(
-          `/team/${workspaceId}/time_entries?start_date=${startOfMonth.getTime()}&end_date=${now}${assigneeParams}`,
-          apiKey
-        );
-        const entries: any[] = timeData?.data ?? [];
-        // Filter to entries whose task belongs to our configured lists
-        timeTrackedThisMonthMs = entries
-          .filter((e) => ourTaskIds.size === 0 || ourTaskIds.has(e.task?.id))
-          .reduce((sum, e) => sum + Number(e.duration || 0), 0);
-      }
-    } catch {
-      // time tracking is optional — don't fail the whole response
+    } catch (e) {
+      console.error("ClickUp time tracking error:", e);
     }
 
     return NextResponse.json({
