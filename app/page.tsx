@@ -403,14 +403,16 @@ export default function Home() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2.5 text-[20px] font-headline font-normal text-[#0B4F6C]">
                       {client.iconUrl ? (
-                        <Image
-                          src={client.iconUrl}
-                          alt={`${client.name} icon`}
-                          width={28}
-                          height={28}
-                          unoptimized={client.iconUrl.startsWith("data:")}
-                          className="rounded-md shrink-0"
-                        />
+                        <span className="relative size-7 overflow-hidden rounded-md shrink-0">
+                          <Image
+                            src={client.iconUrl}
+                            alt={`${client.name} icon`}
+                            fill
+                            sizes="28px"
+                            unoptimized={client.iconUrl.startsWith("data:")}
+                            className="object-cover"
+                          />
+                        </span>
                       ) : (
                         <div className="w-7 h-7 rounded-md bg-[#0B4F6C]/8 flex items-center justify-center shrink-0">
                           <Building2 size={14} className="text-[#0B4F6C]/40" />

@@ -384,14 +384,16 @@ export default function ClientDashboard() {
             </Link>
             <div className="w-px h-4 bg-border" />
             {clientConfig?.iconUrl ? (
-              <Image
-                src={clientConfig.iconUrl}
-                alt={`${clientName} icon`}
-                width={32}
-                height={32}
-                unoptimized={clientConfig.iconUrl.startsWith("data:")}
-                className="rounded-lg shrink-0"
-              />
+              <span className="relative size-8 overflow-hidden rounded-lg shrink-0">
+                <Image
+                  src={clientConfig.iconUrl}
+                  alt={`${clientName} icon`}
+                  fill
+                  sizes="32px"
+                  unoptimized={clientConfig.iconUrl.startsWith("data:")}
+                  className="object-cover"
+                />
+              </span>
             ) : (
               <div className="w-8 h-8 rounded-lg bg-[#0B4F6C]/8 flex items-center justify-center shrink-0">
                 <Building2 size={16} className="text-[#0B4F6C]/40" />
@@ -485,7 +487,7 @@ export default function ClientDashboard() {
                         fill
                         sizes="96px"
                         unoptimized={settingsForm.iconUrl.startsWith("data:")}
-                        className="object-contain p-3"
+                        className="object-cover"
                       />
                     ) : (
                       <ImageIcon size={24} className="text-[#0B4F6C]/35" />

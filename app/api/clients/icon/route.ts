@@ -62,8 +62,8 @@ export async function POST(req: NextRequest) {
     const normalizedIcon = await sharp(bytes, { limitInputPixels: 24_000_000 })
       .rotate()
       .resize(512, 512, {
-        fit: "contain",
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
+        fit: "cover",
+        position: "center",
         withoutEnlargement: true,
       })
       .webp({ quality: 82, effort: 4 })
