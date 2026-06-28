@@ -11,7 +11,6 @@ import { SourceBars } from "@/components/dashboard/source-bars";
 import { TopPages } from "@/components/dashboard/top-pages";
 import { AIAnalysisCard } from "@/components/dashboard/ai-analysis";
 import { SearchPerformance } from "@/components/dashboard/search-performance";
-import { ActiveWork } from "@/components/dashboard/active-work";
 import { WorkSummary } from "@/components/dashboard/work-summary";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -681,14 +680,6 @@ export default function ClientDashboard() {
                 clickUp={clickUp}
               />
             </div>
-
-            {/* Active Work */}
-            <ActiveWork
-              data={clickUp}
-              loading={clickUpLoading}
-              error={clickUpError}
-              enabled={clickupEnabled}
-            />
           </div>
 
           {/* ── Right column ── */}

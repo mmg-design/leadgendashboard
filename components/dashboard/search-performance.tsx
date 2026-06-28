@@ -70,6 +70,7 @@ function PositionBadge({ position }: { position: number }) {
 
 export function SearchPerformance({ data, loading, error, enabled }: SearchPerformanceProps) {
   const [expanded, setExpanded] = useState(false);
+  const [keywordsOpen, setKeywordsOpen] = useState(false);
 
   if (!enabled) {
     return (
@@ -207,71 +208,77 @@ export function SearchPerformance({ data, loading, error, enabled }: SearchPerfo
           </div>
         </div>
 
-        {/* Keyword table */}
+        {/* Keyword list — collapsed by default, toggle to reveal */}
         {keywords.length > 0 ? (
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                All keywords ({keywords.length})
-              </div>
-              <div className="flex items-center gap-3">
-                {unchanged > 0 && (
-                  <span className="text-[10px] text-muted-foreground/60">{unchanged} unchanged</span>
-                )}
-                {unranked.length > 0 && (
-                  <span className="text-[10px] text-muted-foreground/60">{unranked.length} not yet ranked</span>
-                )}
-              </div>
-            </div>
-
-            {/* Column headers */}
-            <div className="flex items-center gap-3 px-2 pb-1 border-b border-border/40 mb-1">
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-5">#</span>
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Keyword</span>
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-12 text-center">Rank</span>
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-12 text-right">7d change</span>
-            </div>
-
-            {/* Scrollable list */}
-            <div
-              className={`overflow-y-auto transition-all duration-200 ${expanded ? "max-h-[600px]" : "max-h-[260px]"}`}
-              style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(0,0,0,0.1) transparent" }}
+            {/* Toggle header — always visible */}
+            <button
+              onClick={() => setKeywordsOpen((o) => !o)}
+              className="w-full flex items-center justify-between py-2 px-2 rounded-lg hover:bg-muted/30 transition-colors group"
             >
-              <div className="space-y-0.5">
-                {keywords.map((kw, i) => (
-                  <div
-                    key={kw.id}
-                    className={`flex items-center gap-3 py-2 px-2 rounded-md hover:bg-muted/30 transition-colors ${kw.position === 0 ? "opacity-50" : ""}`}
-                  >
-                    <span className="text-[11px] font-medium text-muted-foreground/40 w-5 text-right shrink-0">
-                      {i + 1}
-                    </span>
-                    <span className="text-[12px] text-foreground/80 flex-1 truncate" title={kw.keyword}>
-                      {kw.keyword}
-                    </span>
-                    <div className="w-12 flex justify-center shrink-0">
-                      <PositionBadge position={kw.position} />
-                    </div>
-                    <div className="w-12 flex justify-end shrink-0">
-                      <DeltaBadge delta={kw.position === 0 ? null : kw.delta} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Toggle button */}
-            {keywords.length > 5 && (
-              <button
-                onClick={() => setExpanded((e) => !e)}
-                className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground rounded-md hover:bg-muted/30 transition-colors"
-              >
-                {expanded ? (
-                  <><ChevronUp size={12} /> Collapse</>
-                ) : (
-                  <><ChevronDown size={12} /> Show all {keywords.length} keywords</>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  All keywords ({keywords.length})
+                </span>
+                {unranked.length > 0 && (
+                  <span className="text-[10px] text-muted-foreground/40">{unranked.length} not yet ranked</span>
                 )}
-              </button>
+              </div>
+              <div className="flex items-center gap-2">
+                {unchanged > 0 && keywordsOpen && (
+                  <span className="text-[10px] text-muted-foreground/50">{unchanged} unchanged</span>
+                )}
+                {keywordsOpen
+                  ? <ChevronUp size={13} className="text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
+                  : <ChevronDown size={13} className="text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
+                }
+              </div>
+            </button>
+
+            {/* Expandable keyword list */}
+            {keywordsOpen && (
+              <>
+                {/* Column headers */}
+                <div className="flex items-center gap-3 px-2 pb-1 border-b border-border/40 mb-1 mt-1">
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-5">#</span>
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Keyword</span>
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-12 text-center">Rank</span>
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-12 text-right">7d change</span>
+                </div>
+
+                {/* Scrollable list */}
+                <div
+                  className={`overflow-y-auto transition-all duration-200 ${expanded ? "max-h-[500px]" : "max-h-[220px]"}`}
+                  style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(0,0,0,0.1) transparent" }}
+                >
+                  <div className="space-y-0.5">
+                    {keywords.map((kw, i) => (
+                      <div
+                        key={kw.id}
+                        className={`flex items-center gap-3 py-2 px-2 rounded-md hover:bg-muted/30 transition-colors ${kw.position === 0 ? "opacity-50" : ""}`}
+                      >
+                        <span className="text-[11px] font-medium text-muted-foreground/40 w-5 text-right shrink-0">{i + 1}</span>
+                        <span className="text-[12px] text-foreground/80 flex-1 truncate" title={kw.keyword}>{kw.keyword}</span>
+                        <div className="w-12 flex justify-center shrink-0">
+                          <PositionBadge position={kw.position} />
+                        </div>
+                        <div className="w-12 flex justify-end shrink-0">
+                          <DeltaBadge delta={kw.position === 0 ? null : kw.delta} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {keywords.length > 7 && (
+                  <button
+                    onClick={() => setExpanded((e) => !e)}
+                    className="mt-1 w-full flex items-center justify-center gap-1 py-1.5 text-[10px] text-muted-foreground/50 hover:text-muted-foreground rounded-md hover:bg-muted/30 transition-colors"
+                  >
+                    {expanded ? <><ChevronUp size={11} /> Show less</> : <><ChevronDown size={11} /> Show all {keywords.length}</>}
+                  </button>
+                )}
+              </>
             )}
           </div>
         ) : (

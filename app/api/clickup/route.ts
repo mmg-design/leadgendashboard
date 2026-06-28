@@ -155,22 +155,38 @@ export async function GET(req: NextRequest) {
     );
 
     // Time tracking for this month
+    // Build set of task IDs from all fetched tasks in our lists
+    const ourTaskIds = new Set<string>();
+    for (const result of listResults) {
+      for (const t of [...result.activeTasks, ...result.closedTasks]) {
+        if (t.id) ourTaskIds.add(t.id as string);
+      }
+    }
+
+    // Member numeric IDs (keys of memberMap when a.id was set)
+    const memberUserIds = Array.from(memberMap.keys()).filter((k) => /^\d+$/.test(k));
+
     let timeTrackedThisMonthMs = 0;
     try {
-      // Get workspace ID: stored in config or fetched from /team
       let workspaceId: string = (cuConfig as any).workspaceId ?? "";
       if (!workspaceId) {
         const teamData = await cuFetch("/team", apiKey);
         workspaceId = teamData?.teams?.[0]?.id ?? "";
       }
       if (workspaceId) {
-        const listIdParams = listIds.map((id) => `list_id[]=${id}`).join("&");
+        // Query by assignee so all members' entries are returned (not just auth user)
+        const assigneeParams = memberUserIds.length
+          ? "&" + memberUserIds.map((id) => `assignee[]=${id}`).join("&")
+          : "";
         const timeData = await cuFetch(
-          `/team/${workspaceId}/time_entries?start_date=${startOfMonth.getTime()}&end_date=${now}&${listIdParams}`,
+          `/team/${workspaceId}/time_entries?start_date=${startOfMonth.getTime()}&end_date=${now}${assigneeParams}`,
           apiKey
         );
         const entries: any[] = timeData?.data ?? [];
-        timeTrackedThisMonthMs = entries.reduce((sum, e) => sum + Number(e.duration || 0), 0);
+        // Filter to entries whose task belongs to our configured lists
+        timeTrackedThisMonthMs = entries
+          .filter((e) => ourTaskIds.size === 0 || ourTaskIds.has(e.task?.id))
+          .reduce((sum, e) => sum + Number(e.duration || 0), 0);
       }
     } catch {
       // time tracking is optional — don't fail the whole response
