@@ -45,8 +45,9 @@ export async function GET(req: NextRequest) {
         const [listInfo, activeTasks, closedTasks] = await Promise.all([
           cuFetch(`/list/${listId}`, apiKey),
           cuFetch(`/list/${listId}/task?include_closed=false&subtasks=true`, apiKey),
+          // Include both "done" (type:done) and "complete" (type:closed) statuses
           cuFetch(
-            `/list/${listId}/task?include_closed=true&statuses[]=complete&date_done_gt=${thirtyDaysAgo}`,
+            `/list/${listId}/task?include_closed=true&statuses[]=complete&statuses[]=done&date_done_gt=${thirtyDaysAgo}`,
             apiKey
           ),
         ]);
@@ -68,9 +69,12 @@ export async function GET(req: NextRequest) {
       const phase = result.listName;
       const tagged = (tasks: any[]) => tasks.map((t) => ({ ...t, _phase: phase }));
 
-      allActive.push(...tagged(result.activeTasks));
-      allCompleted.push(...tagged(result.closedTasks));
-      phaseGroups[phase] = (phaseGroups[phase] ?? 0) + result.activeTasks.length;
+      // Split: "done" status tasks count as completed, not active
+      const trulyActive = result.activeTasks.filter((t: any) => t.status?.status !== "done");
+      const doneButOpen = result.activeTasks.filter((t: any) => t.status?.status === "done");
+      allActive.push(...tagged(trulyActive));
+      allCompleted.push(...tagged([...doneButOpen, ...result.closedTasks]));
+      phaseGroups[phase] = (phaseGroups[phase] ?? 0) + trulyActive.length;
 
       for (const task of [...result.activeTasks, ...result.closedTasks]) {
         if (Array.isArray(task.assignees)) {
@@ -92,19 +96,21 @@ export async function GET(req: NextRequest) {
       (t) => t.due_date && Number(t.due_date) < now
     ).length;
 
-    const completedThisMonthCount = allCompleted.filter(
-      (t) => t.date_done && Number(t.date_done) >= startOfMonth.getTime()
-    ).length;
+    const completedThisMonthCount = allCompleted.filter((t) => {
+      const ts = Number(t.date_done || t.date_updated || 0);
+      return ts >= startOfMonth.getTime();
+    }).length;
 
     const activityFeed = allCompleted
-      .filter((t) => t.date_done)
-      .sort((a, b) => Number(b.date_done) - Number(a.date_done))
+      .map((t) => ({ ...t, _sortTs: Number(t.date_done || t.date_updated || 0) }))
+      .filter((t) => t._sortTs > 0)
+      .sort((a, b) => b._sortTs - a._sortTs)
       .slice(0, 10)
       .map((t) => ({
         id: t.id as string,
         name: t.name as string,
         phase: t._phase as string,
-        completedAt: new Date(Number(t.date_done)).toISOString(),
+        completedAt: new Date(t._sortTs).toISOString(),
       }));
 
     // Tasks updated in last 7 days — fetch comments for up to 5
