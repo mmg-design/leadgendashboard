@@ -60,6 +60,10 @@ interface SERankingData {
   allKeywords?: { id: string; keyword: string; position: number; delta: number | null }[];
   currentVisibility: number | null;
   visibilityHistory: { date: string; score: number }[];
+  siteHealthScore: number | null;
+  top10Count: number;
+  averagePosition: number | null;
+  newRankingsThisMonth: number;
 }
 
 interface ClickUpData {
