@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     const monthStartStr = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
     const thirtyDaysAgoStr = fmt(new Date(today.getTime() - 30 * 86400000));
 
-    const [keywords, positions, visHistory, healthHistory] = await Promise.all([
+    const [keywords, positions, visHistory] = await Promise.all([
       serankingFetch("/v1/project-management/keywords", apiKey, { site_id: projectId }),
       // Fetch from month start so we can derive both 7-day delta and "new this month"
       serankingFetch("/v1/project-management/sites/positions", apiKey, {
@@ -55,12 +55,6 @@ export async function GET(req: NextRequest) {
       serankingFetch("/v1/project-management/sites/positions/history", apiKey, {
         site_id: projectId,
         type: "visibility",
-        date_from: thirtyDaysAgoStr,
-        date_to: todayStr,
-      }),
-      serankingFetch("/v1/project-management/sites/positions/history", apiKey, {
-        site_id: projectId,
-        type: "health",
         date_from: thirtyDaysAgoStr,
         date_to: todayStr,
       }),
@@ -161,15 +155,10 @@ export async function GET(req: NextRequest) {
         ? visibilityHistory[visibilityHistory.length - 1].score
         : null;
 
-    // Site health: use "Average for all" entry from health history, or max across engines
-    let siteHealthScore: number | null = null;
-    if (Array.isArray(healthHistory)) {
-      const avgEntry = healthHistory.find((e: any) => e.type === "avg") ?? healthHistory[0];
-      const dataArr: { date: string; value: number | string }[] = avgEntry?.data ?? [];
-      if (dataArr.length > 0) {
-        siteHealthScore = Number(dataArr[dataArr.length - 1].value);
-      }
-    }
+    // Site health: stored in client config (SE Ranking's Website Audit score, updated manually).
+    // The audit API (api4.seranking.com) is not accessible via the standard API token.
+    const siteHealthScore: number | null =
+      typeof srConfig.auditHealthScore === "number" ? srConfig.auditHealthScore : null;
 
     return NextResponse.json({
       totalKeywords: kwMap.size,

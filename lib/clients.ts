@@ -17,6 +17,7 @@ export interface ClientConfig {
     seRanking?: {
       enabled: boolean;
       projectId: string;
+      auditHealthScore?: number;
     };
     clickup?: {
       enabled: boolean;
