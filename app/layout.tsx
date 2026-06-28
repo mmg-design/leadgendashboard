@@ -22,6 +22,17 @@ const tiemposHeadline = localFont({
 export const metadata: Metadata = {
   title: "Lead Gen Dashboard",
   description: "Website visibility & lead intelligence",
+  icons: {
+    icon: [
+      {
+        url: "/mmg-icon.png",
+        type: "image/png",
+        sizes: "136x136",
+      },
+    ],
+    shortcut: "/mmg-icon.png",
+    apple: "/mmg-icon.png",
+  },
   robots: {
     index: false,
     follow: false,
