@@ -25,6 +25,7 @@ interface WorkSummaryProps {
   data: WorkSummaryData | null;
   loading: boolean;
   enabled: boolean;
+  error?: string | null;
 }
 
 function formatDuration(ms: number): string {
@@ -37,7 +38,7 @@ function formatDuration(ms: number): string {
   return `${h}h ${m}m`;
 }
 
-export function WorkSummary({ clientName, data, loading, enabled }: WorkSummaryProps) {
+export function WorkSummary({ clientName, data, loading, enabled, error }: WorkSummaryProps) {
   // Merge activity feed + comments into a single stream, sorted by recency
   const activityStream: { id: string; name: string; phase: string; text?: string; ts: number }[] = [];
 
@@ -84,7 +85,9 @@ export function WorkSummary({ clientName, data, loading, enabled }: WorkSummaryP
                   <span>Time tracked this month</span>
                 </div>
                 <div className="text-[18px] font-light text-[#0B4F6C] tabular-nums">
-                  {loading ? (
+                  {error ? (
+                    <span className="text-[12px] text-red-500">Unavailable</span>
+                  ) : loading ? (
                     <span className="text-[12px] text-muted-foreground/40">—</span>
                   ) : (
                     formatDuration(data?.timeTrackedThisMonthMs ?? 0)
@@ -110,6 +113,8 @@ export function WorkSummary({ clientName, data, loading, enabled }: WorkSummaryP
             <p className="text-[12px] text-muted-foreground py-2">
               Connect ClickUp to see recent activity.
             </p>
+          ) : error ? (
+            <p className="text-[12px] text-red-500 py-2">{error}</p>
           ) : loading ? (
             <div className="space-y-2 animate-pulse">
               {[1, 2, 3, 4].map((i) => (

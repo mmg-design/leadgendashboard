@@ -691,6 +691,7 @@ export default function ClientDashboard() {
               data={clickUp}
               loading={clickUpLoading}
               enabled={clickupEnabled}
+              error={clickUpError}
             />
           </div>
         </div>
