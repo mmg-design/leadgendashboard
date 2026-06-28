@@ -63,13 +63,17 @@ export async function GET(req: NextRequest) {
     const [summaryReport, dailyReport, sourcesReport] = await Promise.all([
       analyticsClient.runReport({
         property: `properties/${propertyId}`,
-        dateRanges: [{ startDate, endDate: "today" }],
+        dateRanges: [
+          { startDate, endDate: "today" },
+          { startDate: "60daysAgo", endDate: "31daysAgo" },
+        ],
         metrics: [
           { name: "sessions" },
           { name: "screenPageViews" },
           { name: "activeUsers" },
           { name: "averageSessionDuration" },
           { name: "bounceRate" },
+          { name: "engagementRate" },
         ],
       }),
       analyticsClient.runReport({
@@ -101,18 +105,28 @@ export async function GET(req: NextRequest) {
       limit: 10,
     });
 
-    const summaryRow = summaryReport[0]?.rows?.[0];
-    const metrics = summaryRow?.metricValues || [];
+    const rows = summaryReport[0]?.rows || [];
+    const currentRow = rows[0];
+    const prevRow = rows[1];
+    const metrics = currentRow?.metricValues || [];
+    const prevMetrics = prevRow?.metricValues || [];
     const avgDuration = parseFloat(metrics[3]?.value || "0");
     const minutes = Math.floor(avgDuration / 60);
     const seconds = Math.floor(avgDuration % 60);
+    const currentSessions = parseInt(metrics[0]?.value || "0");
+    const prevSessions = parseInt(prevMetrics[0]?.value || "0");
+    const sessionChange = prevSessions > 0
+      ? Math.round(((currentSessions - prevSessions) / prevSessions) * 100)
+      : null;
 
     const summary = {
-      sessions: parseInt(metrics[0]?.value || "0"),
+      sessions: currentSessions,
+      sessionsChange: sessionChange,
       pageviews: parseInt(metrics[1]?.value || "0"),
       uniqueVisitors: parseInt(metrics[2]?.value || "0"),
       avgSessionDuration: `${minutes}m ${seconds}s`,
       bounceRate: `${(parseFloat(metrics[4]?.value || "0") * 100).toFixed(1)}%`,
+      engagementRate: `${(parseFloat(metrics[5]?.value || "0") * 100).toFixed(1)}%`,
     };
 
     const dailySessions = (dailyReport[0]?.rows || []).map((row) => {

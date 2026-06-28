@@ -33,10 +33,12 @@ import {
 interface GAData {
   summary: {
     sessions: number;
+    sessionsChange?: number | null;
     pageviews: number;
     uniqueVisitors: number;
     avgSessionDuration: string;
     bounceRate: string;
+    engagementRate?: string;
   };
   dailySessions: { date: string; sessions: number; pageviews: number }[];
   topSources: { source: string; sessions: number }[];
@@ -45,8 +47,11 @@ interface GAData {
 
 interface ClarityData {
   topSessionUrl: string;
-  pageEngagement: { page: string; engagementScore: number; totalSessions: number }[];
+  pageEngagement: { page: string; engagementScore: number; totalSessions: number; scrollDepth?: number }[];
   projectId: string;
+  rageClicks?: number;
+  deadClicks?: number;
+  homepageScrollDepth?: number | null;
 }
 
 interface SERankingData {
@@ -646,16 +651,11 @@ export default function ClientDashboard() {
                   tooltip="How many different people visited. Repeat visits from the same person only count once."
                 />
                 <StatCard
-                  title="Bounce Rate"
-                  value={ga?.summary.bounceRate || "—"}
+                  title="Engagement Rate"
+                  value={ga?.summary.engagementRate || ga?.summary.bounceRate || "—"}
                   subtitle={ga?.summary.avgSessionDuration ? `Avg ${ga.summary.avgSessionDuration}` : "—"}
                   icon={<ArrowDownUp size={16} />}
-                  tooltip="The % of visitors who left after seeing just one page. Under 50% is solid."
-                  health={
-                    ga?.summary.bounceRate
-                      ? getHealth("bounceRate", parseFloat(ga.summary.bounceRate))
-                      : null
-                  }
+                  tooltip="% of sessions where the user actively engaged — scrolled, clicked, or stayed 10+ seconds. GA4's replacement for bounce rate. 60%+ is healthy."
                 />
               </div>
 
@@ -679,14 +679,18 @@ export default function ClientDashboard() {
                     topSessionUrl={clarity.topSessionUrl}
                     projectId={clarity.projectId}
                     pageEngagement={clarity.pageEngagement}
+                    rageClicks={clarity.rageClicks}
+                    deadClicks={clarity.deadClicks}
+                    homepageScrollDepth={clarity.homepageScrollDepth}
                   />
                 )}
                 <AIAnalysisCard
                   clientName={clientName}
                   range={range}
                   ga={ga}
-                  visitors={null}
                   clarity={clarity}
+                  seRanking={seRanking}
+                  clickUp={clickUp}
                 />
               </div>
             </div>
