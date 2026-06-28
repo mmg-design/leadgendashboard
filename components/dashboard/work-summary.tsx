@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Activity, Calendar, Clock } from "lucide-react";
+import { Activity, Calendar, Clock, RefreshCw } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 
 interface CommentItem {
@@ -26,6 +26,7 @@ interface WorkSummaryProps {
   loading: boolean;
   enabled: boolean;
   error?: string | null;
+  onRefresh?: () => void;
 }
 
 function formatDuration(ms: number): string {
@@ -38,7 +39,7 @@ function formatDuration(ms: number): string {
   return `${h}h ${m}m`;
 }
 
-export function WorkSummary({ clientName, data, loading, enabled, error }: WorkSummaryProps) {
+export function WorkSummary({ clientName, data, loading, enabled, error, onRefresh }: WorkSummaryProps) {
   // Merge activity feed + comments into a single stream, sorted by recency
   const activityStream: { id: string; name: string; phase: string; text?: string; ts: number }[] = [];
 
@@ -107,6 +108,14 @@ export function WorkSummary({ clientName, data, loading, enabled, error }: WorkS
             <span className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">
               Recent Activity
             </span>
+            <button
+              onClick={onRefresh}
+              disabled={loading || !onRefresh}
+              title="Refresh recent activity"
+              className="ml-auto p-1 rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
+            >
+              <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+            </button>
           </div>
 
           {!enabled ? (

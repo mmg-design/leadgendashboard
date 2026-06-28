@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown, ChevronDown, ChevronUp, ShieldCheck, Star, BarChart2, Sparkles } from "lucide-react";
+import { Search, TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown, ChevronDown, ChevronUp, Bot, Star, BarChart2, Sparkles, RefreshCw } from "lucide-react";
 
 interface KeywordRow {
   id: string;
@@ -19,7 +19,8 @@ interface SearchPerformanceData {
   allKeywords?: KeywordRow[];
   currentVisibility: number | null;
   visibilityHistory: { date: string; score: number }[];
-  siteHealthScore: number | null;
+  aiVisibilityScore: number | null;
+  aiOverviewCount: number;
   top10Count: number;
   averagePosition: number | null;
   newRankingsThisMonth: number;
@@ -30,6 +31,7 @@ interface SearchPerformanceProps {
   loading: boolean;
   error: string | null;
   enabled: boolean;
+  onRefresh?: () => void;
 }
 
 function DeltaBadge({ delta }: { delta: number | null }) {
@@ -71,10 +73,10 @@ function PositionBadge({ position }: { position: number }) {
   );
 }
 
-function healthColor(score: number | null) {
+function aiVisibilityColor(score: number | null) {
   if (score === null) return "text-muted-foreground";
-  if (score >= 90) return "text-emerald-600";
-  if (score >= 70) return "text-amber-600";
+  if (score >= 50) return "text-emerald-600";
+  if (score >= 20) return "text-amber-600";
   return "text-red-500";
 }
 
@@ -105,7 +107,7 @@ function MetricTile({
   );
 }
 
-export function SearchPerformance({ data, loading, error, enabled }: SearchPerformanceProps) {
+export function SearchPerformance({ data, loading, error, enabled, onRefresh }: SearchPerformanceProps) {
   const [expanded, setExpanded] = useState(false);
   const [keywordsOpen, setKeywordsOpen] = useState(false);
 
@@ -180,8 +182,8 @@ export function SearchPerformance({ data, loading, error, enabled }: SearchPerfo
   const unranked = keywords.filter((k) => k.position === 0);
   const unchanged = keywords.filter((k) => k.delta === 0).length;
 
-  const healthVal = data.siteHealthScore;
-  const healthLabel = healthVal === null ? "—" : `${healthVal}%`;
+  const aiScore = data.aiVisibilityScore;
+  const aiLabel = aiScore === null ? "—" : `${aiScore}%`;
 
   return (
     <Card>
@@ -191,7 +193,15 @@ export function SearchPerformance({ data, loading, error, enabled }: SearchPerfo
           <CardTitle className="text-[17px] font-headline font-normal text-muted-foreground">
             Search Performance
           </CardTitle>
-          <span className="text-[11px] text-muted-foreground ml-auto">SE Ranking</span>
+          <span className="text-[11px] text-muted-foreground">SE Ranking</span>
+          <button
+            onClick={onRefresh}
+            disabled={loading || !onRefresh}
+            title="Refresh search performance data"
+            className="ml-auto p-1 rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
+          >
+            <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+          </button>
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -199,11 +209,11 @@ export function SearchPerformance({ data, loading, error, enabled }: SearchPerfo
         {/* 4 metric tiles */}
         <div className="grid grid-cols-2 gap-2">
           <MetricTile
-            icon={<ShieldCheck size={11} />}
-            label="Site Health"
-            value={healthLabel}
-            valueClass={healthColor(healthVal)}
-            sub="Technical score"
+            icon={<Bot size={11} />}
+            label="AI Visibility"
+            value={aiLabel}
+            valueClass={aiVisibilityColor(aiScore)}
+            sub={aiScore !== null ? `${data.aiOverviewCount} of ${data.totalKeywords} keywords` : "Google AI Overviews"}
           />
           <MetricTile
             icon={<Star size={11} />}

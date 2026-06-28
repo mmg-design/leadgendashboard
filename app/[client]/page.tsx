@@ -26,6 +26,7 @@ import {
   Check,
   ImageIcon,
   UploadCloud,
+  RefreshCw,
 } from "lucide-react";
 
 interface GAData {
@@ -60,7 +61,8 @@ interface SERankingData {
   allKeywords?: { id: string; keyword: string; position: number; delta: number | null }[];
   currentVisibility: number | null;
   visibilityHistory: { date: string; score: number }[];
-  siteHealthScore: number | null;
+  aiVisibilityScore: number | null;
+  aiOverviewCount: number;
   top10Count: number;
   averagePosition: number | null;
   newRankingsThisMonth: number;
@@ -141,6 +143,8 @@ export default function ClientDashboard() {
   );
   const [clientConfig, setClientConfig] = useState<ClientConfig | null>(null);
   const [ga, setGa] = useState<GAData | null>(null);
+  const [gaLoading, setGaLoading] = useState(false);
+  const [gaError, setGaError] = useState<string | null>(null);
   const [clarity, setClarity] = useState<ClarityData | null>(null);
   const [seRanking, setSeRanking] = useState<SERankingData | null>(null);
   const [seRankingLoading, setSeRankingLoading] = useState(false);
@@ -148,7 +152,6 @@ export default function ClientDashboard() {
   const [clickUp, setClickUp] = useState<ClickUpData | null>(null);
   const [clickUpLoading, setClickUpLoading] = useState(false);
   const [clickUpError, setClickUpError] = useState<string | null>(null);
-  const [gaError, setGaError] = useState<string | null>(null);
 
   // Settings panel state
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -319,12 +322,12 @@ export default function ClientDashboard() {
       .catch(() => {});
   }, [clientSlug]);
 
-  // Load SE Ranking (only when enabled)
-  useEffect(() => {
+  function fetchSeRanking(refresh = false) {
     if (!clientConfig?.integrations?.seRanking?.enabled) return;
     setSeRankingLoading(true);
     setSeRankingError(null);
-    fetch(`/api/seranking?client=${clientSlug}`)
+    const url = `/api/seranking?client=${clientSlug}${refresh ? `&_t=${Date.now()}` : ""}`;
+    fetch(url)
       .then((r) => r.json())
       .then((data) => {
         if (data.error) setSeRankingError(data.error);
@@ -332,14 +335,14 @@ export default function ClientDashboard() {
       })
       .catch(() => setSeRankingError("Failed to load SE Ranking data"))
       .finally(() => setSeRankingLoading(false));
-  }, [clientSlug, clientConfig]);
+  }
 
-  // Load ClickUp (only when enabled)
-  useEffect(() => {
+  function fetchClickUp(refresh = false) {
     if (!clientConfig?.integrations?.clickup?.enabled) return;
     setClickUpLoading(true);
     setClickUpError(null);
-    fetch(`/api/clickup?client=${clientSlug}`)
+    const url = `/api/clickup?client=${clientSlug}${refresh ? `&_t=${Date.now()}` : ""}`;
+    fetch(url)
       .then((r) => r.json())
       .then((data) => {
         if (data.error) setClickUpError(data.error);
@@ -347,11 +350,12 @@ export default function ClientDashboard() {
       })
       .catch(() => setClickUpError("Failed to load ClickUp data"))
       .finally(() => setClickUpLoading(false));
-  }, [clientSlug, clientConfig]);
+  }
 
-  // Load GA4
-  useEffect(() => {
-    fetch(`/api/ga?client=${clientSlug}&range=${range}`)
+  function fetchGa(refresh = false) {
+    setGaLoading(true);
+    const url = `/api/ga?client=${clientSlug}&range=${range}${refresh ? `&_t=${Date.now()}` : ""}`;
+    fetch(url)
       .then((r) => r.json())
       .then((data) => {
         if (data.error) {
@@ -362,8 +366,18 @@ export default function ClientDashboard() {
           setGa(data);
         }
       })
-      .catch(() => setGaError("Failed to load analytics"));
-  }, [clientSlug, range]);
+      .catch(() => setGaError("Failed to load analytics"))
+      .finally(() => setGaLoading(false));
+  }
+
+  // Load SE Ranking (only when enabled)
+  useEffect(() => { fetchSeRanking(); }, [clientSlug, clientConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load ClickUp (only when enabled)
+  useEffect(() => { fetchClickUp(); }, [clientSlug, clientConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load GA4
+  useEffect(() => { fetchGa(); }, [clientSlug, range]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const seRankingEnabled = !!clientConfig?.integrations?.seRanking?.enabled;
   const clickupEnabled = !!clientConfig?.integrations?.clickup?.enabled;
@@ -619,12 +633,23 @@ export default function ClientDashboard() {
               loading={seRankingLoading}
               error={seRankingError}
               enabled={seRankingEnabled}
+              onRefresh={() => fetchSeRanking(true)}
             />
 
             {/* Website Performance */}
             <div className="space-y-4">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
-                Website Performance
+              <div className="flex items-center justify-between px-1">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Website Performance
+                </div>
+                <button
+                  onClick={() => fetchGa(true)}
+                  disabled={gaLoading}
+                  title="Refresh website performance data"
+                  className="p-1 rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
+                >
+                  <RefreshCw size={12} className={gaLoading ? "animate-spin" : ""} />
+                </button>
               </div>
 
               {/* Stat cards */}
@@ -696,6 +721,7 @@ export default function ClientDashboard() {
               loading={clickUpLoading}
               enabled={clickupEnabled}
               error={clickUpError}
+              onRefresh={() => fetchClickUp(true)}
             />
           </div>
         </div>

@@ -3,14 +3,14 @@ import { getClient } from "@/lib/clients";
 
 const SE_RANKING_BASE = "https://api.seranking.com";
 
-async function serankingFetch(path: string, apiKey: string, params?: Record<string, string>) {
+async function serankingFetch(path: string, apiKey: string, params?: Record<string, string>, fresh = false) {
   let url = `${SE_RANKING_BASE}${path}`;
   if (params) {
     url += "?" + new URLSearchParams(params).toString();
   }
   const res = await fetch(url, {
     headers: { Authorization: `Token ${apiKey}` },
-    next: { revalidate: 3600 },
+    ...(fresh ? { cache: "no-store" } : { next: { revalidate: 3600 } }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -25,6 +25,8 @@ export async function GET(req: NextRequest) {
 
   const apiKey = process.env.SERANKING_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "SERANKING_API_KEY not set" }, { status: 503 });
+
+  const fresh = req.nextUrl.searchParams.has("_t");
 
   try {
     const clientConfig = await getClient(clientSlug);
@@ -44,20 +46,25 @@ export async function GET(req: NextRequest) {
     const monthStartStr = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
     const thirtyDaysAgoStr = fmt(new Date(today.getTime() - 30 * 86400000));
 
-    const [keywords, positions, visHistory] = await Promise.all([
-      serankingFetch("/v1/project-management/keywords", apiKey, { site_id: projectId }),
-      // Fetch from month start so we can derive both 7-day delta and "new this month"
+    const [keywords, positions, visHistory, aiPositions] = await Promise.all([
+      serankingFetch("/v1/project-management/keywords", apiKey, { site_id: projectId }, fresh),
       serankingFetch("/v1/project-management/sites/positions", apiKey, {
         site_id: projectId,
         date_from: monthStartStr,
         date_to: todayStr,
-      }),
+      }, fresh),
       serankingFetch("/v1/project-management/sites/positions/history", apiKey, {
         site_id: projectId,
         type: "visibility",
         date_from: thirtyDaysAgoStr,
         date_to: todayStr,
-      }),
+      }, fresh),
+      serankingFetch("/v1/project-management/sites/positions", apiKey, {
+        site_id: projectId,
+        type: "ai_overview",
+        date_from: todayStr,
+        date_to: todayStr,
+      }, fresh),
     ]);
 
     // Build keyword name map
@@ -155,10 +162,21 @@ export async function GET(req: NextRequest) {
         ? visibilityHistory[visibilityHistory.length - 1].score
         : null;
 
-    // Site health: stored in client config (SE Ranking's Website Audit score, updated manually).
-    // The audit API (api4.seranking.com) is not accessible via the standard API token.
-    const siteHealthScore: number | null =
-      typeof srConfig.auditHealthScore === "number" ? srConfig.auditHealthScore : null;
+    // AI Overview visibility: % of keywords appearing in Google AI Overviews
+    let aiOverviewCount = 0;
+    const totalTracked = kwMap.size;
+    if (Array.isArray(aiPositions) && aiPositions.length > 0) {
+      const aiEngine = aiPositions[0];
+      if (Array.isArray(aiEngine.keywords)) {
+        for (const kwPos of aiEngine.keywords) {
+          const positions = kwPos.positions ?? [];
+          const latest = Number(positions[positions.length - 1]?.pos ?? 0);
+          if (latest > 0) aiOverviewCount++;
+        }
+      }
+    }
+    const aiVisibilityScore: number | null =
+      totalTracked > 0 ? Math.round((aiOverviewCount / totalTracked) * 100) : null;
 
     return NextResponse.json({
       totalKeywords: kwMap.size,
@@ -168,7 +186,8 @@ export async function GET(req: NextRequest) {
       allKeywords,
       currentVisibility,
       visibilityHistory,
-      siteHealthScore,
+      aiVisibilityScore,
+      aiOverviewCount,
       top10Count,
       averagePosition,
       newRankingsThisMonth,

@@ -27,6 +27,7 @@ let analyticsClient: BetaAnalyticsDataClient | null = null;
 export async function GET(req: NextRequest) {
   const client = req.nextUrl.searchParams.get("client");
   const range = req.nextUrl.searchParams.get("range") || "7d";
+  const isRefresh = req.nextUrl.searchParams.has("_t");
 
   if (!client) {
     return NextResponse.json({ error: "Missing client param" }, { status: 400 });
@@ -39,17 +40,18 @@ export async function GET(req: NextRequest) {
 
   const propertyId = config.integrations.googleAnalytics.propertyId;
 
-  // Check cache first (refresh every 15 min)
+  // Check cache first (refresh every 15 min) — skipped on manual refresh
   const db = await getDb();
-  const cached = await db.execute({
-    sql: `SELECT data, fetched_at FROM analytics_cache
-          WHERE client_slug = ? AND metric_type = 'ga_overview' AND date_range = ?
-          AND fetched_at > datetime('now', '-15 minutes')`,
-    args: [client, range],
-  });
-
-  if (cached.rows.length > 0) {
-    return NextResponse.json(JSON.parse(cached.rows[0].data as string));
+  if (!isRefresh) {
+    const cached = await db.execute({
+      sql: `SELECT data, fetched_at FROM analytics_cache
+            WHERE client_slug = ? AND metric_type = 'ga_overview' AND date_range = ?
+            AND fetched_at > datetime('now', '-15 minutes')`,
+      args: [client, range],
+    });
+    if (cached.rows.length > 0) {
+      return NextResponse.json(JSON.parse(cached.rows[0].data as string));
+    }
   }
 
   const daysMap: Record<string, string> = { "7d": "7daysAgo", "30d": "30daysAgo", "90d": "90daysAgo" };

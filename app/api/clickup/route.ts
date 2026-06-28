@@ -3,10 +3,10 @@ import { getClient } from "@/lib/clients";
 
 const CLICKUP_BASE = "https://api.clickup.com/api/v2";
 
-async function cuFetch(path: string, apiKey: string) {
+async function cuFetch(path: string, apiKey: string, fresh = false) {
   const res = await fetch(`${CLICKUP_BASE}${path}`, {
     headers: { Authorization: apiKey },
-    next: { revalidate: 300 },
+    ...(fresh ? { cache: "no-store" } : { next: { revalidate: 300 } }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -21,6 +21,8 @@ export async function GET(req: NextRequest) {
 
   const apiKey = process.env.CLICKUP_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "CLICKUP_API_KEY not set" }, { status: 503 });
+
+  const fresh = req.nextUrl.searchParams.has("_t");
 
   try {
     const clientConfig = await getClient(clientSlug);
@@ -43,12 +45,12 @@ export async function GET(req: NextRequest) {
     const listResults = await Promise.all(
       listIds.map(async (listId) => {
         const [listInfo, activeTasks, closedTasks] = await Promise.all([
-          cuFetch(`/list/${listId}`, apiKey),
-          cuFetch(`/list/${listId}/task?include_closed=false&subtasks=true`, apiKey),
-          // Include both "done" (type:done) and "complete" (type:closed) statuses
+          cuFetch(`/list/${listId}`, apiKey, fresh),
+          cuFetch(`/list/${listId}/task?include_closed=false&subtasks=true`, apiKey, fresh),
           cuFetch(
             `/list/${listId}/task?include_closed=true&statuses[]=complete&statuses[]=done&date_done_gt=${thirtyDaysAgo}`,
-            apiKey
+            apiKey,
+            fresh
           ),
         ]);
         return {
@@ -130,7 +132,7 @@ export async function GET(req: NextRequest) {
     await Promise.all(
       recentlyUpdated.map(async (task) => {
         try {
-          const data = await cuFetch(`/task/${task.id}/comment`, apiKey);
+          const data = await cuFetch(`/task/${task.id}/comment`, apiKey, fresh);
           const comments: any[] = data.comments || [];
           if (comments.length > 0) {
             const latest = comments[comments.length - 1];
