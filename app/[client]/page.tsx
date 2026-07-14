@@ -13,6 +13,7 @@ import { AIAnalysisCard } from "@/components/dashboard/ai-analysis";
 import { SearchPerformance } from "@/components/dashboard/search-performance";
 import { WorkSummary } from "@/components/dashboard/work-summary";
 import { Attribution } from "@/components/dashboard/attribution";
+import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
 import type { GoalConfig } from "@/lib/clients";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -550,6 +551,9 @@ export default function ClientDashboard() {
                     placeholder="properties/123456789"
                     className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
                   />
+                  <div className="mt-1.5">
+                    <GaServiceAccountHint />
+                  </div>
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Clarity Project ID</label>

@@ -1,10 +1,25 @@
 import { getDb } from "./db";
 
+export type ConversionType = "pageview" | "event" | "click" | "form_submit" | "scroll_depth" | "time_on_page";
+
+// Trigger types the dashboard owns end-to-end (fired by our own snippet, no
+// pre-existing GA4/GTM setup required). "pageview" and "event" are the two
+// exceptions: pageview uses GA4's automatic page_view, and "event" reads back
+// a real event a client already had instrumented before this system existed.
+export const SNIPPET_TRIGGER_TYPES: ConversionType[] = ["click", "form_submit", "scroll_depth", "time_on_page"];
+
 export interface GoalConfig {
   id: string;
-  conversionType: "pageview" | "event";
-  conversionValue: string;
+  conversionType: ConversionType;
+  conversionValue: string; // meaning depends on type — see each trigger's setup step
   label?: string;
+  scopePagePath?: string; // optional: only fire on this page (click/form_submit/scroll_depth/time_on_page)
+}
+
+// Deterministic GA4 event name for a dashboard-owned trigger, shared between the
+// tracking snippet (which fires it) and the GA4 query (which reads it back).
+export function syntheticEventName(goalId: string): string {
+  return `mmg_${goalId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 30)}`;
 }
 
 export interface ClientConfig {
@@ -47,9 +62,10 @@ function normalizeGoals(raw: string | null): GoalConfig[] {
     .filter((g) => g && g.conversionType && g.conversionValue)
     .map((g, i) => ({
       id: g.id || `goal-${i}`,
-      conversionType: g.conversionType as "pageview" | "event",
+      conversionType: g.conversionType as ConversionType,
       conversionValue: g.conversionValue as string,
       label: g.label,
+      scopePagePath: g.scopePagePath,
     }));
 }
 

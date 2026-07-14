@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { BetaAnalyticsDataClient } from "@google-analytics/data";
-import { getClient, type GoalConfig } from "@/lib/clients";
+import { getClient, syntheticEventName, SNIPPET_TRIGGER_TYPES, type GoalConfig } from "@/lib/clients";
 import { getDb } from "@/lib/db";
 import fs from "fs";
 import path from "path";
@@ -30,6 +30,14 @@ function conversionFilterFor(goal: GoalConfig) {
       filter: {
         fieldName: "eventName",
         stringFilter: { matchType: "EXACT" as const, value: goal.conversionValue },
+      },
+    };
+  }
+  if (SNIPPET_TRIGGER_TYPES.includes(goal.conversionType)) {
+    return {
+      filter: {
+        fieldName: "eventName",
+        stringFilter: { matchType: "EXACT" as const, value: syntheticEventName(goal.id) },
       },
     };
   }

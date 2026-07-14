@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { GoalConfig } from "@/lib/clients";
+import { EventWizardModal, type WizardValues } from "@/components/dashboard/event-wizard-modal";
 import {
   Search,
   Eye,
@@ -146,156 +147,12 @@ function tookActionInsight(converted: number, change: number | null) {
   };
 }
 
-type GoalFormValues = { conversionType: "pageview" | "event"; conversionValue: string; label: string };
-
-function GoalForm({
-  initial,
-  suggestions,
-  suggestionsLoading,
-  onSubmit,
-  onCancel,
-  submitLabel,
-}: {
-  initial?: GoalFormValues;
-  suggestions: DiscoverResult | null;
-  suggestionsLoading: boolean;
-  onSubmit: (values: GoalFormValues) => Promise<void>;
-  onCancel: () => void;
-  submitLabel: string;
-}) {
-  const [conversionType, setConversionType] = useState<"pageview" | "event">(initial?.conversionType || "pageview");
-  const [conversionValue, setConversionValue] = useState(initial?.conversionValue || "");
-  const [label, setLabel] = useState(initial?.label || "");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const relevantSuggestions: Suggestion[] =
-    conversionType === "event" ? suggestions?.eventSuggestions || [] : suggestions?.pageSuggestions || [];
-
-  function pickSuggestion(s: Suggestion) {
-    const value = "name" in s ? (s as EventSuggestion).name : (s as PageSuggestion).path;
-    setConversionValue(value);
-    if (!label && s.suggestedLabel) setLabel(s.suggestedLabel);
-  }
-
-  async function handleSubmit() {
-    if (!conversionValue.trim()) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await onSubmit({ conversionType, conversionValue: conversionValue.trim(), label: label.trim() });
-    } catch {
-      setError("Couldn't save — try again.");
-      setSaving(false);
-    }
-  }
-
+function RailStep({ color, isFirst, isLast }: { color: string; isFirst?: boolean; isLast?: boolean }) {
   return (
-    <div className="p-4 rounded-lg bg-muted/40 border border-border/60 space-y-4">
-      <div className="space-y-2">
-        <label className="flex items-start gap-2 text-[12px] cursor-pointer">
-          <input
-            type="radio"
-            checked={conversionType === "pageview"}
-            onChange={() => { setConversionType("pageview"); setConversionValue(""); }}
-            className="mt-0.5"
-          />
-          <span>
-            <span className="font-medium text-foreground/80">A page loads</span>
-            <span className="text-muted-foreground"> — like a thank-you or confirmation page</span>
-          </span>
-        </label>
-        <label className="flex items-start gap-2 text-[12px] cursor-pointer">
-          <input
-            type="radio"
-            checked={conversionType === "event"}
-            onChange={() => { setConversionType("event"); setConversionValue(""); }}
-            className="mt-0.5"
-          />
-          <span>
-            <span className="font-medium text-foreground/80">A specific action already fires</span>
-            <span className="text-muted-foreground"> — like a form submit event in GA4</span>
-          </span>
-        </label>
-      </div>
-
-      <div>
-        <p className="text-[11px] font-medium text-foreground/70 mb-1.5">
-          {suggestionsLoading
-            ? "Checking what's actually firing on this site..."
-            : relevantSuggestions.length > 0
-            ? "Actually firing on this site — tap to use:"
-            : "Nothing matching found automatically — enter it manually below."}
-        </p>
-        {relevantSuggestions.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {relevantSuggestions.map((s) => {
-              const value = "name" in s ? (s as EventSuggestion).name : (s as PageSuggestion).path;
-              const count = "count" in s && s.count !== undefined ? s.count : (s as PageSuggestion).views;
-              const active = conversionValue === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => pickSuggestion(s)}
-                  className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
-                    active
-                      ? "border-[#0B4F6C] bg-[#0B4F6C]/10 text-[#0B4F6C]"
-                      : "border-border/60 text-muted-foreground hover:border-[#0B4F6C]/40"
-                  }`}
-                >
-                  {value} <span className="opacity-50">· {count}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <div>
-        <label className="text-[11px] font-medium text-foreground/70 mb-1 block">
-          {conversionType === "pageview" ? "Page path" : "GA4 event name"}
-        </label>
-        <input
-          type="text"
-          value={conversionValue}
-          onChange={(e) => setConversionValue(e.target.value)}
-          placeholder={conversionType === "pageview" ? "/thank-you" : "form_submit"}
-          className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
-        />
-      </div>
-
-      <div>
-        <label className="text-[11px] font-medium text-foreground/70 mb-1 block">
-          What do you call this? (optional)
-        </label>
-        <input
-          type="text"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="Booked a call"
-          className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
-        />
-      </div>
-
-      {error && <p className="text-[11px] text-red-600">{error}</p>}
-
-      <div className="flex items-center gap-2">
-        <button
-          onClick={handleSubmit}
-          disabled={saving || !conversionValue.trim()}
-          className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-white bg-[#0B4F6C] rounded-lg hover:bg-[#0B4F6C]/90 disabled:opacity-50 transition-colors"
-        >
-          {saving ? <Loader2 size={14} className="animate-spin" /> : null}
-          {saving ? "Saving..." : submitLabel}
-        </button>
-        <button
-          onClick={onCancel}
-          className="px-3 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Cancel
-        </button>
-      </div>
+    <div className="w-5 shrink-0 flex flex-col items-center">
+      <div className={`w-0.5 flex-1 ${isFirst ? "bg-transparent" : "bg-border"}`} />
+      <div className="w-3 h-3 rounded-full shrink-0 ring-[3px] ring-background" style={{ backgroundColor: color }} />
+      <div className={`w-0.5 flex-1 ${isLast ? "bg-transparent" : "bg-border"}`} />
     </div>
   );
 }
@@ -312,7 +169,6 @@ function StageCard({
   widthPct,
   onRefresh,
   refreshing,
-  headerExtra,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -325,7 +181,6 @@ function StageCard({
   widthPct: number;
   onRefresh: () => void;
   refreshing: boolean;
-  headerExtra?: React.ReactNode;
 }) {
   return (
     <Card>
@@ -350,7 +205,6 @@ function StageCard({
             >
               <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
             </button>
-            {headerExtra}
           </div>
         </div>
 
@@ -378,6 +232,207 @@ function StageCard({
   );
 }
 
+function MiniGoalCard({
+  title,
+  count,
+  widthPct,
+  caption,
+  onRefresh,
+  refreshing,
+  onEdit,
+  isPendingDelete,
+  deletingSelf,
+  onRequestDelete,
+  onConfirmDelete,
+  onCancelDelete,
+}: {
+  title: string;
+  count: number;
+  widthPct: number;
+  caption: string;
+  onRefresh: () => void;
+  refreshing: boolean;
+  onEdit: () => void;
+  isPendingDelete: boolean;
+  deletingSelf: boolean;
+  onRequestDelete: () => void;
+  onConfirmDelete: () => void;
+  onCancelDelete: () => void;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-start justify-between gap-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className="p-1 rounded-md bg-[#0B4F6C]/8 text-[#0B4F6C] shrink-0">
+              <Trophy size={11} />
+            </div>
+            <span className="text-[11.5px] font-medium text-foreground/80 truncate" title={title}>
+              {title}
+            </span>
+          </div>
+          <div className="flex items-center gap-0.5 shrink-0">
+            {isPendingDelete ? (
+              <>
+                <button
+                  onClick={onConfirmDelete}
+                  disabled={deletingSelf}
+                  title="Confirm delete"
+                  className="p-1 rounded-md text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                >
+                  {deletingSelf ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                </button>
+                <button
+                  onClick={onCancelDelete}
+                  title="Cancel"
+                  className="p-1 rounded-md text-muted-foreground hover:bg-muted/60 transition-colors"
+                >
+                  <X size={11} />
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={onRefresh}
+                  disabled={refreshing}
+                  title="Refresh"
+                  className="p-1 rounded-md text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
+                >
+                  <RefreshCw size={10.5} className={refreshing ? "animate-spin" : ""} />
+                </button>
+                <button
+                  onClick={onEdit}
+                  title="Edit"
+                  className="p-1 rounded-md text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/40 transition-colors"
+                >
+                  <Pencil size={10.5} />
+                </button>
+                <button
+                  onClick={onRequestDelete}
+                  title="Delete"
+                  className="p-1 rounded-md text-muted-foreground/50 hover:text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 size={10.5} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="text-[22px] font-headline font-normal text-[#0B4F6C] leading-none">
+          {count.toLocaleString()}
+        </div>
+
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className="h-full rounded-full bg-[#0B4F6C] transition-all" style={{ width: `${widthPct}%` }} />
+        </div>
+
+        <p className="text-[10px] text-muted-foreground leading-snug">{caption}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function trapezoidClipPath(topPct: number, bottomPct: number): string {
+  const topL = (100 - topPct) / 2;
+  const topR = 100 - topL;
+  const botL = (100 - bottomPct) / 2;
+  const botR = 100 - botL;
+  return `polygon(${topL}% 0%, ${topR}% 0%, ${botR}% 100%, ${botL}% 100%)`;
+}
+
+interface FunnelStageDatum {
+  label: string;
+  count: number;
+  insight: string;
+  color: string;
+}
+
+function FunnelPanel({
+  visited,
+  engagedSessions,
+  foundSiteInsightText,
+  stuckAroundInsightText,
+  conversions,
+  maxCount,
+}: {
+  visited: number;
+  engagedSessions: number;
+  foundSiteInsightText: string;
+  stuckAroundInsightText: string;
+  conversions: ConversionResult[];
+  maxCount: number;
+}) {
+  const [hovered, setHovered] = useState<{ top: number; left: number; stage: FunnelStageDatum } | null>(null);
+  const branchColors = ["#3b8fa8", "#5aa3b8", "#7bb8c9", "#9ccbd6"];
+
+  const stages: FunnelStageDatum[] = [
+    { label: "Found the site", count: visited, insight: foundSiteInsightText, color: "#0B4F6C" },
+    { label: "Stuck around", count: engagedSessions, insight: stuckAroundInsightText, color: "#11809e" },
+    ...conversions.map((c, i) => ({
+      label: c.label || c.page,
+      count: c.count,
+      insight: tookActionInsight(c.count, c.change).insight,
+      color: branchColors[i % branchColors.length],
+    })),
+  ];
+
+  function widthPctFor(count: number): number {
+    return Math.max((count / maxCount) * 100, 30);
+  }
+
+  function handleEnter(e: React.MouseEvent<HTMLDivElement>, stage: FunnelStageDatum) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setHovered({ top: rect.top + rect.height / 2, left: rect.left - 14, stage });
+  }
+
+  return (
+    <>
+      <Card className="xl:sticky xl:top-8">
+        <CardContent className="pt-5">
+          <p className="text-[13px] font-medium text-foreground/80 mb-1">The funnel</p>
+          <p className="text-[11px] text-muted-foreground mb-4">Hover a stage for context</p>
+
+          <div className="space-y-[3px] rounded-lg overflow-hidden">
+            {stages.map((stage, i) => {
+              const widthPct = widthPctFor(stage.count);
+              const prevWidthPct = i === 0 ? 100 : widthPctFor(stages[i - 1].count);
+              return (
+                <div
+                  key={stage.label + i}
+                  onMouseEnter={(e) => handleEnter(e, stage)}
+                  onMouseLeave={() => setHovered(null)}
+                  className="relative mx-auto flex items-center justify-center h-20 text-white cursor-default transition-opacity hover:opacity-95"
+                  style={{ clipPath: trapezoidClipPath(prevWidthPct, widthPct), backgroundColor: stage.color }}
+                >
+                  <div className="text-center px-4">
+                    <div className="text-[22px] font-headline font-normal leading-none">
+                      {stage.count.toLocaleString()}
+                    </div>
+                    <div className="text-[10.5px] mt-1 opacity-90 truncate max-w-[200px]">{stage.label}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {hovered && (
+        <div
+          className="fixed z-[60] w-64 p-3.5 rounded-lg bg-[#1a1a1a] text-white text-[11.5px] leading-relaxed shadow-xl pointer-events-none"
+          style={{ top: hovered.top, left: hovered.left, transform: "translate(-100%, -50%)" }}
+        >
+          <p className="font-medium mb-1">
+            {hovered.stage.label} — {hovered.stage.count.toLocaleString()}
+          </p>
+          <p className="text-white/80">{hovered.stage.insight}</p>
+        </div>
+      )}
+    </>
+  );
+}
+
 export function Attribution({
   clientSlug,
   goals,
@@ -388,21 +443,21 @@ export function Attribution({
   onGoalsSaved,
   onRefresh,
 }: AttributionProps) {
-  const [mode, setMode] = useState<"none" | "adding" | string>("none"); // string = editing goal id
+  const [wizardMode, setWizardMode] = useState<"closed" | "adding" | string>("closed"); // string = editing goal id
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<DiscoverResult | null>(null);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   useEffect(() => {
-    if (mode === "none" || suggestions || suggestionsLoading) return;
+    if (wizardMode === "closed" || suggestions || suggestionsLoading) return;
     setSuggestionsLoading(true);
     fetch(`/api/ga/discover?client=${clientSlug}`)
       .then((r) => r.json())
       .then((data) => { if (!data.error) setSuggestions(data); })
       .catch(() => {})
       .finally(() => setSuggestionsLoading(false));
-  }, [mode, clientSlug, suggestions, suggestionsLoading]);
+  }, [wizardMode, clientSlug, suggestions, suggestionsLoading]);
 
   async function persistGoals(next: GoalConfig[]) {
     await fetch("/api/clients", {
@@ -413,25 +468,31 @@ export function Attribution({
     onGoalsSaved();
   }
 
-  async function handleAdd(values: GoalFormValues) {
-    const goal: GoalConfig = {
-      id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `goal-${Date.now()}`,
-      conversionType: values.conversionType,
-      conversionValue: values.conversionValue,
-      label: values.label || undefined,
-    };
-    await persistGoals([...goals, goal]);
-    setMode("none");
-  }
-
-  async function handleEdit(id: string, values: GoalFormValues) {
-    const next = goals.map((g) =>
-      g.id === id
-        ? { id, conversionType: values.conversionType, conversionValue: values.conversionValue, label: values.label || undefined }
-        : g
-    );
-    await persistGoals(next);
-    setMode("none");
+  async function handleWizardSubmit(values: WizardValues) {
+    if (wizardMode === "adding") {
+      const goal: GoalConfig = {
+        id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `goal-${Date.now()}`,
+        conversionType: values.conversionType,
+        conversionValue: values.conversionValue,
+        label: values.label || undefined,
+        scopePagePath: values.scopePagePath || undefined,
+      };
+      await persistGoals([...goals, goal]);
+    } else if (wizardMode !== "closed") {
+      const id = wizardMode;
+      const next = goals.map((g) =>
+        g.id === id
+          ? {
+              id,
+              conversionType: values.conversionType,
+              conversionValue: values.conversionValue,
+              label: values.label || undefined,
+              scopePagePath: values.scopePagePath || undefined,
+            }
+          : g
+      );
+      await persistGoals(next);
+    }
   }
 
   async function handleDelete(id: string) {
@@ -472,200 +533,176 @@ export function Attribution({
   const foundSite = foundSiteInsight(ga.summary.sessionsChange);
   const stuckAround = stuckAroundInsight(engagementPct);
 
+  const SNIPPET_TYPES = ["click", "form_submit", "scroll_depth", "time_on_page"];
+  const isFirstSnippetGoal = !goals.some((g) => SNIPPET_TYPES.includes(g.conversionType));
+  const editingGoal = wizardMode !== "closed" && wizardMode !== "adding" ? goals.find((g) => g.id === wizardMode) : undefined;
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <StageCard
-          icon={<Search size={16} />}
-          title="Found the site"
-          value={visited}
-          note={`Sessions · Last ${range}`}
-          source="Source: Google Analytics 4"
-          widthPct={Math.max((visited / maxCount) * 100, 6)}
-          insight={foundSite.insight}
-          action={foundSite.action}
-          onRefresh={onRefresh}
-          refreshing={!!loading}
-        />
-
-        <StageCard
-          icon={<Eye size={16} />}
-          title="Stuck around"
-          value={engagedSessions}
-          note={`${engagementPct.toFixed(0)}% of sessions were actively engaged, not just a quick look`}
-          source="Source: Google Analytics 4 (engaged sessions)"
-          dropOff={visited - engagedSessions}
-          widthPct={Math.max((engagedSessions / maxCount) * 100, 6)}
-          insight={stuckAround.insight}
-          action={stuckAround.action}
-          onRefresh={onRefresh}
-          refreshing={!!loading}
-        />
-
-        {conversions.map((conv) => {
-          const goalConfig = goals.find((g) => g.id === conv.id);
-          const isEditing = mode === conv.id;
-          const isPendingDelete = pendingDeleteId === conv.id;
-          const tookAction = tookActionInsight(conv.count, conv.change);
-
-          if (isEditing && goalConfig) {
-            return (
-              <Card key={conv.id}>
-                <CardContent className="pt-5">
-                  <GoalForm
-                    initial={{
-                      conversionType: goalConfig.conversionType,
-                      conversionValue: goalConfig.conversionValue,
-                      label: goalConfig.label || "",
-                    }}
-                    suggestions={suggestions}
-                    suggestionsLoading={suggestionsLoading}
-                    onSubmit={(values) => handleEdit(conv.id, values)}
-                    onCancel={() => setMode("none")}
-                    submitLabel="Save changes"
-                  />
-                </CardContent>
-              </Card>
-            );
-          }
-
-          return (
-            <StageCard
-              key={conv.id}
-              icon={<Trophy size={16} />}
-              title="Took action"
-              value={conv.count}
-              note={conv.label || `Reached ${conv.page}`}
-              source="Source: Google Analytics 4 (tracked conversion event)"
-              dropOff={engagedSessions - conv.count}
-              widthPct={Math.max((conv.count / maxCount) * 100, 6)}
-              insight={tookAction.insight}
-              action={tookAction.action}
-              onRefresh={onRefresh}
-              refreshing={!!loading}
-              headerExtra={
-                <>
-                  {isPendingDelete ? (
-                    <div className="flex items-center gap-0.5">
-                      <button
-                        onClick={() => handleDelete(conv.id)}
-                        disabled={deletingId === conv.id}
-                        title="Confirm delete"
-                        className="p-1 rounded-md text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                      >
-                        {deletingId === conv.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                      </button>
-                      <button
-                        onClick={() => setPendingDeleteId(null)}
-                        title="Cancel"
-                        className="p-1 rounded-md text-muted-foreground hover:bg-muted/60 transition-colors"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => setMode(conv.id)}
-                        title="Edit this conversion event"
-                        className="p-1 rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/40 transition-colors"
-                      >
-                        <Pencil size={12} />
-                      </button>
-                      <button
-                        onClick={() => setPendingDeleteId(conv.id)}
-                        title="Delete this conversion event"
-                        className="p-1 rounded-md text-muted-foreground/40 hover:text-red-600 hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </>
-                  )}
-                </>
-              }
-            />
-          );
-        })}
-
-        {mode === "adding" ? (
-          <Card>
-            <CardContent className="pt-5">
-              <GoalForm
-                suggestions={suggestions}
-                suggestionsLoading={suggestionsLoading}
-                onSubmit={handleAdd}
-                onCancel={() => setMode("none")}
-                submitLabel="Save & start tracking"
+    <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6 items-start">
+      <div className="min-w-0 space-y-6">
+        <div className="space-y-4">
+          <div className="flex gap-3 items-stretch">
+            <RailStep color="#0B4F6C" isFirst />
+            <div className="flex-1 min-w-0">
+              <StageCard
+                icon={<Search size={16} />}
+                title="Found the site"
+                value={visited}
+                note={`Sessions · Last ${range}`}
+                source="Source: Google Analytics 4"
+                widthPct={Math.max((visited / maxCount) * 100, 6)}
+                insight={foundSite.insight}
+                action={foundSite.action}
+                onRefresh={onRefresh}
+                refreshing={!!loading}
               />
+            </div>
+          </div>
+
+          <div className="flex gap-3 items-stretch">
+            <RailStep color="#11809e" />
+            <div className="flex-1 min-w-0">
+              <StageCard
+                icon={<Eye size={16} />}
+                title="Stuck around"
+                value={engagedSessions}
+                note={`${engagementPct.toFixed(0)}% of sessions were actively engaged, not just a quick look`}
+                source="Source: Google Analytics 4 (engaged sessions)"
+                dropOff={visited - engagedSessions}
+                widthPct={Math.max((engagedSessions / maxCount) * 100, 6)}
+                insight={stuckAround.insight}
+                action={stuckAround.action}
+                onRefresh={onRefresh}
+                refreshing={!!loading}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 items-stretch">
+            <RailStep color="#3b8fa8" isLast />
+            <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {conversions.map((conv) => {
+                const isPendingDelete = pendingDeleteId === conv.id;
+                const pctOfEngaged = engagedSessions > 0 ? Math.round((conv.count / engagedSessions) * 100) : 0;
+
+                return (
+                  <MiniGoalCard
+                    key={conv.id}
+                    title={conv.label || conv.page}
+                    count={conv.count}
+                    widthPct={Math.max((conv.count / maxCount) * 100, 6)}
+                    caption={`${pctOfEngaged}% of engaged sessions`}
+                    onRefresh={onRefresh}
+                    refreshing={!!loading}
+                    onEdit={() => setWizardMode(conv.id)}
+                    isPendingDelete={isPendingDelete}
+                    deletingSelf={deletingId === conv.id}
+                    onRequestDelete={() => setPendingDeleteId(conv.id)}
+                    onConfirmDelete={() => handleDelete(conv.id)}
+                    onCancelDelete={() => setPendingDeleteId(null)}
+                  />
+                );
+              })}
+
+              <button
+                onClick={() => setWizardMode("adding")}
+                className="flex flex-col items-center justify-center gap-1.5 min-h-[128px] text-[12px] font-medium text-[#0B4F6C] border border-dashed border-[#0B4F6C]/25 rounded-lg hover:bg-[#0B4F6C]/[0.03] hover:border-[#0B4F6C]/40 transition-colors"
+              >
+                <Plus size={16} />
+                {conversions.length === 0 ? "Create a new conversion event" : "Add another"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {(clarity?.homepageScrollDepth != null ||
+          (clarity?.rageClicks ?? 0) > 0 ||
+          (clarity?.deadClicks ?? 0) > 0) && (
+          <Card>
+            <CardContent className="pt-5 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <p className="text-[13px] font-medium text-foreground/80">What might be slowing people down</p>
+                <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">
+                  Source: Microsoft Clarity, site-wide, last 30 days
+                </span>
+              </div>
+              <div className="space-y-2 text-[13px] text-foreground/80">
+                {clarity?.homepageScrollDepth != null && (
+                  <p>
+                    On the homepage specifically, people only scroll about{" "}
+                    <strong>{Math.round(clarity.homepageScrollDepth)}%</strong> of the way down before
+                    leaving.
+                  </p>
+                )}
+                {(clarity?.rageClicks ?? 0) > 0 && (
+                  <p>
+                    <strong>{clarity!.rageClicks}</strong> people sitewide clicked something rapidly and
+                    repeatedly — usually a sign something looked clickable but didn&apos;t work.
+                  </p>
+                )}
+                {(clarity?.deadClicks ?? 0) > 0 && (
+                  <p>
+                    <strong>{clarity!.deadClicks}</strong> people sitewide clicked on something that
+                    wasn&apos;t actually a button or link.
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
-        ) : (
-          <button
-            onClick={() => setMode("adding")}
-            className="w-full flex items-center justify-center gap-2 py-3 text-[13px] font-medium text-[#0B4F6C] border border-dashed border-[#0B4F6C]/25 rounded-lg hover:bg-[#0B4F6C]/[0.03] hover:border-[#0B4F6C]/40 transition-colors"
-          >
-            <Plus size={14} />
-            {conversions.length === 0 ? "Set up a conversion event" : "Add another conversion event"}
-          </button>
+        )}
+
+        {conversions.some((c) => c.change !== null) && (
+          <Card>
+            <CardContent className="pt-5 space-y-2">
+              {conversions
+                .filter((c) => c.change !== null)
+                .map((c) => (
+                  <div key={c.id} className="flex items-center gap-2 text-[13px]">
+                    {c.change! >= 0 ? (
+                      <TrendingUp size={16} className="text-emerald-600 shrink-0" />
+                    ) : (
+                      <TrendingDown size={16} className="text-red-600 shrink-0" />
+                    )}
+                    <span>
+                      {c.label || c.page}: {c.change! >= 0 ? "up" : "down"}{" "}
+                      <strong>{Math.abs(c.change!)}%</strong> compared to the previous period.
+                    </span>
+                  </div>
+                ))}
+            </CardContent>
+          </Card>
         )}
       </div>
 
-      {(clarity?.homepageScrollDepth != null ||
-        (clarity?.rageClicks ?? 0) > 0 ||
-        (clarity?.deadClicks ?? 0) > 0) && (
-        <Card>
-          <CardContent className="pt-5 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <p className="text-[13px] font-medium text-foreground/80">What might be slowing people down</p>
-              <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">
-                Source: Microsoft Clarity, site-wide, last 30 days
-              </span>
-            </div>
-            <div className="space-y-2 text-[13px] text-foreground/80">
-              {clarity?.homepageScrollDepth != null && (
-                <p>
-                  On the homepage specifically, people only scroll about{" "}
-                  <strong>{Math.round(clarity.homepageScrollDepth)}%</strong> of the way down before
-                  leaving.
-                </p>
-              )}
-              {(clarity?.rageClicks ?? 0) > 0 && (
-                <p>
-                  <strong>{clarity!.rageClicks}</strong> people sitewide clicked something rapidly and
-                  repeatedly — usually a sign something looked clickable but didn&apos;t work.
-                </p>
-              )}
-              {(clarity?.deadClicks ?? 0) > 0 && (
-                <p>
-                  <strong>{clarity!.deadClicks}</strong> people sitewide clicked on something that
-                  wasn&apos;t actually a button or link.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <FunnelPanel
+        visited={visited}
+        engagedSessions={engagedSessions}
+        foundSiteInsightText={foundSite.insight}
+        stuckAroundInsightText={stuckAround.insight}
+        conversions={conversions}
+        maxCount={maxCount}
+      />
 
-      {conversions.some((c) => c.change !== null) && (
-        <Card>
-          <CardContent className="pt-5 space-y-2">
-            {conversions
-              .filter((c) => c.change !== null)
-              .map((c) => (
-                <div key={c.id} className="flex items-center gap-2 text-[13px]">
-                  {c.change! >= 0 ? (
-                    <TrendingUp size={16} className="text-emerald-600 shrink-0" />
-                  ) : (
-                    <TrendingDown size={16} className="text-red-600 shrink-0" />
-                  )}
-                  <span>
-                    {c.label || c.page}: {c.change! >= 0 ? "up" : "down"}{" "}
-                    <strong>{Math.abs(c.change!)}%</strong> compared to the previous period.
-                  </span>
-                </div>
-              ))}
-          </CardContent>
-        </Card>
+      {wizardMode !== "closed" && (
+        <EventWizardModal
+          clientSlug={clientSlug}
+          suggestions={suggestions}
+          suggestionsLoading={suggestionsLoading}
+          initial={
+            editingGoal
+              ? {
+                  conversionType: editingGoal.conversionType,
+                  conversionValue: editingGoal.conversionValue,
+                  label: editingGoal.label || "",
+                  scopePagePath: editingGoal.scopePagePath || "",
+                }
+              : undefined
+          }
+          isFirstSnippetGoal={isFirstSnippetGoal}
+          submitLabel={editingGoal ? "Save changes" : "Save & start tracking"}
+          onSubmit={handleWizardSubmit}
+          onClose={() => setWizardMode("closed")}
+        />
       )}
     </div>
   );
