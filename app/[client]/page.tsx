@@ -13,6 +13,7 @@ import { AIAnalysisCard } from "@/components/dashboard/ai-analysis";
 import { SearchPerformance } from "@/components/dashboard/search-performance";
 import { WorkSummary } from "@/components/dashboard/work-summary";
 import { Attribution } from "@/components/dashboard/attribution";
+import type { GoalConfig } from "@/lib/clients";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Activity,
@@ -42,10 +43,9 @@ interface GAData {
     bounceRate: string;
     engagementRate?: string;
     engagedSessions?: number;
-    conversions?: { page: string; label?: string; count: number; change: number | null } | null;
+    conversions: { id: string; page: string; label?: string; count: number; change: number | null }[];
   };
   dailySessions: { date: string; sessions: number; pageviews: number }[];
-  dailyConversions?: { date: string; count: number }[];
   topSources: { source: string; sessions: number }[];
   topPages: { page: string; views: number; engagementScore?: number; avgDuration?: number }[];
 }
@@ -116,6 +116,7 @@ interface ClientConfig {
       engagementStartDate?: string;
     };
   };
+  goals?: GoalConfig[];
 }
 
 type SettingsIntegrations = {
@@ -310,9 +311,8 @@ export default function ClientDashboard() {
     }
   }
 
-  // Load client config + clarity
-  useEffect(() => {
-    fetch(`/api/clients`)
+  function fetchClientConfig() {
+    return fetch(`/api/clients`)
       .then((r) => r.json())
       .then((data: ClientsResponse) => {
         const match = data.clients?.find((c) => c.slug === clientSlug);
@@ -322,12 +322,17 @@ export default function ClientDashboard() {
         }
       })
       .catch(() => {});
+  }
+
+  // Load client config + clarity
+  useEffect(() => {
+    fetchClientConfig();
 
     fetch(`/api/clarity?client=${clientSlug}`)
       .then((r) => r.json())
       .then((data) => { if (!data.error) setClarity(data); })
       .catch(() => {});
-  }, [clientSlug]);
+  }, [clientSlug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function fetchSeRanking(refresh = false) {
     if (!clientConfig?.integrations?.seRanking?.enabled) return;
@@ -663,11 +668,12 @@ export default function ClientDashboard() {
             {activeSection === "attribution" ? (
               <Attribution
                 clientSlug={clientSlug}
+                goals={clientConfig?.goals || []}
                 ga={ga}
                 clarity={clarity}
                 loading={gaLoading}
                 range={range}
-                onGoalsSaved={() => fetchGa(true)}
+                onGoalsSaved={() => { fetchClientConfig(); fetchGa(true); }}
                 onRefresh={() => fetchGa(true)}
               />
             ) : (

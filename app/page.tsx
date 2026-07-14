@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -87,6 +87,7 @@ const integrationMeta = [
 ];
 
 export default function Home() {
+  const router = useRouter();
   const [clients, setClients] = useState<ClientConfig[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -445,10 +446,60 @@ export default function Home() {
             const enabledSources = Object.entries(client.integrations)
               .filter(([, v]) => v?.enabled)
               .map(([k]) => k);
+            const isPendingDelete = pendingDeleteSlug === client.slug;
+            const isDeleting = deletingSlug === client.slug;
 
             return (
-              <Link key={client.slug} href={`/${client.slug}`}>
-                <Card className="hover:shadow-[0_4px_16px_rgba(11,79,108,0.1)] hover:border-[#0B4F6C]/[0.12] transition-all cursor-pointer">
+              <div
+                key={client.slug}
+                draggable
+                onDragStart={() => handleDragStart(client.slug)}
+                onDragOver={(e) => handleDragOver(e, client.slug)}
+                onDragEnd={handleDragEnd}
+                onClick={() => !isPendingDelete && router.push(`/${client.slug}`)}
+                className={`transition-opacity ${dragSlug === client.slug ? "opacity-40" : ""}`}
+              >
+                <Card className="relative group hover:shadow-[0_4px_16px_rgba(11,79,108,0.1)] hover:border-[#0B4F6C]/[0.12] transition-all cursor-pointer">
+                  <div
+                    className="absolute left-2 top-2 p-1 text-muted-foreground/30 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Drag to reorder"
+                  >
+                    <GripVertical size={14} />
+                  </div>
+
+                  <div
+                    className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {isPendingDelete ? (
+                      <div className="flex items-center gap-1 bg-white rounded-lg shadow-sm border border-border/60 px-1.5 py-1">
+                        <button
+                          onClick={() => handleDeleteConfirm(client.slug)}
+                          disabled={isDeleting}
+                          title="Confirm delete"
+                          className="p-1 rounded-md text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                        >
+                          {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                        </button>
+                        <button
+                          onClick={() => setPendingDeleteSlug(null)}
+                          title="Cancel"
+                          className="p-1 rounded-md text-muted-foreground hover:bg-muted/60 transition-colors"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setPendingDeleteSlug(client.slug)}
+                        title="Delete client"
+                        className="p-1.5 rounded-md text-muted-foreground/40 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2.5 text-[20px] font-headline font-normal text-[#0B4F6C]">
                       {client.iconUrl ? (
@@ -486,7 +537,7 @@ export default function Home() {
                     </div>
                   </CardContent>
                 </Card>
-              </Link>
+              </div>
             );
           })}
 

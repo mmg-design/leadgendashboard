@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { BetaAnalyticsDataClient } from "@google-analytics/data";
-import { getClient } from "@/lib/clients";
+import { getClient, type GoalConfig } from "@/lib/clients";
 import { getDb } from "@/lib/db";
 import fs from "fs";
 import path from "path";
@@ -24,12 +24,12 @@ function getAnalyticsClient(): BetaAnalyticsDataClient {
 
 let analyticsClient: BetaAnalyticsDataClient | null = null;
 
-function conversionFilterFor(goals: { conversionType: "pageview" | "event"; conversionValue: string }) {
-  if (goals.conversionType === "event") {
+function conversionFilterFor(goal: GoalConfig) {
+  if (goal.conversionType === "event") {
     return {
       filter: {
         fieldName: "eventName",
-        stringFilter: { matchType: "EXACT" as const, value: goals.conversionValue },
+        stringFilter: { matchType: "EXACT" as const, value: goal.conversionValue },
       },
     };
   }
@@ -37,7 +37,7 @@ function conversionFilterFor(goals: { conversionType: "pageview" | "event"; conv
     andGroup: {
       expressions: [
         { filter: { fieldName: "eventName", stringFilter: { matchType: "EXACT" as const, value: "page_view" } } },
-        { filter: { fieldName: "pagePath", stringFilter: { matchType: "EXACT" as const, value: goals.conversionValue } } },
+        { filter: { fieldName: "pagePath", stringFilter: { matchType: "EXACT" as const, value: goal.conversionValue } } },
       ],
     },
   };
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
       analyticsClient = getAnalyticsClient();
     }
 
-    const [summaryReport, dailyReport, sourcesReport, conversionReport, conversionDailyReport] = await Promise.all([
+    const [summaryReport, dailyReport, sourcesReport] = await Promise.all([
       analyticsClient.runReport({
         property: `properties/${propertyId}`,
         dateRanges: [
@@ -117,28 +117,51 @@ export async function GET(req: NextRequest) {
         orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
         limit: 10,
       }),
-      goals
-        ? analyticsClient.runReport({
+    ]);
+
+    const goalResults = await Promise.all(
+      goals.map(async (goal) => {
+        const [summary, daily] = await Promise.all([
+          analyticsClient!.runReport({
             property: `properties/${propertyId}`,
             dateRanges: [
               { startDate, endDate: "today" },
               { startDate: "60daysAgo", endDate: "31daysAgo" },
             ],
             metrics: [{ name: "eventCount" }],
-            dimensionFilter: conversionFilterFor(goals),
-          })
-        : null,
-      goals
-        ? analyticsClient.runReport({
+            dimensionFilter: conversionFilterFor(goal),
+          }),
+          analyticsClient!.runReport({
             property: `properties/${propertyId}`,
             dateRanges: [{ startDate, endDate: "today" }],
             dimensions: [{ name: "date" }],
             metrics: [{ name: "eventCount" }],
-            dimensionFilter: conversionFilterFor(goals),
+            dimensionFilter: conversionFilterFor(goal),
             orderBys: [{ dimension: { dimensionName: "date", orderType: "ALPHANUMERIC" } }],
-          })
-        : null,
-    ]);
+          }),
+        ]);
+
+        const rows = summary[0]?.rows || [];
+        const current = parseInt(rows[0]?.metricValues?.[0]?.value || "0");
+        const prev = parseInt(rows[1]?.metricValues?.[0]?.value || "0");
+        const change = prev > 0 ? Math.round(((current - prev) / prev) * 100) : null;
+
+        const dailyCounts = (daily[0]?.rows || []).map((row) => {
+          const dateStr = row.dimensionValues?.[0]?.value || "";
+          const formatted = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+          return { date: formatted, count: parseInt(row.metricValues?.[0]?.value || "0") };
+        });
+
+        return {
+          id: goal.id,
+          page: goal.conversionValue,
+          label: goal.label,
+          count: current,
+          change,
+          daily: dailyCounts,
+        };
+      })
+    );
 
     const [pagesReport] = await analyticsClient.runReport({
       property: `properties/${propertyId}`,
@@ -167,13 +190,6 @@ export async function GET(req: NextRequest) {
       ? Math.round(((currentSessions - prevSessions) / prevSessions) * 100)
       : null;
 
-    const convRows = conversionReport ? conversionReport[0]?.rows || [] : [];
-    const currentConversions = parseInt(convRows[0]?.metricValues?.[0]?.value || "0");
-    const prevConversions = parseInt(convRows[1]?.metricValues?.[0]?.value || "0");
-    const conversionChange = prevConversions > 0
-      ? Math.round(((currentConversions - prevConversions) / prevConversions) * 100)
-      : null;
-
     const summary = {
       sessions: currentSessions,
       sessionsChange: sessionChange,
@@ -183,9 +199,7 @@ export async function GET(req: NextRequest) {
       bounceRate: `${(parseFloat(metrics[4]?.value || "0") * 100).toFixed(1)}%`,
       engagementRate: `${(parseFloat(metrics[5]?.value || "0") * 100).toFixed(1)}%`,
       engagedSessions: parseInt(metrics[6]?.value || "0"),
-      conversions: goals
-        ? { page: goals.conversionValue, label: goals.label, count: currentConversions, change: conversionChange }
-        : null,
+      conversions: goalResults,
     };
 
     const dailySessions = (dailyReport[0]?.rows || []).map((row) => {
@@ -197,14 +211,6 @@ export async function GET(req: NextRequest) {
         pageviews: parseInt(row.metricValues?.[1]?.value || "0"),
       };
     });
-
-    const dailyConversions = conversionDailyReport
-      ? (conversionDailyReport[0]?.rows || []).map((row) => {
-          const dateStr = row.dimensionValues?.[0]?.value || "";
-          const formatted = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
-          return { date: formatted, count: parseInt(row.metricValues?.[0]?.value || "0") };
-        })
-      : [];
 
     const topSources = (sourcesReport[0]?.rows || []).map((row) => ({
       source: row.dimensionValues?.[0]?.value || "(unknown)",
@@ -223,7 +229,6 @@ export async function GET(req: NextRequest) {
       range,
       summary,
       dailySessions,
-      dailyConversions,
       topSources,
       topPages,
     };
