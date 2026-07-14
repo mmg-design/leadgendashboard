@@ -27,6 +27,11 @@ export interface ClientConfig {
       engagementStartDate?: string;
     };
   };
+  goals?: {
+    conversionType: "pageview" | "event";
+    conversionValue: string;
+    label?: string;
+  };
 }
 
 function rowToConfig(row: Record<string, unknown>): ClientConfig {
@@ -36,6 +41,7 @@ function rowToConfig(row: Record<string, unknown>): ClientConfig {
     domain: row.domain as string,
     iconUrl: (row.icon_url as string) || undefined,
     integrations: JSON.parse(row.integrations as string),
+    goals: row.goals ? JSON.parse(row.goals as string) : undefined,
   };
 }
 
@@ -65,7 +71,12 @@ export async function createClient(config: ClientConfig): Promise<void> {
 
 export async function updateClient(
   slug: string,
-  updates: { name?: string; iconUrl?: string; integrations?: ClientConfig["integrations"] }
+  updates: {
+    name?: string;
+    iconUrl?: string;
+    integrations?: ClientConfig["integrations"];
+    goals?: ClientConfig["goals"];
+  }
 ): Promise<void> {
   const db = await getDb();
   const current = await getClient(slug);
@@ -76,10 +87,11 @@ export async function updateClient(
   const newIntegrations = updates.integrations
     ? { ...current.integrations, ...updates.integrations }
     : current.integrations;
+  const newGoals = updates.goals !== undefined ? updates.goals : current.goals;
 
   await db.execute({
-    sql: "UPDATE clients SET name = ?, icon_url = ?, integrations = ? WHERE slug = ?",
-    args: [newName, newIconUrl || null, JSON.stringify(newIntegrations), slug],
+    sql: "UPDATE clients SET name = ?, icon_url = ?, integrations = ?, goals = ? WHERE slug = ?",
+    args: [newName, newIconUrl || null, JSON.stringify(newIntegrations), newGoals ? JSON.stringify(newGoals) : null, slug],
   });
 }
 

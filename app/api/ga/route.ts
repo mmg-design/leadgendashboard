@@ -24,6 +24,25 @@ function getAnalyticsClient(): BetaAnalyticsDataClient {
 
 let analyticsClient: BetaAnalyticsDataClient | null = null;
 
+function conversionFilterFor(goals: { conversionType: "pageview" | "event"; conversionValue: string }) {
+  if (goals.conversionType === "event") {
+    return {
+      filter: {
+        fieldName: "eventName",
+        stringFilter: { matchType: "EXACT" as const, value: goals.conversionValue },
+      },
+    };
+  }
+  return {
+    andGroup: {
+      expressions: [
+        { filter: { fieldName: "eventName", stringFilter: { matchType: "EXACT" as const, value: "page_view" } } },
+        { filter: { fieldName: "pagePath", stringFilter: { matchType: "EXACT" as const, value: goals.conversionValue } } },
+      ],
+    },
+  };
+}
+
 export async function GET(req: NextRequest) {
   const client = req.nextUrl.searchParams.get("client");
   const range = req.nextUrl.searchParams.get("range") || "7d";
@@ -56,13 +75,14 @@ export async function GET(req: NextRequest) {
 
   const daysMap: Record<string, string> = { "7d": "7daysAgo", "30d": "30daysAgo", "90d": "90daysAgo" };
   const startDate = daysMap[range] || "7daysAgo";
+  const goals = config.goals;
 
   try {
     if (!analyticsClient) {
       analyticsClient = getAnalyticsClient();
     }
 
-    const [summaryReport, dailyReport, sourcesReport] = await Promise.all([
+    const [summaryReport, dailyReport, sourcesReport, conversionReport, conversionDailyReport] = await Promise.all([
       analyticsClient.runReport({
         property: `properties/${propertyId}`,
         dateRanges: [
@@ -76,6 +96,7 @@ export async function GET(req: NextRequest) {
           { name: "averageSessionDuration" },
           { name: "bounceRate" },
           { name: "engagementRate" },
+          { name: "engagedSessions" },
         ],
       }),
       analyticsClient.runReport({
@@ -96,6 +117,27 @@ export async function GET(req: NextRequest) {
         orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
         limit: 10,
       }),
+      goals
+        ? analyticsClient.runReport({
+            property: `properties/${propertyId}`,
+            dateRanges: [
+              { startDate, endDate: "today" },
+              { startDate: "60daysAgo", endDate: "31daysAgo" },
+            ],
+            metrics: [{ name: "eventCount" }],
+            dimensionFilter: conversionFilterFor(goals),
+          })
+        : null,
+      goals
+        ? analyticsClient.runReport({
+            property: `properties/${propertyId}`,
+            dateRanges: [{ startDate, endDate: "today" }],
+            dimensions: [{ name: "date" }],
+            metrics: [{ name: "eventCount" }],
+            dimensionFilter: conversionFilterFor(goals),
+            orderBys: [{ dimension: { dimensionName: "date", orderType: "ALPHANUMERIC" } }],
+          })
+        : null,
     ]);
 
     const [pagesReport] = await analyticsClient.runReport({
@@ -125,6 +167,13 @@ export async function GET(req: NextRequest) {
       ? Math.round(((currentSessions - prevSessions) / prevSessions) * 100)
       : null;
 
+    const convRows = conversionReport ? conversionReport[0]?.rows || [] : [];
+    const currentConversions = parseInt(convRows[0]?.metricValues?.[0]?.value || "0");
+    const prevConversions = parseInt(convRows[1]?.metricValues?.[0]?.value || "0");
+    const conversionChange = prevConversions > 0
+      ? Math.round(((currentConversions - prevConversions) / prevConversions) * 100)
+      : null;
+
     const summary = {
       sessions: currentSessions,
       sessionsChange: sessionChange,
@@ -133,6 +182,10 @@ export async function GET(req: NextRequest) {
       avgSessionDuration: `${minutes}m ${seconds}s`,
       bounceRate: `${(parseFloat(metrics[4]?.value || "0") * 100).toFixed(1)}%`,
       engagementRate: `${(parseFloat(metrics[5]?.value || "0") * 100).toFixed(1)}%`,
+      engagedSessions: parseInt(metrics[6]?.value || "0"),
+      conversions: goals
+        ? { page: goals.conversionValue, label: goals.label, count: currentConversions, change: conversionChange }
+        : null,
     };
 
     const dailySessions = (dailyReport[0]?.rows || []).map((row) => {
@@ -144,6 +197,14 @@ export async function GET(req: NextRequest) {
         pageviews: parseInt(row.metricValues?.[1]?.value || "0"),
       };
     });
+
+    const dailyConversions = conversionDailyReport
+      ? (conversionDailyReport[0]?.rows || []).map((row) => {
+          const dateStr = row.dimensionValues?.[0]?.value || "";
+          const formatted = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+          return { date: formatted, count: parseInt(row.metricValues?.[0]?.value || "0") };
+        })
+      : [];
 
     const topSources = (sourcesReport[0]?.rows || []).map((row) => ({
       source: row.dimensionValues?.[0]?.value || "(unknown)",
@@ -162,6 +223,7 @@ export async function GET(req: NextRequest) {
       range,
       summary,
       dailySessions,
+      dailyConversions,
       topSources,
       topPages,
     };

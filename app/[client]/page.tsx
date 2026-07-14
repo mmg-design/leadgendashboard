@@ -12,6 +12,7 @@ import { TopPages } from "@/components/dashboard/top-pages";
 import { AIAnalysisCard } from "@/components/dashboard/ai-analysis";
 import { SearchPerformance } from "@/components/dashboard/search-performance";
 import { WorkSummary } from "@/components/dashboard/work-summary";
+import { Attribution } from "@/components/dashboard/attribution";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Activity,
@@ -27,6 +28,8 @@ import {
   ImageIcon,
   UploadCloud,
   RefreshCw,
+  LayoutDashboard,
+  Route,
 } from "lucide-react";
 
 interface GAData {
@@ -38,8 +41,11 @@ interface GAData {
     avgSessionDuration: string;
     bounceRate: string;
     engagementRate?: string;
+    engagedSessions?: number;
+    conversions?: { page: string; label?: string; count: number; change: number | null } | null;
   };
   dailySessions: { date: string; sessions: number; pageviews: number }[];
+  dailyConversions?: { date: string; count: number }[];
   topSources: { source: string; sessions: number }[];
   topPages: { page: string; views: number; engagementScore?: number; avgDuration?: number }[];
 }
@@ -138,6 +144,7 @@ export default function ClientDashboard() {
   const clientSlug = params.client as string;
 
   const [range, setRange] = useState("7d");
+  const [activeSection, setActiveSection] = useState<"overview" | "attribution">("overview");
   const [clientName, setClientName] = useState(
     clientSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
   );
@@ -624,6 +631,46 @@ export default function ClientDashboard() {
           </div>
         )}
 
+        <div className="flex gap-6 items-start">
+          {/* ── Sidebar ── */}
+          <aside className="w-[172px] shrink-0">
+            <nav className="space-y-1 xl:sticky xl:top-8">
+              <button
+                onClick={() => setActiveSection("overview")}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                  activeSection === "overview"
+                    ? "bg-[#0B4F6C]/10 text-[#0B4F6C]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                }`}
+              >
+                <LayoutDashboard size={15} /> Overview
+              </button>
+              <button
+                onClick={() => setActiveSection("attribution")}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                  activeSection === "attribution"
+                    ? "bg-[#0B4F6C]/10 text-[#0B4F6C]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                }`}
+              >
+                <Route size={15} /> Attribution
+              </button>
+            </nav>
+          </aside>
+
+          {/* ── Main content ── */}
+          <div className="min-w-0 flex-1">
+            {activeSection === "attribution" ? (
+              <Attribution
+                clientSlug={clientSlug}
+                ga={ga}
+                clarity={clarity}
+                loading={gaLoading}
+                range={range}
+                onGoalsSaved={() => fetchGa(true)}
+                onRefresh={() => fetchGa(true)}
+              />
+            ) : (
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
           {/* ── Left column ── */}
           <div className="min-w-0 space-y-6">
@@ -723,6 +770,9 @@ export default function ClientDashboard() {
               error={clickUpError}
               onRefresh={() => fetchClickUp(true)}
             />
+          </div>
+        </div>
+            )}
           </div>
         </div>
       </main>

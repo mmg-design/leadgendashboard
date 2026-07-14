@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { slug, name, iconUrl, integrations } = body;
+    const { slug, name, iconUrl, integrations, goals } = body;
 
     if (!slug) {
       return NextResponse.json({ error: "Missing slug" }, { status: 400 });
@@ -98,7 +98,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    await updateClient(slug, { name, iconUrl, integrations });
+    await updateClient(slug, { name, iconUrl, integrations, goals });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("Client update error:", err);

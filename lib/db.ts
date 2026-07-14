@@ -68,6 +68,13 @@ async function initSchema(db: Client) {
   } catch {
     await db.execute("ALTER TABLE clients ADD COLUMN icon_url TEXT");
   }
+
+  // Migration: add goals column if missing (existing DBs)
+  try {
+    await db.execute("SELECT goals FROM clients LIMIT 1");
+  } catch {
+    await db.execute("ALTER TABLE clients ADD COLUMN goals TEXT");
+  }
 }
 
 export async function getDb(): Promise<Client> {
