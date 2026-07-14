@@ -18,6 +18,9 @@ import {
   Building2,
   Info,
   ListTodo,
+  GripVertical,
+  Trash2,
+  X,
 } from "lucide-react";
 
 type IntegrationConfig = {
@@ -111,6 +114,52 @@ export default function Home() {
   useEffect(() => {
     fetchClients();
   }, []);
+
+  // Drag-to-reorder
+  const [dragSlug, setDragSlug] = useState<string | null>(null);
+
+  const handleDragStart = (slug: string) => setDragSlug(slug);
+
+  const handleDragOver = (e: React.DragEvent, overSlug: string) => {
+    e.preventDefault();
+    if (!dragSlug || dragSlug === overSlug) return;
+
+    setClients((prev) => {
+      const fromIndex = prev.findIndex((c) => c.slug === dragSlug);
+      const toIndex = prev.findIndex((c) => c.slug === overSlug);
+      if (fromIndex === -1 || toIndex === -1) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const handleDragEnd = () => {
+    setDragSlug(null);
+    fetch("/api/clients/reorder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slugs: clients.map((c) => c.slug) }),
+    }).catch(() => {});
+  };
+
+  // Delete client (two-step inline confirm, no native browser dialog)
+  const [pendingDeleteSlug, setPendingDeleteSlug] = useState<string | null>(null);
+  const [deletingSlug, setDeletingSlug] = useState<string | null>(null);
+
+  const handleDeleteConfirm = async (slug: string) => {
+    setDeletingSlug(slug);
+    try {
+      await fetch(`/api/clients?slug=${encodeURIComponent(slug)}`, { method: "DELETE" });
+      setClients((prev) => prev.filter((c) => c.slug !== slug));
+    } catch {
+      // leave the card in place if the delete failed
+    } finally {
+      setDeletingSlug(null);
+      setPendingDeleteSlug(null);
+    }
+  };
 
   const toggleIntegration = (key: string) => {
     setIntegrations((prev) => ({

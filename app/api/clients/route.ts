@@ -3,6 +3,7 @@ import {
   getAllClients,
   createClient,
   updateClient,
+  deleteClient,
   clientExists,
   type ClientConfig,
 } from "@/lib/clients";
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
       ? integrations.clickup.listIds
       : [];
 
-    const config: ClientConfig = {
+    const config: Omit<ClientConfig, "goals"> = {
       name,
       slug,
       domain,
@@ -103,5 +104,25 @@ export async function PATCH(req: NextRequest) {
   } catch (err) {
     console.error("Client update error:", err);
     return NextResponse.json({ error: "Failed to update client" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const slug = req.nextUrl.searchParams.get("slug");
+
+    if (!slug) {
+      return NextResponse.json({ error: "Missing slug" }, { status: 400 });
+    }
+
+    if (!(await clientExists(slug))) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+
+    await deleteClient(slug);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("Client delete error:", err);
+    return NextResponse.json({ error: "Failed to delete client" }, { status: 500 });
   }
 }

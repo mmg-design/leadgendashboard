@@ -1,5 +1,12 @@
 import { getDb } from "./db";
 
+export interface GoalConfig {
+  id: string;
+  conversionType: "pageview" | "event";
+  conversionValue: string;
+  label?: string;
+}
+
 export interface ClientConfig {
   name: string;
   slug: string;
@@ -27,11 +34,23 @@ export interface ClientConfig {
       engagementStartDate?: string;
     };
   };
-  goals?: {
-    conversionType: "pageview" | "event";
-    conversionValue: string;
-    label?: string;
-  };
+  goals: GoalConfig[];
+}
+
+// Accepts either the current array shape or the legacy single-goal-object shape,
+// and backfills an id for older records that predate multi-goal support.
+function normalizeGoals(raw: string | null): GoalConfig[] {
+  if (!raw) return [];
+  const parsed = JSON.parse(raw);
+  const list: Partial<GoalConfig>[] = Array.isArray(parsed) ? parsed : [parsed];
+  return list
+    .filter((g) => g && g.conversionType && g.conversionValue)
+    .map((g, i) => ({
+      id: g.id || `goal-${i}`,
+      conversionType: g.conversionType as "pageview" | "event",
+      conversionValue: g.conversionValue as string,
+      label: g.label,
+    }));
 }
 
 function rowToConfig(row: Record<string, unknown>): ClientConfig {
@@ -41,13 +60,13 @@ function rowToConfig(row: Record<string, unknown>): ClientConfig {
     domain: row.domain as string,
     iconUrl: (row.icon_url as string) || undefined,
     integrations: JSON.parse(row.integrations as string),
-    goals: row.goals ? JSON.parse(row.goals as string) : undefined,
+    goals: normalizeGoals(row.goals as string | null),
   };
 }
 
 export async function getAllClients(): Promise<ClientConfig[]> {
   const db = await getDb();
-  const result = await db.execute("SELECT * FROM clients ORDER BY name");
+  const result = await db.execute("SELECT * FROM clients ORDER BY sort_order IS NULL, sort_order, id");
   return result.rows.map((row) => rowToConfig(row as Record<string, unknown>));
 }
 
@@ -61,7 +80,7 @@ export async function getClient(slug: string): Promise<ClientConfig | null> {
   return rowToConfig(result.rows[0] as Record<string, unknown>);
 }
 
-export async function createClient(config: ClientConfig): Promise<void> {
+export async function createClient(config: Omit<ClientConfig, "goals">): Promise<void> {
   const db = await getDb();
   await db.execute({
     sql: "INSERT INTO clients (slug, name, domain, icon_url, integrations) VALUES (?, ?, ?, ?, ?)",
@@ -75,7 +94,7 @@ export async function updateClient(
     name?: string;
     iconUrl?: string;
     integrations?: ClientConfig["integrations"];
-    goals?: ClientConfig["goals"];
+    goals?: GoalConfig[];
   }
 ): Promise<void> {
   const db = await getDb();
@@ -91,8 +110,23 @@ export async function updateClient(
 
   await db.execute({
     sql: "UPDATE clients SET name = ?, icon_url = ?, integrations = ?, goals = ? WHERE slug = ?",
-    args: [newName, newIconUrl || null, JSON.stringify(newIntegrations), newGoals ? JSON.stringify(newGoals) : null, slug],
+    args: [newName, newIconUrl || null, JSON.stringify(newIntegrations), JSON.stringify(newGoals), slug],
   });
+}
+
+export async function deleteClient(slug: string): Promise<void> {
+  const db = await getDb();
+  await db.execute({ sql: "DELETE FROM clients WHERE slug = ?", args: [slug] });
+  await db.execute({ sql: "DELETE FROM analytics_cache WHERE client_slug = ?", args: [slug] });
+}
+
+export async function reorderClients(slugs: string[]): Promise<void> {
+  const db = await getDb();
+  await Promise.all(
+    slugs.map((slug, index) =>
+      db.execute({ sql: "UPDATE clients SET sort_order = ? WHERE slug = ?", args: [index, slug] })
+    )
+  );
 }
 
 export async function clientExists(slug: string): Promise<boolean> {

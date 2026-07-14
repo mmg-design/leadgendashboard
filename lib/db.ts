@@ -75,6 +75,13 @@ async function initSchema(db: Client) {
   } catch {
     await db.execute("ALTER TABLE clients ADD COLUMN goals TEXT");
   }
+
+  // Migration: add sort_order column if missing (existing DBs)
+  try {
+    await db.execute("SELECT sort_order FROM clients LIMIT 1");
+  } catch {
+    await db.execute("ALTER TABLE clients ADD COLUMN sort_order INTEGER");
+  }
 }
 
 export async function getDb(): Promise<Client> {
