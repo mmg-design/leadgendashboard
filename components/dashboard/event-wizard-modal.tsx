@@ -190,12 +190,12 @@ export function EventWizardModal({
         <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
           <div className="flex items-center gap-2.5 min-w-0">
             {liveName && (
-              <div className="p-1.5 rounded-md bg-[#0B4F6C]/8 text-[#0B4F6C] shrink-0">
+              <div className="p-1.5 rounded-md bg-[#001A2E]/8 text-[#001A2E] shrink-0">
                 <TypeIcon size={14} />
               </div>
             )}
             <div className="min-w-0">
-              <h2 className="text-[16px] font-headline font-normal text-[#0B4F6C] truncate">{headerTitle}</h2>
+              <h2 className="text-[16px] font-headline font-normal text-[#001A2E] truncate">{headerTitle}</h2>
               <p className="text-[11px] text-muted-foreground mt-0.5">Step {step} of 3</p>
             </div>
           </div>
@@ -216,10 +216,10 @@ export function EventWizardModal({
                     key={opt.type}
                     onClick={() => { setConversionType(opt.type); setConversionValue(""); }}
                     className={`w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-colors ${
-                      active ? "border-[#0B4F6C] bg-[#0B4F6C]/[0.04]" : "border-border/60 hover:border-[#0B4F6C]/30"
+                      active ? "border-[#001A2E] bg-[#001A2E]/[0.04]" : "border-border/60 hover:border-[#001A2E]/30"
                     }`}
                   >
-                    <div className={`p-1.5 rounded-md ${active ? "bg-[#0B4F6C]/10 text-[#0B4F6C]" : "bg-muted text-muted-foreground"}`}>
+                    <div className={`p-1.5 rounded-md ${active ? "bg-[#001A2E]/10 text-[#001A2E]" : "bg-muted text-muted-foreground"}`}>
                       <Icon size={15} />
                     </div>
                     <div>
@@ -255,7 +255,7 @@ export function EventWizardModal({
                             type="button"
                             onClick={() => pickSuggestion(s)}
                             className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
-                              active ? "border-[#0B4F6C] bg-[#0B4F6C]/10 text-[#0B4F6C]" : "border-border/60 text-muted-foreground hover:border-[#0B4F6C]/40"
+                              active ? "border-[#001A2E] bg-[#001A2E]/10 text-[#001A2E]" : "border-border/60 text-muted-foreground hover:border-[#001A2E]/40"
                             }`}
                           >
                             {value} <span className="opacity-50">· {count}</span>
@@ -270,7 +270,7 @@ export function EventWizardModal({
                     value={conversionValue}
                     onChange={(e) => setConversionValue(e.target.value)}
                     placeholder="/thank-you"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
               )}
@@ -283,7 +283,7 @@ export function EventWizardModal({
                     value={conversionValue}
                     onChange={(e) => setConversionValue(e.target.value)}
                     placeholder="Schedule My Call"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                   <p className="text-[10px] text-muted-foreground/60 mt-1">
                     Type it exactly as it appears on the button — we&apos;ll match it automatically.
@@ -301,7 +301,7 @@ export function EventWizardModal({
                     value={conversionValue}
                     onChange={(e) => setConversionValue(e.target.value)}
                     placeholder="Contact form"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                   <p className="text-[10px] text-muted-foreground/60 mt-1">
                     Counts any form submission — narrow it to one page below if you only want a specific form.
@@ -319,7 +319,7 @@ export function EventWizardModal({
                     value={conversionValue}
                     onChange={(e) => setConversionValue(e.target.value)}
                     placeholder="50"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
               )}
@@ -333,7 +333,7 @@ export function EventWizardModal({
                     value={conversionValue}
                     onChange={(e) => setConversionValue(e.target.value)}
                     placeholder="30"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
               )}
@@ -348,7 +348,7 @@ export function EventWizardModal({
                     value={scopePagePath}
                     onChange={(e) => setScopePagePath(e.target.value)}
                     placeholder="/pricing"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
               )}
@@ -362,7 +362,7 @@ export function EventWizardModal({
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
                   placeholder="Booked a call"
-                  className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                  className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                 />
               </div>
             </div>
@@ -370,7 +370,7 @@ export function EventWizardModal({
 
           {step === 3 && (
             <div className="space-y-4">
-              <div className="p-3 rounded-lg bg-[#0B4F6C]/[0.04] border border-[#0B4F6C]/10">
+              <div className="p-3 rounded-lg bg-[#001A2E]/[0.04] border border-[#001A2E]/10">
                 <p className="text-[13px] text-foreground/80">{describeGoal(conversionType, conversionValue, scopePagePath)}</p>
                 {label && <p className="text-[11px] text-muted-foreground mt-1">Labeled as &quot;{label}&quot;</p>}
               </div>
@@ -381,7 +381,7 @@ export function EventWizardModal({
                     One-time setup — paste this into your site&apos;s custom code (footer), then you&apos;re done forever:
                   </p>
                   <div className="relative">
-                    <pre className="text-[10.5px] leading-relaxed bg-[#1a1a1a] text-white/90 rounded-lg p-3 overflow-x-auto">
+                    <pre className="text-[10.5px] leading-relaxed bg-[#001A2E] text-white/90 rounded-lg p-3 overflow-x-auto">
 {snippetFor(clientSlug)}
                     </pre>
                     <button
@@ -419,7 +419,7 @@ export function EventWizardModal({
             <button
               onClick={() => setStep((s) => (s + 1) as 2 | 3)}
               disabled={step === 2 && !canContinue()}
-              className="px-4 py-2 text-[13px] font-medium text-white bg-[#0B4F6C] rounded-lg hover:bg-[#0B4F6C]/90 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 text-[13px] font-medium text-white bg-[#0CA4C3] rounded-lg hover:bg-[#0394B2] disabled:opacity-50 transition-colors"
             >
               Continue
             </button>
@@ -427,7 +427,7 @@ export function EventWizardModal({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-white bg-[#0B4F6C] rounded-lg hover:bg-[#0B4F6C]/90 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-white bg-[#0CA4C3] rounded-lg hover:bg-[#0394B2] disabled:opacity-50 transition-colors"
             >
               {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <Check size={14} /> : null}
               {saving ? "Saving..." : saved ? "Saved!" : submitLabel}

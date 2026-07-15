@@ -162,7 +162,7 @@ export function ActiveWork({ data, loading, error, enabled }: ActiveWorkProps) {
                       </span>
                       <div className="w-24 h-1.5 rounded-full bg-muted/60 overflow-hidden shrink-0">
                         <div
-                          className="h-full rounded-full bg-[#0B4F6C]/60"
+                          className="h-full rounded-full bg-[#001A2E]/60"
                           style={{ width: `${pct}%` }}
                         />
                       </div>

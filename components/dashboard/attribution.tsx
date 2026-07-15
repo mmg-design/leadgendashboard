@@ -241,14 +241,14 @@ function StageCard({
       <CardContent className="pt-5 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-[#0B4F6C]/8 text-[#0B4F6C] shrink-0">{icon}</div>
+            <div className="p-2 rounded-lg bg-[#001A2E]/8 text-[#001A2E] shrink-0">{icon}</div>
             <div>
               <div className="text-[13px] font-medium text-foreground/80">{title}</div>
               <div className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">{source}</div>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[24px] font-headline font-normal text-[#0B4F6C] leading-none">
+            <span className="text-[24px] font-headline font-normal text-[#001A2E] leading-none">
               {value.toLocaleString()}
             </span>
             <button
@@ -265,7 +265,7 @@ function StageCard({
         <div>
           <div className="h-2.5 rounded-full bg-muted overflow-hidden">
             <div
-              className="h-full rounded-full bg-[#0B4F6C] transition-all"
+              className="h-full rounded-full bg-[#001A2E] transition-all"
               style={{ width: `${widthPct}%` }}
             />
           </div>
@@ -279,7 +279,7 @@ function StageCard({
 
         <div className="pt-2.5 border-t border-border/50 space-y-1">
           <p className="text-[12px] text-foreground/80">{insight}</p>
-          <p className="text-[12px] text-[#0B4F6C] font-medium">→ {action}</p>
+          <p className="text-[12px] text-[#001A2E] font-medium">→ {action}</p>
         </div>
       </CardContent>
     </Card>
@@ -320,7 +320,7 @@ function MiniGoalCard({
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start justify-between gap-1">
           <div className="flex items-center gap-1.5 min-w-0">
-            <div className="p-1 rounded-md bg-[#0B4F6C]/8 text-[#0B4F6C] shrink-0">
+            <div className="p-1 rounded-md bg-[#001A2E]/8 text-[#001A2E] shrink-0">
               {icon}
             </div>
             <span className="text-[11.5px] font-medium text-foreground/80 truncate" title={title}>
@@ -376,7 +376,7 @@ function MiniGoalCard({
         </div>
 
         <div className="flex items-baseline gap-1.5">
-          <span className="text-[22px] font-headline font-normal text-[#0B4F6C] leading-none">
+          <span className="text-[22px] font-headline font-normal text-[#001A2E] leading-none">
             {count.toLocaleString()}
           </span>
           <span className="text-[9.5px] font-medium text-muted-foreground uppercase tracking-wide">
@@ -385,7 +385,7 @@ function MiniGoalCard({
         </div>
 
         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-          <div className="h-full rounded-full bg-[#0B4F6C] transition-all" style={{ width: `${widthPct}%` }} />
+          <div className="h-full rounded-full bg-[#001A2E] transition-all" style={{ width: `${widthPct}%` }} />
         </div>
 
         <p className="text-[10px] text-muted-foreground leading-snug">{caption}</p>
@@ -437,11 +437,11 @@ function FunnelPanel({
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
   const [hoveredStage, setHoveredStage] = useState<FunnelStageDatum | null>(null);
-  const branchColors = ["#3b8fa8", "#5aa3b8", "#7bb8c9", "#9ccbd6"];
+  const branchColors = ["#0CA4C3", "#45D7DF", "#72E1E6", "#A5EDF0"];
 
   const stages: FunnelStageDatum[] = [
-    { label: "Visitors", count: visited, insight: foundSiteInsightText, color: "#0B4F6C" },
-    { label: "Warm", count: engagedSessions, insight: stuckAroundInsightText, color: "#11809e" },
+    { label: "Visitors", count: visited, insight: foundSiteInsightText, color: "#001A2E" },
+    { label: "Warm", count: engagedSessions, insight: stuckAroundInsightText, color: "#0394B2" },
     ...conversions.map((c, i) => ({
       label: c.label || c.page,
       count: c.count,
@@ -524,7 +524,7 @@ function FunnelPanel({
       >
         {hoveredStage && (
           <>
-            <p className="text-[14px] font-semibold text-[#0B4F6C] mb-1.5">
+            <p className="text-[14px] font-semibold text-[#001A2E] mb-1.5">
               {hoveredStage.label} — {hoveredStage.count.toLocaleString()}
             </p>
             <p className="text-[13px] text-foreground/70 leading-relaxed">{hoveredStage.insight}</p>
@@ -659,7 +659,7 @@ export function Attribution({
       <div className="min-w-0 space-y-6">
         <div className="space-y-4">
           <div className="flex gap-3 items-stretch">
-            <RailStep color="#0B4F6C" isFirst />
+            <RailStep color="#001A2E" isFirst />
             <div className="flex-1 min-w-0">
               <StageCard
                 icon={<Search size={16} />}
@@ -677,7 +677,7 @@ export function Attribution({
           </div>
 
           <div className="flex gap-3 items-stretch">
-            <RailStep color="#11809e" />
+            <RailStep color="#0394B2" />
             <div className="flex-1 min-w-0">
               <StageCard
                 icon={<Eye size={16} />}
@@ -696,7 +696,7 @@ export function Attribution({
           </div>
 
           <div className="flex gap-3 items-stretch">
-            <RailStep color="#3b8fa8" isLast />
+            <RailStep color="#0CA4C3" isLast />
             <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {conversions.map((conv) => {
                 const isPendingDelete = pendingDeleteId === conv.id;
@@ -726,7 +726,7 @@ export function Attribution({
 
               <button
                 onClick={() => setWizardMode("adding")}
-                className="flex flex-col items-center justify-center gap-1.5 min-h-[128px] text-[12px] font-medium text-[#0B4F6C] border border-dashed border-[#0B4F6C]/25 rounded-lg hover:bg-[#0B4F6C]/[0.03] hover:border-[#0B4F6C]/40 transition-colors"
+                className="flex flex-col items-center justify-center gap-1.5 min-h-[128px] text-[12px] font-medium text-[#001A2E] border border-dashed border-[#001A2E]/25 rounded-lg hover:bg-[#001A2E]/[0.03] hover:border-[#001A2E]/40 transition-colors"
               >
                 <Plus size={16} />
                 {conversions.length === 0 ? "Create a new conversion event" : "Add another"}

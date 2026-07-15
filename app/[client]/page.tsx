@@ -399,7 +399,7 @@ export default function ClientDashboard() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header
-        className="bg-white/80 backdrop-blur-md border-b border-[#0B4F6C]/[0.06]"
+        className="bg-white/80 backdrop-blur-md border-b border-[#001A2E]/[0.06]"
         style={{
           background:
             "linear-gradient(90deg, rgba(255,255,255,0.9) 0%, rgba(228,242,247,0.8) 100%)",
@@ -426,11 +426,11 @@ export default function ClientDashboard() {
                 />
               </span>
             ) : (
-              <div className="w-8 h-8 rounded-lg bg-[#0B4F6C]/8 flex items-center justify-center shrink-0">
-                <Building2 size={16} className="text-[#0B4F6C]/40" />
+              <div className="w-8 h-8 rounded-lg bg-[#001A2E]/8 flex items-center justify-center shrink-0">
+                <Building2 size={16} className="text-[#001A2E]/40" />
               </div>
             )}
-            <h1 className="text-[24px] font-headline font-normal tracking-tight text-[#0B4F6C]">
+            <h1 className="text-[24px] font-headline font-normal tracking-tight text-[#001A2E]">
               {clientName}
             </h1>
           </div>
@@ -446,7 +446,7 @@ export default function ClientDashboard() {
               onClick={() => setSettingsOpen(!settingsOpen)}
               className={`p-2 rounded-lg transition-colors ${
                 settingsOpen
-                  ? "bg-[#0B4F6C]/10 text-[#0B4F6C]"
+                  ? "bg-[#001A2E]/10 text-[#001A2E]"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               }`}
               title="Client Settings"
@@ -459,10 +459,10 @@ export default function ClientDashboard() {
 
       {/* Settings Panel */}
       {settingsOpen && (
-        <div className="bg-white border-b border-[#0B4F6C]/[0.08] shadow-sm">
+        <div className="bg-white border-b border-[#001A2E]/[0.08] shadow-sm">
           <div className="max-w-[1400px] mx-auto px-8 py-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-[15px] font-semibold text-[#0B4F6C] tracking-tight">
+              <h2 className="text-[15px] font-semibold text-[#001A2E] tracking-tight">
                 Client Settings
               </h2>
               <button
@@ -485,7 +485,7 @@ export default function ClientDashboard() {
                     type="text"
                     value={settingsForm.name}
                     onChange={(e) => setSettingsForm({ ...settingsForm, name: e.target.value })}
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
                 <div>
@@ -499,8 +499,8 @@ export default function ClientDashboard() {
                     onDrop={handleIconDrop}
                     className={`relative flex size-24 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed bg-background transition-colors ${
                       iconDragging
-                        ? "border-[#0B4F6C] bg-[#0B4F6C]/5"
-                        : "border-border hover:border-[#0B4F6C]/40 hover:bg-[#0B4F6C]/[0.03]"
+                        ? "border-[#001A2E] bg-[#001A2E]/5"
+                        : "border-border hover:border-[#001A2E]/40 hover:bg-[#001A2E]/[0.03]"
                     }`}
                     title="Upload project icon"
                   >
@@ -521,9 +521,9 @@ export default function ClientDashboard() {
                         className="object-cover"
                       />
                     ) : (
-                      <ImageIcon size={24} className="text-[#0B4F6C]/35" />
+                      <ImageIcon size={24} className="text-[#001A2E]/35" />
                     )}
-                    <span className="absolute inset-x-0 bottom-0 flex h-7 items-center justify-center bg-white/90 text-[#0B4F6C] shadow-[0_-1px_0_rgba(11,79,108,0.08)]">
+                    <span className="absolute inset-x-0 bottom-0 flex h-7 items-center justify-center bg-white/90 text-[#001A2E] shadow-[0_-1px_0_rgba(0,26,46,0.08)]">
                       {iconUploading ? (
                         <Loader2 size={13} className="animate-spin" />
                       ) : (
@@ -549,7 +549,7 @@ export default function ClientDashboard() {
                     value={settingsForm.gaPropertyId}
                     onChange={(e) => setSettingsForm({ ...settingsForm, gaPropertyId: e.target.value })}
                     placeholder="properties/123456789"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                   <div className="mt-1.5">
                     <GaServiceAccountHint />
@@ -562,7 +562,7 @@ export default function ClientDashboard() {
                     value={settingsForm.clarityProjectId}
                     onChange={(e) => setSettingsForm({ ...settingsForm, clarityProjectId: e.target.value })}
                     placeholder="abc123xyz"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
               </div>
@@ -579,7 +579,7 @@ export default function ClientDashboard() {
                     value={settingsForm.seRankingProjectId}
                     onChange={(e) => setSettingsForm({ ...settingsForm, seRankingProjectId: e.target.value })}
                     placeholder="123456"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                   <p className="text-[10px] text-muted-foreground/60 mt-0.5">From the SE Ranking project URL</p>
                 </div>
@@ -590,7 +590,7 @@ export default function ClientDashboard() {
                     value={settingsForm.clickupListIds}
                     onChange={(e) => setSettingsForm({ ...settingsForm, clickupListIds: e.target.value })}
                     placeholder="901234567, 901234568"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                   <p className="text-[10px] text-muted-foreground/60 mt-0.5">Comma-separated, from ClickUp list URLs</p>
                 </div>
@@ -600,7 +600,7 @@ export default function ClientDashboard() {
                     type="date"
                     value={settingsForm.clickupEngagementStart}
                     onChange={(e) => setSettingsForm({ ...settingsForm, clickupEngagementStart: e.target.value })}
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0B4F6C]/20 focus:border-[#0B4F6C]/30"
+                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
               </div>
@@ -610,7 +610,7 @@ export default function ClientDashboard() {
               <button
                 onClick={handleSaveSettings}
                 disabled={saving}
-                className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-white bg-[#0B4F6C] rounded-lg hover:bg-[#0B4F6C]/90 disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-white bg-[#0CA4C3] rounded-lg hover:bg-[#0394B2] disabled:opacity-50 transition-colors"
               >
                 {saving ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -648,7 +648,7 @@ export default function ClientDashboard() {
                 onClick={() => setActiveSection("overview")}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
                   activeSection === "overview"
-                    ? "bg-[#0B4F6C]/10 text-[#0B4F6C]"
+                    ? "bg-[#001A2E]/10 text-[#001A2E]"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
               >
@@ -658,7 +658,7 @@ export default function ClientDashboard() {
                 onClick={() => setActiveSection("attribution")}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
                   activeSection === "attribution"
-                    ? "bg-[#0B4F6C]/10 text-[#0B4F6C]"
+                    ? "bg-[#001A2E]/10 text-[#001A2E]"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
               >

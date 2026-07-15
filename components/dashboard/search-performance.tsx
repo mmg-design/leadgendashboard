@@ -62,7 +62,7 @@ function PositionBadge({ position }: { position: number }) {
     position <= 3
       ? "bg-emerald-50 text-emerald-700 border-emerald-200"
       : position <= 10
-      ? "bg-[#0B4F6C]/8 text-[#0B4F6C] border-[#0B4F6C]/20"
+      ? "bg-[#001A2E]/8 text-[#001A2E] border-[#001A2E]/20"
       : position <= 30
       ? "bg-muted/60 text-foreground/70 border-border"
       : "bg-muted/30 text-muted-foreground border-border";
@@ -219,7 +219,7 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
             icon={<Star size={11} />}
             label="Top 10 Keywords"
             value={String(data.top10Count)}
-            valueClass="text-[#0B4F6C]"
+            valueClass="text-[#001A2E]"
             sub="Ranking in top 10"
           />
           <MetricTile

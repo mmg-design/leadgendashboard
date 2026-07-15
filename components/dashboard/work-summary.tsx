@@ -65,7 +65,7 @@ export function WorkSummary({ clientName, data, loading, enabled, error, onRefre
               Engagement
             </div>
             <div className="text-right">
-              <div className="text-[15px] font-headline font-normal text-[#0B4F6C] leading-tight">
+              <div className="text-[15px] font-headline font-normal text-[#001A2E] leading-tight">
                 {clientName}
               </div>
               {data?.engagementStartDate && (
@@ -85,7 +85,7 @@ export function WorkSummary({ clientName, data, loading, enabled, error, onRefre
                   <Clock size={11} />
                   <span>Time tracked this month</span>
                 </div>
-                <div className="text-[18px] font-light text-[#0B4F6C] tabular-nums">
+                <div className="text-[18px] font-light text-[#001A2E] tabular-nums">
                   {error ? (
                     <span className="text-[12px] text-red-500">Unavailable</span>
                   ) : loading ? (
@@ -145,7 +145,7 @@ export function WorkSummary({ clientName, data, loading, enabled, error, onRefre
                     </p>
                   )}
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#0B4F6C]/[0.07] text-[#0B4F6C]/70 truncate max-w-[130px]">
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#001A2E]/[0.07] text-[#001A2E]/70 truncate max-w-[130px]">
                       {item.phase}
                     </span>
                     <span className="text-[10px] text-muted-foreground/50 shrink-0">

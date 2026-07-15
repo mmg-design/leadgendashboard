@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const neueMontreal = localFont({
+  src: "../public/fonts/PPNeueMontreal-Regular.otf",
+  variable: "--font-neue-montreal",
+  display: "swap",
 });
 
 const tiemposHeadline = localFont({
@@ -51,7 +46,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${tiemposHeadline.variable} antialiased`}
+        className={`${neueMontreal.variable} ${tiemposHeadline.variable} antialiased`}
       >
         {children}
       </body>

@@ -74,7 +74,7 @@ export function SourceBars({ data, title = "Traffic Sources" }: SourceBarsProps)
                 </div>
                 <div className="h-1.5 w-full bg-muted/40 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#0B4F6C] rounded-full transition-all duration-300"
+                    className="h-full bg-[#001A2E] rounded-full transition-all duration-300"
                     style={{ width: `${pct}%` }}
                   />
                 </div>

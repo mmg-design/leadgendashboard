@@ -58,8 +58,8 @@ export function AIAnalysisCard({ clientName, range, ga, visitors, clarity, seRan
 
   return (
     <div
-      className="h-full rounded-xl overflow-hidden shadow-[0_2px_12px_rgba(11,79,108,0.12)] flex flex-col"
-      style={{ background: "linear-gradient(135deg, #0B4F6C 0%, #0d6180 40%, #11809e 100%)" }}
+      className="h-full rounded-xl overflow-hidden shadow-[0_2px_12px_rgba(0,26,46,0.12)] flex flex-col"
+      style={{ background: "linear-gradient(135deg, #001A2E 0%, #01384C 52%, #072732 100%)" }}
     >
       <div className="px-5 pt-4 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -92,7 +92,7 @@ export function AIAnalysisCard({ clientName, range, ga, visitors, clarity, seRan
             )}
             <button
               onClick={runAnalysis}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-semibold rounded-lg bg-white text-[#0B4F6C] hover:bg-white/90 transition-all shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-semibold rounded-lg bg-[#0CA4C3] text-white hover:bg-[#0394B2] transition-all shadow-[0_0_0_1px_#0e91ac,0_-1px_1px_rgba(7,39,50,.67),inset_0_1px_1px_rgba(255,255,255,.22),inset_0_4px_12px_rgba(255,255,255,.3),0_4px_10px_rgba(27,121,140,.14)]"
             >
               <Sparkles size={11} />
               Analyze Data

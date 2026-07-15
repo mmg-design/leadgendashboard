@@ -17,10 +17,10 @@ interface TopPagesProps {
 
 function EngagementMeter({ score }: { score: number }) {
   const color =
-    score >= 70 ? "bg-emerald-500" : score >= 45 ? "bg-[#0B4F6C]" : score >= 20 ? "bg-amber-400" : "bg-red-400";
+    score >= 70 ? "bg-emerald-500" : score >= 45 ? "bg-[#001A2E]" : score >= 20 ? "bg-amber-400" : "bg-red-400";
   const textColor =
     score >= 70 ? "text-emerald-700 bg-emerald-50 border-emerald-200" :
-    score >= 45 ? "text-[#0B4F6C] bg-[#0B4F6C]/8 border-[#0B4F6C]/20" :
+    score >= 45 ? "text-[#001A2E] bg-[#001A2E]/8 border-[#001A2E]/20" :
     score >= 20 ? "text-amber-700 bg-amber-50 border-amber-200" :
     "text-red-600 bg-red-50 border-red-200";
 
@@ -82,7 +82,7 @@ export function TopPages({ data }: TopPagesProps) {
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-[#0B4F6C]/50"
+                      className="h-full rounded-full bg-[#001A2E]/50"
                       style={{ width: `${(page.views / max) * 100}%` }}
                     />
                   </div>

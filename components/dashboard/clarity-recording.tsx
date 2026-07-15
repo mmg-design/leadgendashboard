@@ -34,8 +34,8 @@ export function ClarityRecordingLink({
       <CardContent className="py-4 flex-1 flex flex-col">
         {/* Header */}
         <div className="flex items-center gap-2.5 mb-3">
-          <div className="p-2 rounded-lg bg-[#0B4F6C]/8">
-            <MousePointerClick size={16} className="text-[#0B4F6C]/70" />
+          <div className="p-2 rounded-lg bg-[#001A2E]/8">
+            <MousePointerClick size={16} className="text-[#001A2E]/70" />
           </div>
           <div className="text-[17px] font-headline font-normal text-foreground/80">
             Behavior Insights
@@ -52,7 +52,7 @@ export function ClarityRecordingLink({
             title="Average % of the homepage users scrolled through. Higher = more content is being read."
           >
             <div className="flex items-center justify-center gap-1 mb-0.5">
-              <Scroll size={11} className="text-[#0B4F6C]/60" />
+              <Scroll size={11} className="text-[#001A2E]/60" />
               <span className="text-[18px] font-light text-foreground tabular-nums">
                 {homepageScrollDepth !== null ? `${homepageScrollDepth}%` : "—"}
               </span>
@@ -97,7 +97,7 @@ export function ClarityRecordingLink({
           {topPages.length > 0 ? (
             topPages.map((page, i) => {
               const score = page.engagementScore;
-              const color = score >= 70 ? "bg-emerald-500" : score >= 40 ? "bg-[#0B4F6C]" : "bg-amber-400";
+              const color = score >= 70 ? "bg-emerald-500" : score >= 40 ? "bg-[#001A2E]" : "bg-amber-400";
               return (
                 <a
                   key={i}
@@ -116,7 +116,7 @@ export function ClarityRecordingLink({
                     </div>
                     <span className="text-[10px] font-medium text-foreground/60 w-6 text-right tabular-nums">{score}</span>
                   </div>
-                  <ExternalLink size={8} className="text-muted-foreground/20 group-hover:text-[#0B4F6C]/40 shrink-0" />
+                  <ExternalLink size={8} className="text-muted-foreground/20 group-hover:text-[#001A2E]/40 shrink-0" />
                 </a>
               );
             })
@@ -131,7 +131,7 @@ export function ClarityRecordingLink({
           href={topSessionUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 text-[12px] font-medium rounded-lg bg-[#0B4F6C]/8 text-[#0B4F6C] hover:bg-[#0B4F6C]/15 transition-colors mt-auto"
+          className="inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 text-[12px] font-medium rounded-lg bg-[#001A2E]/8 text-[#001A2E] hover:bg-[#001A2E]/15 transition-colors mt-auto"
         >
           Open Clarity Dashboard
           <ExternalLink size={11} />

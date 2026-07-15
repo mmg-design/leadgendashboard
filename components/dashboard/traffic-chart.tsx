@@ -37,12 +37,12 @@ export function TrafficChart({ data, title = "Traffic Overview" }: TrafficChartP
             <AreaChart data={formatted}>
               <defs>
                 <linearGradient id="sessions" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0B4F6C" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#0B4F6C" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#001A2E" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#001A2E" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="pageviews" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#11809e" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#11809e" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#0394B2" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#0394B2" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.04)" />
@@ -70,7 +70,7 @@ export function TrafficChart({ data, title = "Traffic Overview" }: TrafficChartP
               <Area
                 type="monotone"
                 dataKey="sessions"
-                stroke="#0B4F6C"
+                stroke="#001A2E"
                 fillOpacity={1}
                 fill="url(#sessions)"
                 strokeWidth={1.5}
@@ -78,7 +78,7 @@ export function TrafficChart({ data, title = "Traffic Overview" }: TrafficChartP
               <Area
                 type="monotone"
                 dataKey="pageviews"
-                stroke="#11809e"
+                stroke="#0394B2"
                 fillOpacity={1}
                 fill="url(#pageviews)"
                 strokeWidth={1.5}
