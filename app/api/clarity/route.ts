@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
         .sort((a, b) => b.engagementScore - a.engagementScore)
         .slice(0, 10);
 
-      // Homepage scroll depth — match root path or index
+      // Homepage scroll depth - match root path or index
       const homeEntry = Object.entries(urlMap).find(([url]) => {
         try { const p = new URL(url).pathname; return p === "/" || p === "" || p === "/index"; }
         catch { return url.endsWith("/") && !url.slice(0, -1).includes("/", 8); }

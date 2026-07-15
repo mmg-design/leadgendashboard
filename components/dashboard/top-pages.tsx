@@ -31,7 +31,7 @@ function EngagementMeter({ score }: { score: number }) {
       </div>
       <span
         className={`text-[12px] font-semibold px-1.5 py-0.5 rounded border tabular-nums ${textColor}`}
-        title="GA4 Engagement Rate — % of sessions on this page where the user actively engaged (scrolled, clicked, or stayed 10+ seconds)"
+        title="GA4 Engagement Rate - % of sessions on this page where the user actively engaged (scrolled, clicked, or stayed 10+ seconds)"
       >
         {score}
       </span>
@@ -54,10 +54,10 @@ export function TopPages({ data }: TopPagesProps) {
     <Card className="h-full flex flex-col">
       <CardHeader>
         <div className="flex items-center gap-2">
-          <FileText size={15} className="text-muted-foreground/60" />
-          <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">Top Pages</CardTitle>
+          <FileText size={15} className="text-[#097388]/75" />
+          <CardTitle className="text-[22px] font-headline font-normal text-[#001A2E]">Top Pages</CardTitle>
           {hasEngagement && (
-            <span className="ml-auto flex items-center gap-1 text-[12px] text-muted-foreground/50">
+            <span className="ml-auto flex items-center gap-1 text-[12px] text-[#097388]/65">
               <Gauge size={10} />
               Engagement
             </span>
@@ -91,7 +91,7 @@ export function TopPages({ data }: TopPagesProps) {
                       {page.views.toLocaleString()}
                     </span>
                     {page.avgDuration !== undefined && page.avgDuration > 0 && (
-                      <span className="text-[12px] text-muted-foreground/50 tabular-nums w-10">
+                      <span className="text-[12px] text-[#097388]/65 tabular-nums w-10">
                         {formatDuration(page.avgDuration)}
                       </span>
                     )}

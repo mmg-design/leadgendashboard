@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
         completedAt: new Date(t._sortTs).toISOString(),
       }));
 
-    // Tasks updated in last 7 days — fetch comments for up to 5
+    // Tasks updated in last 7 days - fetch comments for up to 5
     const recentlyUpdated = allActive
       .filter((t) => t.date_updated && Number(t.date_updated) >= sevenDaysAgo)
       .sort((a, b) => Number(b.date_updated) - Number(a.date_updated))

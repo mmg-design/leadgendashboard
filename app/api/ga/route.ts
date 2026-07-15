@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
 
   const propertyId = config.integrations.googleAnalytics.propertyId;
 
-  // Check cache first (refresh every 15 min) — skipped on manual refresh
+  // Check cache first (refresh every 15 min) - skipped on manual refresh
   const db = await getDb();
   if (!isRefresh) {
     const cached = await db.execute({
@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
             dimensionFilter: conversionFilterFor(goal),
             orderBys: [{ dimension: { dimensionName: "date", orderType: "ALPHANUMERIC" } }],
           }),
-          // Aggregate traffic-source breakdown scoped to this conversion — not
+          // Aggregate traffic-source breakdown scoped to this conversion - not
           // individual visitors (GA4 doesn't expose per-user IP/identity), just
           // "what channel started sessions that included this conversion event."
           analyticsClient!.runReport({

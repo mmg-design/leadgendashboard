@@ -28,8 +28,8 @@ export function ActiveWork({ data, loading, error, enabled }: ActiveWorkProps) {
       <Card className="opacity-60">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <CheckSquare size={15} className="text-muted-foreground/60" />
-            <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">
+            <CheckSquare size={15} className="text-[#097388]/75" />
+            <CardTitle className="text-[22px] font-headline font-normal text-[#001A2E]">
               Active Work
             </CardTitle>
             <span className="ml-auto text-[12px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground tracking-wide uppercase">
@@ -51,8 +51,8 @@ export function ActiveWork({ data, loading, error, enabled }: ActiveWorkProps) {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <CheckSquare size={15} className="text-muted-foreground/60" />
-            <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">
+            <CheckSquare size={15} className="text-[#097388]/75" />
+            <CardTitle className="text-[22px] font-headline font-normal text-[#001A2E]">
               Active Work
             </CardTitle>
           </div>
@@ -73,8 +73,8 @@ export function ActiveWork({ data, loading, error, enabled }: ActiveWorkProps) {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <CheckSquare size={15} className="text-muted-foreground/60" />
-            <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">
+            <CheckSquare size={15} className="text-[#097388]/75" />
+            <CardTitle className="text-[22px] font-headline font-normal text-[#001A2E]">
               Active Work
             </CardTitle>
           </div>
@@ -90,8 +90,8 @@ export function ActiveWork({ data, loading, error, enabled }: ActiveWorkProps) {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <CheckSquare size={15} className="text-muted-foreground/60" />
-          <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">
+          <CheckSquare size={15} className="text-[#097388]/75" />
+          <CardTitle className="text-[22px] font-headline font-normal text-[#001A2E]">
             Active Work
           </CardTitle>
           <span className="text-[13px] text-muted-foreground ml-auto">ClickUp</span>

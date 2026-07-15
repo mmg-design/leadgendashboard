@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getClient, syntheticEventName, SNIPPET_TRIGGER_TYPES } from "@/lib/clients";
 
 // Public, read-only endpoint fetched by the universal tracking snippet installed
-// on a client's live site. Returns only trigger definitions — no secrets.
+// on a client's live site. Returns only trigger definitions - no secrets.
 // Client-defined rules land here automatically; the snippet re-fetches this on
 // every page load, so new rules need no further site edits.
 export async function GET(req: NextRequest) {

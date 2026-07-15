@@ -399,11 +399,7 @@ export default function ClientDashboard() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header
-        className="bg-white/80 backdrop-blur-md border-b border-[#001A2E]/[0.06]"
-        style={{
-          background:
-            "linear-gradient(90deg, rgba(255,255,255,0.9) 0%, rgba(228,242,247,0.8) 100%)",
-        }}
+        className="bg-white border-b border-[#001A2E]/[0.08]"
       >
         <div className="max-w-[1440px] mx-auto px-6 md:px-10 py-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -581,7 +577,7 @@ export default function ClientDashboard() {
                     placeholder="123456"
                     className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
-                  <p className="text-[12px] text-muted-foreground/60 mt-0.5">From the SE Ranking project URL</p>
+                  <p className="text-[12px] text-[#097388]/75 mt-0.5">From the SE Ranking project URL</p>
                 </div>
                 <div>
                   <label className="text-[14px] font-medium text-foreground/70 mb-1 block">ClickUp List IDs</label>
@@ -592,7 +588,7 @@ export default function ClientDashboard() {
                     placeholder="901234567, 901234568"
                     className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
-                  <p className="text-[12px] text-muted-foreground/60 mt-0.5">Comma-separated, from ClickUp list URLs</p>
+                  <p className="text-[12px] text-[#097388]/75 mt-0.5">Comma-separated, from ClickUp list URLs</p>
                 </div>
                 <div>
                   <label className="text-[14px] font-medium text-foreground/70 mb-1 block">Engagement Start Date</label>
@@ -704,7 +700,7 @@ export default function ClientDashboard() {
                   onClick={() => fetchGa(true)}
                   disabled={gaLoading}
                   title="Refresh website performance data"
-                  className="p-1 rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
+                  className="p-1 rounded-md text-[#097388]/55 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
                 >
                   <RefreshCw size={12} className={gaLoading ? "animate-spin" : ""} />
                 </button>
@@ -714,7 +710,7 @@ export default function ClientDashboard() {
               <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
                 <StatCard
                   title="Sessions"
-                  value={ga?.summary.sessions?.toLocaleString() || "—"}
+                  value={ga?.summary.sessions?.toLocaleString() || "-"}
                   subtitle={`Last ${range}`}
                   icon={<Activity size={16} />}
                   tooltip="How many times someone visited the site. If one person comes back 3 times, that's 3 sessions."
@@ -722,7 +718,7 @@ export default function ClientDashboard() {
                 />
                 <StatCard
                   title="Pageviews"
-                  value={ga?.summary.pageviews?.toLocaleString() || "—"}
+                  value={ga?.summary.pageviews?.toLocaleString() || "-"}
                   subtitle={`Last ${range}`}
                   icon={<Eye size={16} />}
                   tooltip="Total pages looked at across all visits. Higher than sessions means people are exploring."
@@ -734,17 +730,17 @@ export default function ClientDashboard() {
                 />
                 <StatCard
                   title="Unique Visitors"
-                  value={ga?.summary.uniqueVisitors?.toLocaleString() || "—"}
+                  value={ga?.summary.uniqueVisitors?.toLocaleString() || "-"}
                   subtitle={`Last ${range}`}
                   icon={<Users size={16} />}
                   tooltip="How many different people visited. Repeat visits from the same person only count once."
                 />
                 <StatCard
                   title="Engagement Rate"
-                  value={ga?.summary.engagementRate || ga?.summary.bounceRate || "—"}
-                  subtitle={ga?.summary.avgSessionDuration ? `Avg ${ga.summary.avgSessionDuration}` : "—"}
+                  value={ga?.summary.engagementRate || ga?.summary.bounceRate || "-"}
+                  subtitle={ga?.summary.avgSessionDuration ? `Avg ${ga.summary.avgSessionDuration}` : "-"}
                   icon={<ArrowDownUp size={16} />}
-                  tooltip="% of sessions where the user actively engaged — scrolled, clicked, or stayed 10+ seconds. GA4's replacement for bounce rate. 60%+ is healthy."
+                  tooltip="% of sessions where the user actively engaged - scrolled, clicked, or stayed 10+ seconds. GA4's replacement for bounce rate. 60%+ is healthy."
                 />
               </div>
 

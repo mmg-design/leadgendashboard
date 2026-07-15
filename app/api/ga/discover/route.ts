@@ -19,7 +19,7 @@ function getAnalyticsClient(): BetaAnalyticsDataClient {
 
 let analyticsClient: BetaAnalyticsDataClient | null = null;
 
-// GA4's own automatic events — not useful as a conversion signal since they fire on every visit.
+// GA4's own automatic events - not useful as a conversion signal since they fire on every visit.
 const DEFAULT_EVENTS = new Set([
   "page_view",
   "scroll",

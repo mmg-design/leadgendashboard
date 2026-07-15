@@ -57,7 +57,7 @@ export function WorkSummary({ clientName, data, loading, enabled, error, onRefre
 
   return (
     <div className="space-y-4">
-      {/* Engagement card — name + date on right */}
+      {/* Engagement card - name + date on right */}
       <Card>
         <CardContent className="pt-5 pb-4">
           <div className="flex items-start justify-between gap-3">
@@ -89,7 +89,7 @@ export function WorkSummary({ clientName, data, loading, enabled, error, onRefre
                   {error ? (
                     <span className="text-[14px] text-red-500">Unavailable</span>
                   ) : loading ? (
-                    <span className="text-[14px] text-muted-foreground/40">—</span>
+                    <span className="text-[14px] text-[#097388]/55">-</span>
                   ) : (
                     formatDuration(data?.timeTrackedThisMonthMs ?? 0)
                   )}
@@ -104,7 +104,7 @@ export function WorkSummary({ clientName, data, loading, enabled, error, onRefre
       <Card>
         <CardContent className="pt-5">
           <div className="flex items-center gap-2 mb-3">
-            <Activity size={13} className="text-muted-foreground/60" />
+            <Activity size={13} className="text-[#097388]/75" />
             <span className="text-[14px] font-semibold uppercase tracking-wider text-muted-foreground">
               Recent Activity
             </span>
@@ -112,7 +112,7 @@ export function WorkSummary({ clientName, data, loading, enabled, error, onRefre
               onClick={onRefresh}
               disabled={loading || !onRefresh}
               title="Refresh recent activity"
-              className="ml-auto p-1 rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
+              className="ml-auto p-1 rounded-md text-[#097388]/55 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
             >
               <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
             </button>
@@ -148,7 +148,7 @@ export function WorkSummary({ clientName, data, loading, enabled, error, onRefre
                     <span className="text-[12px] font-medium px-1.5 py-0.5 rounded bg-[#001A2E]/[0.07] text-[#001A2E]/70 truncate max-w-[130px]">
                       {item.phase}
                     </span>
-                    <span className="text-[12px] text-muted-foreground/50 shrink-0">
+                    <span className="text-[12px] text-[#097388]/65 shrink-0">
                       {formatDistanceToNow(new Date(item.ts), { addSuffix: true })}
                     </span>
                   </div>

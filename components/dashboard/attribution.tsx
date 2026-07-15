@@ -99,7 +99,7 @@ function foundSiteInsight(sessionsChange: number | null | undefined) {
   }
   return {
     insight: "Traffic has held roughly steady compared to the previous period.",
-    action: "Traffic is stable — focus effort on the steps below instead.",
+    action: "Traffic is stable - focus effort on the steps below instead.",
   };
 }
 
@@ -112,13 +112,13 @@ function stuckAroundInsight(engagementPct: number) {
   }
   if (engagementPct >= 40) {
     return {
-      insight: "About half of visitors engage meaningfully — the rest leave quickly.",
+      insight: "About half of visitors engage meaningfully - the rest leave quickly.",
       action: "Check scroll depth and rage clicks below for where people lose interest.",
     };
   }
   return {
     insight: "Most visitors leave without real engagement.",
-    action: "The message above the fold likely isn't landing — revisit the headline and first section.",
+    action: "The message above the fold likely isn't landing - revisit the headline and first section.",
   };
 }
 
@@ -170,7 +170,7 @@ function prettySourceName(source: string): string {
 
 // Translates GA4's raw "source / medium" pair (e.g. "exactmedicare.com / referral",
 // "(direct) / (none)") into a plain-English sentence describing how the visitor
-// actually arrived — this is GA4 attribution data, not anything from Clarity.
+// actually arrived - this is GA4 attribution data, not anything from Clarity.
 function describeJourney(sourceMedium: string): string {
   const [rawSource, rawMedium] = sourceMedium.split(" / ").map((s) => s.trim());
   const source = rawSource || "an unknown source";
@@ -178,7 +178,7 @@ function describeJourney(sourceMedium: string): string {
   const prettySource = prettySourceName(source);
 
   if (source === "(direct)" || medium === "(none)") {
-    return "Went straight to the site — typed the URL directly or used a bookmark";
+    return "Went straight to the site - typed the URL directly or used a bookmark";
   }
   if (medium.includes("organic")) {
     return `Found the site through a ${prettySource} search`;
@@ -243,8 +243,8 @@ function StageCard({
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-[#001A2E]/8 text-[#001A2E] shrink-0">{icon}</div>
             <div>
-              <div className="text-[15px] font-medium text-foreground/80">{title}</div>
-              <div className="text-[12px] text-muted-foreground/60 uppercase tracking-wide">{source}</div>
+              <div className="font-headline text-[24px] font-normal leading-none tracking-[-0.02em] text-[#001A2E]">{title}</div>
+              <div className="text-[12px] text-[#097388]/75 uppercase tracking-wide">{source}</div>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -255,7 +255,7 @@ function StageCard({
               onClick={onRefresh}
               disabled={refreshing}
               title={`Refresh ${title.toLowerCase()}`}
-              className="p-1 rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
+              className="p-1 rounded-md text-[#097388]/55 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
             >
               <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
             </button>
@@ -352,21 +352,21 @@ function MiniGoalCard({
                   onClick={onRefresh}
                   disabled={refreshing}
                   title="Refresh"
-                  className="p-1 rounded-md text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
+                  className="p-1 rounded-md text-[#097388]/65 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
                 >
                   <RefreshCw size={10.5} className={refreshing ? "animate-spin" : ""} />
                 </button>
                 <button
                   onClick={onEdit}
                   title="Edit"
-                  className="p-1 rounded-md text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/40 transition-colors"
+                  className="p-1 rounded-md text-[#097388]/65 hover:text-muted-foreground hover:bg-muted/40 transition-colors"
                 >
                   <Pencil size={10.5} />
                 </button>
                 <button
                   onClick={onRequestDelete}
                   title="Delete"
-                  className="p-1 rounded-md text-muted-foreground/50 hover:text-red-600 hover:bg-red-50 transition-colors"
+                  className="p-1 rounded-md text-[#097388]/65 hover:text-red-600 hover:bg-red-50 transition-colors"
                 >
                   <Trash2 size={10.5} />
                 </button>
@@ -379,7 +379,7 @@ function MiniGoalCard({
           <span className="text-[24px] font-headline font-normal text-[#001A2E] leading-none">
             {count.toLocaleString()}
           </span>
-          <span className="text-[9.5px] font-medium text-muted-foreground uppercase tracking-wide">
+          <span className="font-headline text-[17px] font-normal text-[#001A2E] leading-none">
             {count === 1 ? "Lead" : "Leads"}
           </span>
         </div>
@@ -406,7 +406,7 @@ const FUNNEL_SEGMENT_HEIGHT = 88;
 const FUNNEL_WIDTH = 280;
 
 // A smooth S-curve taper between one stage's width and the next, instead of a
-// hard-angled trapezoid — reads as a flowing funnel rather than a stack of wedges.
+// hard-angled trapezoid - reads as a flowing funnel rather than a stack of wedges.
 function curvySegmentPath(topPct: number, bottomPct: number, yTop: number): string {
   const yBot = yTop + FUNNEL_SEGMENT_HEIGHT;
   const yMid = yTop + FUNNEL_SEGMENT_HEIGHT / 2;
@@ -451,7 +451,7 @@ function FunnelPanel({
     })),
   ];
 
-  // True proportional widths — only a thin floor so a zero-count stage still renders as a sliver, not nothing.
+  // True proportional widths - only a thin floor so a zero-count stage still renders as a sliver, not nothing.
   function widthPctFor(count: number): number {
     return Math.max((count / maxCount) * 100, 6);
   }
@@ -473,7 +473,7 @@ function FunnelPanel({
     <>
       <Card className="xl:sticky xl:top-8">
         <CardContent className="pt-5">
-          <p className="text-[15px] font-medium text-foreground/80 mb-1">The funnel</p>
+          <p className="font-headline text-[22px] font-normal text-[#001A2E] mb-1">The funnel</p>
           <p className="text-[13px] text-muted-foreground mb-4">Hover a stage for context</p>
 
           <svg viewBox={`0 0 ${FUNNEL_WIDTH} ${svgHeight}`} width="100%" height={svgHeight} className="overflow-visible">
@@ -525,7 +525,7 @@ function FunnelPanel({
         {hoveredStage && (
           <>
             <p className="text-[16px] font-semibold text-[#001A2E] mb-1.5">
-              {hoveredStage.label} — {hoveredStage.count.toLocaleString()}
+              {hoveredStage.label} - {hoveredStage.count.toLocaleString()}
             </p>
             <p className="text-[15px] text-foreground/70 leading-relaxed">{hoveredStage.insight}</p>
             {hoveredStage.sources && hoveredStage.sources.length > 0 && (
@@ -742,7 +742,7 @@ export function Attribution({
             <CardContent className="pt-5 space-y-2.5">
               <div className="flex items-center justify-between">
                 <p className="text-[15px] font-medium text-foreground/80">What might be slowing people down</p>
-                <span className="text-[12px] text-muted-foreground/60 uppercase tracking-wide">
+                <span className="text-[12px] text-[#097388]/75 uppercase tracking-wide">
                   Source: Microsoft Clarity, site-wide, last 30 days
                 </span>
               </div>
@@ -757,7 +757,7 @@ export function Attribution({
                 {(clarity?.rageClicks ?? 0) > 0 && (
                   <p>
                     <strong>{clarity!.rageClicks}</strong> people sitewide clicked something rapidly and
-                    repeatedly — usually a sign something looked clickable but didn&apos;t work.
+                    repeatedly - usually a sign something looked clickable but didn&apos;t work.
                   </p>
                 )}
                 {(clarity?.deadClicks ?? 0) > 0 && (

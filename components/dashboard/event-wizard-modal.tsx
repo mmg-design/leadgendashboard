@@ -41,7 +41,7 @@ interface EventWizardModalProps {
 }
 
 // "event" (a pre-existing GA4 event) is intentionally not offered as a creation
-// option anymore — everything below is built and fired by our own snippet,
+// option anymore - everything below is built and fired by our own snippet,
 // with no GTM or prior instrumentation required.
 const TYPE_OPTIONS: { type: WizardConversionType; icon: typeof FileText; title: string; desc: string }[] = [
   { type: "pageview", icon: FileText, title: "A page loads", desc: "Like a thank-you or confirmation page" },
@@ -170,7 +170,7 @@ export function EventWizardModal({
       setSaved(true);
       setTimeout(onClose, 900);
     } catch {
-      setError("Couldn't save — try again.");
+      setError("Couldn't save - try again.");
       setSaving(false);
     }
   }
@@ -240,8 +240,8 @@ export function EventWizardModal({
                     {suggestionsLoading
                       ? "Checking what's actually firing on this site..."
                       : relevantSuggestions.length > 0
-                      ? "Actually firing on this site — tap to use:"
-                      : "Nothing matching found automatically — enter it manually below."}
+                      ? "Actually firing on this site - tap to use:"
+                      : "Nothing matching found automatically - enter it manually below."}
                   </p>
                   {relevantSuggestions.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-2">
@@ -285,8 +285,8 @@ export function EventWizardModal({
                     placeholder="Schedule My Call"
                     className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
-                  <p className="text-[12px] text-muted-foreground/60 mt-1">
-                    Type it exactly as it appears on the button — we&apos;ll match it automatically.
+                  <p className="text-[12px] text-[#097388]/75 mt-1">
+                    Type it exactly as it appears on the button - we&apos;ll match it automatically.
                   </p>
                 </div>
               )}
@@ -303,8 +303,8 @@ export function EventWizardModal({
                     placeholder="Contact form"
                     className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
-                  <p className="text-[12px] text-muted-foreground/60 mt-1">
-                    Counts any form submission — narrow it to one page below if you only want a specific form.
+                  <p className="text-[12px] text-[#097388]/75 mt-1">
+                    Counts any form submission - narrow it to one page below if you only want a specific form.
                   </p>
                 </div>
               )}
@@ -378,7 +378,7 @@ export function EventWizardModal({
               {showSnippetStep && (
                 <div className="space-y-2">
                   <p className="text-[14px] font-medium text-foreground/80">
-                    One-time setup — paste this into your site&apos;s custom code (footer), then you&apos;re done forever:
+                    One-time setup - paste this into your site&apos;s custom code (footer), then you&apos;re done forever:
                   </p>
                   <div className="relative">
                     <pre className="text-[10.5px] leading-relaxed bg-[#001A2E] text-white/90 rounded-lg p-3 overflow-x-auto">
@@ -396,9 +396,9 @@ export function EventWizardModal({
                       {copied ? <Check size={12} /> : <Copy size={12} />}
                     </button>
                   </div>
-                  <p className="text-[12px] text-muted-foreground/60">
+                  <p className="text-[12px] text-[#097388]/75">
                     Every future click, form, scroll, or time-based event you create for this client uses this
-                    same snippet — no more code edits after this.
+                    same snippet - no more code edits after this.
                   </p>
                 </div>
               )}

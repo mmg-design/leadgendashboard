@@ -22,7 +22,7 @@ const SOURCE_LABELS: Record<string, { label: string; description: string }> = {
   twitter: { label: "Twitter / X", description: "Visitors from Twitter or X posts." },
   youtube: { label: "YouTube", description: "People who clicked a link in a YouTube video description." },
   email: { label: "Email", description: "People who clicked a link in an email campaign." },
-  "(not set)": { label: "Unknown", description: "Traffic where the source couldn't be determined — often happens with some ad platforms." },
+  "(not set)": { label: "Unknown", description: "Traffic where the source couldn't be determined - often happens with some ad platforms." },
 };
 
 function getSourceMeta(rawSource: string) {
@@ -46,8 +46,8 @@ export function SourceBars({ data, title = "Traffic Sources" }: SourceBarsProps)
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Globe size={15} className="text-muted-foreground/60" />
-          <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">{title}</CardTitle>
+          <Globe size={15} className="text-[#097388]/75" />
+          <CardTitle className="text-[22px] font-headline font-normal text-[#001A2E]">{title}</CardTitle>
         </div>
       </CardHeader>
       <CardContent>
@@ -66,7 +66,7 @@ export function SourceBars({ data, title = "Traffic Sources" }: SourceBarsProps)
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[14px] font-medium text-foreground/80 flex items-center gap-1 min-w-0">
                     {meta.label}
-                    <Info size={10} className="text-muted-foreground/40 shrink-0" />
+                    <Info size={10} className="text-[#097388]/55 shrink-0" />
                   </span>
                   <span className="text-[13px] text-muted-foreground ml-auto tabular-nums shrink-0">
                     {item.sessions.toLocaleString()}

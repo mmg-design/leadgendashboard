@@ -27,8 +27,8 @@ export function TrafficChart({ data, title = "Traffic Overview" }: TrafficChartP
     <Card className="col-span-full">
       <CardHeader>
         <div className="flex items-center gap-2">
-          <TrendingUp size={15} className="text-muted-foreground/60" />
-          <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">{title}</CardTitle>
+          <TrendingUp size={15} className="text-[#097388]/75" />
+          <CardTitle className="text-[22px] font-headline font-normal text-[#001A2E]">{title}</CardTitle>
         </div>
       </CardHeader>
       <CardContent>
@@ -48,12 +48,12 @@ export function TrafficChart({ data, title = "Traffic Overview" }: TrafficChartP
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.04)" />
               <XAxis
                 dataKey="date"
-                tick={{ fill: "#9ca3af", fontSize: 11 }}
+                tick={{ fill: "#097388", fontSize: 11 }}
                 axisLine={{ stroke: "rgba(0,0,0,0.06)" }}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fill: "#9ca3af", fontSize: 11 }}
+                tick={{ fill: "#097388", fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
               />

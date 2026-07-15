@@ -5,7 +5,7 @@ interface Threshold {
   warning: (v: number) => boolean;
 }
 
-// SMB website benchmarks — thresholds scaled by date range where applicable
+// SMB website benchmarks - thresholds scaled by date range where applicable
 const thresholds: Record<string, Threshold> = {
   bounceRate: {
     good: (v) => v < 50,
@@ -48,12 +48,12 @@ export function getHealth(metric: string, value: number, range?: string): Health
 
   if (t.good(normalized)) return "good";
   if (t.warning(normalized)) return "warning";
-  return null; // In between — neutral
+  return null; // In between - neutral
 }
 
 // Parse "1m 23s" or "45s" or "2m 0s" to seconds
 export function parseSessionDuration(str: string): number {
-  if (!str || str === "—") return NaN;
+  if (!str || str === "-") return NaN;
   const minMatch = str.match(/(\d+)m/);
   const secMatch = str.match(/(\d+)s/);
   const minutes = minMatch ? parseInt(minMatch[1]) : 0;

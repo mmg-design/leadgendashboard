@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
 
     const top5 = allKeywords.filter((k) => k.position > 0).slice(0, 5);
 
-    // Visibility history: array of {name, data:[{date,value}]} — take max across engines per date
+    // Visibility history: array of {name, data:[{date,value}]} - take max across engines per date
     const visibilityMap = new Map<string, number>();
     if (Array.isArray(visHistory)) {
       for (const engine of visHistory) {

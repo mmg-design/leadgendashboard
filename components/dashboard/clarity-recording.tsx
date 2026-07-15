@@ -54,7 +54,7 @@ export function ClarityRecordingLink({
             <div className="flex items-center justify-center gap-1 mb-0.5">
               <Scroll size={11} className="text-[#001A2E]/60" />
               <span className="text-[20px] font-light text-foreground tabular-nums">
-                {homepageScrollDepth !== null ? `${homepageScrollDepth}%` : "—"}
+                {homepageScrollDepth !== null ? `${homepageScrollDepth}%` : "-"}
               </span>
             </div>
             <div className="text-[11px] text-muted-foreground leading-tight">Home scroll depth</div>
@@ -64,7 +64,7 @@ export function ClarityRecordingLink({
             title="Rage clicks = users rapidly clicking the same spot out of frustration. Signals broken links or buttons."
           >
             <div className="flex items-center justify-center gap-1 mb-0.5">
-              <Zap size={11} className={rageClicks > 0 ? "text-amber-600" : "text-muted-foreground/40"} />
+              <Zap size={11} className={rageClicks > 0 ? "text-amber-600" : "text-[#097388]/55"} />
               <span className={`text-[20px] font-light tabular-nums ${rageClicks > 0 ? "text-amber-700" : "text-foreground"}`}>
                 {rageClicks}
               </span>
@@ -78,7 +78,7 @@ export function ClarityRecordingLink({
             title="Dead clicks = clicking on things that don't do anything. Signals confusing UI or broken elements."
           >
             <div className="flex items-center justify-center gap-1 mb-0.5">
-              <MousePointerClick size={11} className={deadClicks > 0 ? "text-orange-600" : "text-muted-foreground/40"} />
+              <MousePointerClick size={11} className={deadClicks > 0 ? "text-orange-600" : "text-[#097388]/55"} />
               <span className={`text-[20px] font-light tabular-nums ${deadClicks > 0 ? "text-orange-700" : "text-foreground"}`}>
                 {deadClicks}
               </span>
@@ -105,7 +105,7 @@ export function ClarityRecordingLink({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 py-1 px-1.5 rounded hover:bg-muted/40 transition-colors group"
-                  title={`Scroll depth: ${page.scrollDepth ?? "—"}% · ${page.totalSessions} sessions`}
+                  title={`Scroll depth: ${page.scrollDepth ?? "-"}% · ${page.totalSessions} sessions`}
                 >
                   <span className="text-[12px] text-foreground/60 truncate flex-1">
                     {page.page.replace(/^https?:\/\/[^/]+/, "") || "/"}
@@ -116,12 +116,12 @@ export function ClarityRecordingLink({
                     </div>
                     <span className="text-[12px] font-medium text-foreground/60 w-6 text-right tabular-nums">{score}</span>
                   </div>
-                  <ExternalLink size={8} className="text-muted-foreground/20 group-hover:text-[#001A2E]/40 shrink-0" />
+                  <ExternalLink size={8} className="text-[#097388]/35 group-hover:text-[#001A2E]/40 shrink-0" />
                 </a>
               );
             })
           ) : (
-            <div className="py-3 text-center text-[12px] text-muted-foreground/40">
+            <div className="py-3 text-center text-[12px] text-[#097388]/55">
               No page data yet
             </div>
           )}

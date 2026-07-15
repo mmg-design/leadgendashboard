@@ -15,13 +15,13 @@ export async function POST(req: NextRequest) {
 
     const dataContext = buildDataContext(clientName, range, ga, visitors, clarity, seRanking, clickUp);
 
-    const prompt = `You are a senior digital marketing strategist reviewing a client dashboard. Give a brief, actionable analysis. The client is a healthcare B2B company. Keep it punchy — a busy account manager should read it in 20 seconds.
+    const prompt = `You are a senior digital marketing strategist reviewing a client dashboard. Give a brief, actionable analysis. The client is a healthcare B2B company. Keep it punchy - a busy account manager should read it in 20 seconds.
 
 ${dataContext}
 
 Respond in this exact JSON format (no markdown fences, just raw JSON):
 {
-  "summary": "2–3 sentences. Plain English. What's the most important thing happening right now — good or bad.",
+  "summary": "2-3 sentences. Plain English. What's the most important thing happening right now - good or bad.",
   "actions": [
     "One quick-win action based on the data (max 15 words)",
     "One growth or SEO opportunity (max 15 words)",
@@ -73,12 +73,12 @@ function buildDataContext(
   }
 
   if (clarity) {
-    ctx += `### Microsoft Clarity — User Behavior\n`;
+    ctx += `### Microsoft Clarity - User Behavior\n`;
     if (clarity.homepageScrollDepth !== null && clarity.homepageScrollDepth !== undefined) {
       ctx += `- Homepage Scroll Depth: ${clarity.homepageScrollDepth}% (avg how far users scroll on homepage)\n`;
     }
-    if (clarity.rageClicks !== undefined) ctx += `- Rage Clicks: ${clarity.rageClicks} (frustrated rapid clicks — signals broken UX)\n`;
-    if (clarity.deadClicks !== undefined) ctx += `- Dead Clicks: ${clarity.deadClicks} (clicks on non-interactive elements — signals confusing UI)\n`;
+    if (clarity.rageClicks !== undefined) ctx += `- Rage Clicks: ${clarity.rageClicks} (frustrated rapid clicks - signals broken UX)\n`;
+    if (clarity.deadClicks !== undefined) ctx += `- Dead Clicks: ${clarity.deadClicks} (clicks on non-interactive elements - signals confusing UI)\n`;
     if (clarity.pageEngagement?.length) {
       ctx += `- Page Engagement Scores:\n`;
       clarity.pageEngagement.slice(0, 5).forEach((p: any) => {
@@ -89,7 +89,7 @@ function buildDataContext(
   }
 
   if (seRanking) {
-    ctx += `### SE Ranking — Search Visibility\n`;
+    ctx += `### SE Ranking - Search Visibility\n`;
     ctx += `- Domain Visibility: ${seRanking.currentVisibility !== null ? `${seRanking.currentVisibility?.toFixed(1)}%` : "0% (new project)"}\n`;
     ctx += `- Keywords Tracked: ${seRanking.totalKeywords}\n`;
     ctx += `- Moved Up This Week: ${seRanking.movedUp} keywords\n`;
@@ -106,7 +106,7 @@ function buildDataContext(
   }
 
   if (clickUp) {
-    ctx += `### ClickUp — Project Work\n`;
+    ctx += `### ClickUp - Project Work\n`;
     ctx += `- Active Tasks: ${clickUp.activeTaskCount}\n`;
     ctx += `- Completed This Month: ${clickUp.completedThisMonthCount}\n`;
     if (clickUp.overdueCount > 0) ctx += `- Overdue Tasks: ${clickUp.overdueCount} ⚠️\n`;

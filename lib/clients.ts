@@ -11,7 +11,7 @@ export const SNIPPET_TRIGGER_TYPES: ConversionType[] = ["click", "form_submit", 
 export interface GoalConfig {
   id: string;
   conversionType: ConversionType;
-  conversionValue: string; // meaning depends on type — see each trigger's setup step
+  conversionValue: string; // meaning depends on type - see each trigger's setup step
   label?: string;
   scopePagePath?: string; // optional: only fire on this page (click/form_submit/scroll_depth/time_on_page)
 }
