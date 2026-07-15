@@ -29,16 +29,16 @@ export function ActiveWork({ data, loading, error, enabled }: ActiveWorkProps) {
         <CardHeader>
           <div className="flex items-center gap-2">
             <CheckSquare size={15} className="text-muted-foreground/60" />
-            <CardTitle className="text-[17px] font-headline font-normal text-muted-foreground">
+            <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">
               Active Work
             </CardTitle>
-            <span className="ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground tracking-wide uppercase">
+            <span className="ml-auto text-[12px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground tracking-wide uppercase">
               Not configured
             </span>
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-[15px] text-muted-foreground">
             Add ClickUp list IDs in settings to show active tasks.
           </p>
         </CardContent>
@@ -52,7 +52,7 @@ export function ActiveWork({ data, loading, error, enabled }: ActiveWorkProps) {
         <CardHeader>
           <div className="flex items-center gap-2">
             <CheckSquare size={15} className="text-muted-foreground/60" />
-            <CardTitle className="text-[17px] font-headline font-normal text-muted-foreground">
+            <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">
               Active Work
             </CardTitle>
           </div>
@@ -74,13 +74,13 @@ export function ActiveWork({ data, loading, error, enabled }: ActiveWorkProps) {
         <CardHeader>
           <div className="flex items-center gap-2">
             <CheckSquare size={15} className="text-muted-foreground/60" />
-            <CardTitle className="text-[17px] font-headline font-normal text-muted-foreground">
+            <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">
               Active Work
             </CardTitle>
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-[13px] text-red-500">{error || "No data available"}</p>
+          <p className="text-[15px] text-red-500">{error || "No data available"}</p>
         </CardContent>
       </Card>
     );
@@ -91,29 +91,29 @@ export function ActiveWork({ data, loading, error, enabled }: ActiveWorkProps) {
       <CardHeader>
         <div className="flex items-center gap-2">
           <CheckSquare size={15} className="text-muted-foreground/60" />
-          <CardTitle className="text-[17px] font-headline font-normal text-muted-foreground">
+          <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">
             Active Work
           </CardTitle>
-          <span className="text-[11px] text-muted-foreground ml-auto">ClickUp</span>
+          <span className="text-[13px] text-muted-foreground ml-auto">ClickUp</span>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Summary stats */}
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg bg-muted/30 px-3 py-3 text-center">
-            <div className="text-[22px] font-light text-foreground tabular-nums">
+            <div className="text-[24px] font-light text-foreground tabular-nums">
               {data.activeTaskCount}
             </div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">Active tasks</div>
+            <div className="text-[13px] text-muted-foreground mt-0.5">Active tasks</div>
           </div>
           <div className="rounded-lg bg-emerald-50 px-3 py-3 text-center">
             <div className="flex items-center justify-center gap-1">
               <CheckCircle2 size={13} className="text-emerald-600" />
-              <span className="text-[22px] font-light text-emerald-700 tabular-nums">
+              <span className="text-[24px] font-light text-emerald-700 tabular-nums">
                 {data.completedThisMonthCount}
               </span>
             </div>
-            <div className="text-[11px] text-emerald-600 mt-0.5">Done this month</div>
+            <div className="text-[13px] text-emerald-600 mt-0.5">Done this month</div>
           </div>
           <div
             className={`rounded-lg px-3 py-3 text-center ${
@@ -125,7 +125,7 @@ export function ActiveWork({ data, loading, error, enabled }: ActiveWorkProps) {
                 <AlertCircle size={13} className="text-red-500" />
               )}
               <span
-                className={`text-[22px] font-light tabular-nums ${
+                className={`text-[24px] font-light tabular-nums ${
                   data.overdueCount > 0 ? "text-red-600" : "text-foreground"
                 }`}
               >
@@ -133,7 +133,7 @@ export function ActiveWork({ data, loading, error, enabled }: ActiveWorkProps) {
               </span>
             </div>
             <div
-              className={`text-[11px] mt-0.5 ${
+              className={`text-[13px] mt-0.5 ${
                 data.overdueCount > 0 ? "text-red-500" : "text-muted-foreground"
               }`}
             >
@@ -145,7 +145,7 @@ export function ActiveWork({ data, loading, error, enabled }: ActiveWorkProps) {
         {/* Tasks by phase */}
         {data.phaseGroups.length > 0 && (
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+            <div className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
               By phase
             </div>
             <div className="space-y-1">
@@ -157,7 +157,7 @@ export function ActiveWork({ data, loading, error, enabled }: ActiveWorkProps) {
                   const pct = Math.round((group.count / maxCount) * 100);
                   return (
                     <div key={group.phase} className="flex items-center gap-3 py-1">
-                      <span className="text-[13px] text-foreground/70 flex-1 truncate">
+                      <span className="text-[15px] text-foreground/70 flex-1 truncate">
                         {group.phase}
                       </span>
                       <div className="w-24 h-1.5 rounded-full bg-muted/60 overflow-hidden shrink-0">
@@ -166,7 +166,7 @@ export function ActiveWork({ data, loading, error, enabled }: ActiveWorkProps) {
                           style={{ width: `${pct}%` }}
                         />
                       </div>
-                      <span className="text-[12px] font-medium text-muted-foreground w-4 text-right shrink-0 tabular-nums">
+                      <span className="text-[14px] font-medium text-muted-foreground w-4 text-right shrink-0 tabular-nums">
                         {group.count}
                       </span>
                     </div>

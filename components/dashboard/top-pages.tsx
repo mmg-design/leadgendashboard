@@ -30,7 +30,7 @@ function EngagementMeter({ score }: { score: number }) {
         <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${score}%` }} />
       </div>
       <span
-        className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border tabular-nums ${textColor}`}
+        className={`text-[12px] font-semibold px-1.5 py-0.5 rounded border tabular-nums ${textColor}`}
         title="GA4 Engagement Rate — % of sessions on this page where the user actively engaged (scrolled, clicked, or stayed 10+ seconds)"
       >
         {score}
@@ -55,9 +55,9 @@ export function TopPages({ data }: TopPagesProps) {
       <CardHeader>
         <div className="flex items-center gap-2">
           <FileText size={15} className="text-muted-foreground/60" />
-          <CardTitle className="text-[17px] font-headline font-normal text-muted-foreground">Top Pages</CardTitle>
+          <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">Top Pages</CardTitle>
           {hasEngagement && (
-            <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground/50">
+            <span className="ml-auto flex items-center gap-1 text-[12px] text-muted-foreground/50">
               <Gauge size={10} />
               Engagement
             </span>
@@ -72,7 +72,7 @@ export function TopPages({ data }: TopPagesProps) {
               <div key={page.page} className="group">
                 <div className="flex items-center gap-2 mb-1">
                   <span
-                    className="text-[12px] font-medium text-foreground/80 truncate flex-1"
+                    className="text-[14px] font-medium text-foreground/80 truncate flex-1"
                     title={page.page}
                   >
                     {page.page === "/" ? "Home" : page.page}
@@ -87,11 +87,11 @@ export function TopPages({ data }: TopPagesProps) {
                     />
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[11px] tabular-nums text-muted-foreground w-10 text-right">
+                    <span className="text-[13px] tabular-nums text-muted-foreground w-10 text-right">
                       {page.views.toLocaleString()}
                     </span>
                     {page.avgDuration !== undefined && page.avgDuration > 0 && (
-                      <span className="text-[10px] text-muted-foreground/50 tabular-nums w-10">
+                      <span className="text-[12px] text-muted-foreground/50 tabular-nums w-10">
                         {formatDuration(page.avgDuration)}
                       </span>
                     )}

@@ -222,38 +222,41 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-4xl mx-auto py-20 px-8">
+    <div className="min-h-screen bg-[#001A2E] text-white relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_5%,rgba(12,164,195,0.24),transparent_34%),radial-gradient(circle_at_92%_30%,rgba(3,148,178,0.18),transparent_30%),linear-gradient(145deg,#001A2E_0%,#01384C_55%,#072732_100%)]" />
+      <div className="relative max-w-6xl mx-auto py-20 md:py-28 px-5 md:px-10">
         {/* Header */}
-        <div className="mb-10">
-          <div className="flex items-center gap-3 mb-2">
-            <Radar size={20} className="text-[#001A2E]" />
-            <h1 className="text-[34px] font-headline font-normal tracking-tight text-[#001A2E]">
+        <div className="mb-14 md:mb-20 max-w-3xl">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#45D7DF]/20 bg-[#0CA4C3]/10 px-4 py-2 text-[15px] font-medium uppercase tracking-[0.12em] text-[#A5EDF0] mb-6">
+            <Radar size={16} /> Website intelligence
+          </div>
+          <div className="flex items-center gap-4 mb-5">
+            <h1 className="text-[clamp(3rem,7vw,5.75rem)] leading-[0.98] font-headline font-normal tracking-[-0.035em] text-white">
               Lead Gen Dashboard
             </h1>
           </div>
-          <p className="text-[14px] text-muted-foreground">
+          <p className="max-w-2xl text-[20px] md:text-[22px] leading-relaxed text-white/70">
             Manage clients and view their website visibility and lead data.
           </p>
         </div>
 
         {/* Add Client Card */}
-        <div className="mb-8">
-          <Card className="overflow-hidden border-dashed border-[#001A2E]/15 hover:border-[#001A2E]/25 transition-colors">
+        <div className="mb-12">
+          <Card className="overflow-hidden bg-white border-white/10 shadow-[0_22px_70px_rgba(0,0,0,0.22)]">
             {/* Toggle header */}
             <button
               onClick={() => { setFormOpen(!formOpen); if (success) setSuccess(false); }}
-              className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-[#001A2E]/[0.02] transition-colors"
+              className="w-full px-7 py-6 flex items-center justify-between text-left hover:bg-[#001A2E]/[0.025] transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[#001A2E]/8 flex items-center justify-center">
-                  <Plus size={16} className="text-[#001A2E]" />
+                <div className="w-11 h-11 rounded-xl bg-[#0CA4C3]/10 flex items-center justify-center">
+                  <Plus size={20} className="text-[#0394B2]" />
                 </div>
                 <div>
-                  <div className="text-[18px] font-headline font-normal text-[#001A2E]">
+                  <div className="text-[28px] font-headline font-normal text-[#001A2E]">
                     Add New Client
                   </div>
-                  <div className="text-[12px] text-muted-foreground">
+                  <div className="text-[17px] text-muted-foreground mt-1">
                     Configure integrations and start tracking
                   </div>
                 </div>
@@ -273,7 +276,7 @@ export default function Home() {
                     {/* Client info */}
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
-                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                        <label className="block text-[13px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
                           Client Name
                         </label>
                         <div className="relative">
@@ -284,13 +287,13 @@ export default function Home() {
                             onChange={(e) => setName(e.target.value)}
                             placeholder="e.g. MMG Design Studio"
                             required
-                            className="w-full pl-9 pr-3 py-2 text-[13px] rounded-lg border border-border bg-white/60 focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30 transition-all placeholder:text-muted-foreground/40"
+                            className="w-full pl-9 pr-3 py-2 text-[15px] rounded-lg border border-border bg-white/60 focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30 transition-all placeholder:text-muted-foreground/40"
                           />
                         </div>
-                        <p className="text-[10px] text-muted-foreground/50 mt-1">The client&apos;s business name — this shows up as the dashboard title</p>
+                        <p className="text-[12px] text-muted-foreground/50 mt-1">The client&apos;s business name — this shows up as the dashboard title</p>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                        <label className="block text-[13px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
                           Domain
                         </label>
                         <div className="relative">
@@ -301,16 +304,16 @@ export default function Home() {
                             onChange={(e) => setDomain(e.target.value)}
                             placeholder="e.g. mmg.studio"
                             required
-                            className="w-full pl-9 pr-3 py-2 text-[13px] rounded-lg border border-border bg-white/60 focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30 transition-all placeholder:text-muted-foreground/40"
+                            className="w-full pl-9 pr-3 py-2 text-[15px] rounded-lg border border-border bg-white/60 focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30 transition-all placeholder:text-muted-foreground/40"
                           />
                         </div>
-                        <p className="text-[10px] text-muted-foreground/50 mt-1">Their website URL without https:// — just the domain like &quot;mmg.studio&quot;</p>
+                        <p className="text-[12px] text-muted-foreground/50 mt-1">Their website URL without https:// — just the domain like &quot;mmg.studio&quot;</p>
                       </div>
                     </div>
 
                     {/* Icon URL */}
                     <div>
-                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                      <label className="block text-[13px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
                         Icon URL <span className="font-normal normal-case">(optional)</span>
                       </label>
                       <input
@@ -318,14 +321,14 @@ export default function Home() {
                         value={iconUrl}
                         onChange={(e) => setIconUrl(e.target.value)}
                         placeholder="e.g. /clients/my-client/icon.svg or https://..."
-                        className="w-full px-3 py-2 text-[13px] rounded-lg border border-border bg-white/60 focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30 transition-all placeholder:text-muted-foreground/40"
+                        className="w-full px-3 py-2 text-[15px] rounded-lg border border-border bg-white/60 focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30 transition-all placeholder:text-muted-foreground/40"
                       />
-                      <p className="text-[10px] text-muted-foreground/50 mt-1">Path or URL to the client&apos;s logo/icon — displayed in the dashboard header</p>
+                      <p className="text-[12px] text-muted-foreground/50 mt-1">Path or URL to the client&apos;s logo/icon — displayed in the dashboard header</p>
                     </div>
 
                     {/* Integrations */}
                     <div>
-                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                      <label className="block text-[13px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                         Integrations
                       </label>
                       <div className="grid gap-2.5 md:grid-cols-2">
@@ -359,7 +362,7 @@ export default function Home() {
                                     />
                                   </div>
                                   <Icon size={14} className={enabled ? "text-[#001A2E]" : "text-muted-foreground/50"} />
-                                  <span className={`text-[12px] font-medium ${enabled ? "text-[#001A2E]" : "text-muted-foreground/70"}`}>
+                                  <span className={`text-[14px] font-medium ${enabled ? "text-[#001A2E]" : "text-muted-foreground/70"}`}>
                                     {int.label}
                                   </span>
                                 </button>
@@ -367,7 +370,7 @@ export default function Home() {
                                   <span className="p-1 rounded-md hover:bg-[#001A2E]/[0.06] transition-colors cursor-help inline-flex">
                                     <Info size={13} className="text-muted-foreground/50 group-hover/tip:text-[#001A2E]/70 transition-colors" />
                                   </span>
-                                  <div className="absolute bottom-full right-0 mb-2 w-64 px-3 py-2.5 rounded-lg bg-[#001A2E] text-white text-[11px] leading-relaxed shadow-lg opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all duration-200 z-50 pointer-events-none">
+                                  <div className="absolute bottom-full right-0 mb-2 w-64 px-3 py-2.5 rounded-lg bg-[#001A2E] text-white text-[13px] leading-relaxed shadow-lg opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all duration-200 z-50 pointer-events-none">
                                     {int.tooltip}
                                     <div className="absolute top-full right-3 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[5px] border-t-[#001A2E]" />
                                   </div>
@@ -379,7 +382,7 @@ export default function Home() {
                                 <div className="mt-2.5 pl-[42px] space-y-2.5">
                                   {int.fields.map((field: IntegrationField) => (
                                     <div key={field.name}>
-                                      <label className="block text-[10px] font-medium text-muted-foreground/70 mb-0.5">
+                                      <label className="block text-[12px] font-medium text-muted-foreground/70 mb-0.5">
                                         {field.label}
                                       </label>
                                       <input
@@ -387,10 +390,10 @@ export default function Home() {
                                         value={String(integrations[int.key]?.[field.name] || "")}
                                         onChange={(e) => setField(int.key, field.name, e.target.value)}
                                         placeholder={field.placeholder}
-                                        className="w-full px-2.5 py-1.5 text-[12px] rounded-md border border-border/60 bg-white/80 focus:outline-none focus:ring-1 focus:ring-[#001A2E]/20 placeholder:text-muted-foreground/40"
+                                        className="w-full px-2.5 py-1.5 text-[14px] rounded-md border border-border/60 bg-white/80 focus:outline-none focus:ring-1 focus:ring-[#001A2E]/20 placeholder:text-muted-foreground/40"
                                       />
                                       {field.hint && (
-                                        <p className="text-[10px] text-muted-foreground/50 mt-0.5">{field.hint}</p>
+                                        <p className="text-[12px] text-muted-foreground/50 mt-0.5">{field.hint}</p>
                                       )}
                                     </div>
                                   ))}
@@ -405,13 +408,13 @@ export default function Home() {
 
                     {/* Error / Success */}
                     {error && (
-                      <div className="text-[12px] text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                      <div className="text-[14px] text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                         {error}
                       </div>
                     )}
 
                     {success && (
-                      <div className="flex items-center gap-2 text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-2 text-[14px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
                         <Check size={14} />
                         Client created successfully!
                       </div>
@@ -421,7 +424,7 @@ export default function Home() {
                     <button
                       type="submit"
                       disabled={submitting || !name || !domain}
-                      className="w-full py-2.5 text-[13px] font-semibold rounded-lg bg-[#0CA4C3] text-white hover:bg-[#0394B2] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="w-full py-2.5 text-[15px] font-semibold rounded-lg bg-[#0CA4C3] text-white hover:bg-[#0394B2] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {submitting ? (
                         <>
@@ -443,7 +446,14 @@ export default function Home() {
         </div>
 
         {/* Client cards */}
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="mb-7 flex items-end justify-between gap-6">
+          <div>
+            <div className="text-[15px] font-medium uppercase tracking-[0.12em] text-[#45D7DF] mb-2">Client portfolio</div>
+            <h2 className="font-headline text-[clamp(2rem,4vw,3.25rem)] text-white">Your active dashboards</h2>
+          </div>
+          <p className="hidden md:block max-w-sm text-[16px] leading-relaxed text-white/60">Open a workspace to review performance, attribution, search visibility, and active marketing work.</p>
+        </div>
+        <div className="grid gap-5 md:grid-cols-2">
           {clients.map((client) => {
             const enabledSources = Object.entries(client.integrations)
               .filter(([, v]) => v?.enabled)
@@ -461,7 +471,7 @@ export default function Home() {
                 onClick={() => !isPendingDelete && router.push(`/${client.slug}`)}
                 className={`transition-opacity ${dragSlug === client.slug ? "opacity-40" : ""}`}
               >
-                <Card className="relative group hover:shadow-[0_4px_16px_rgba(0,26,46,0.1)] hover:border-[#001A2E]/[0.12] transition-all cursor-pointer">
+                <Card className="relative group min-h-[220px] bg-white hover:-translate-y-1 hover:shadow-[0_22px_55px_rgba(0,0,0,0.22)] hover:border-[#0CA4C3]/30 transition-all duration-300 cursor-pointer">
                   <div
                     className="absolute left-2 top-2 p-1 text-muted-foreground/30 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Drag to reorder"
@@ -503,7 +513,7 @@ export default function Home() {
                   </div>
 
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2.5 text-[20px] font-headline font-normal text-[#001A2E]">
+                    <CardTitle className="flex items-center gap-3 text-[28px] font-headline font-normal text-[#001A2E]">
                       {client.iconUrl ? (
                         <span className="relative size-7 overflow-hidden rounded-md shrink-0">
                           <Image
@@ -524,14 +534,14 @@ export default function Home() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-[13px] text-muted-foreground mb-3">
+                    <p className="text-[16px] text-muted-foreground mb-5">
                       {client.domain}
                     </p>
                     <div className="flex gap-1.5 flex-wrap">
                       {enabledSources.map((s) => (
                         <span
                           key={s}
-                          className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#001A2E]/[0.06] text-[#001A2E]/70 tracking-wide uppercase"
+                          className="text-[12px] font-medium px-2 py-0.5 rounded-full bg-[#001A2E]/[0.06] text-[#001A2E]/70 tracking-wide uppercase"
                         >
                           {s === "googleAnalytics" ? "GA4" : s === "seRanking" ? "SEO" : s === "clickup" ? "Tasks" : s}
                         </span>
@@ -545,7 +555,7 @@ export default function Home() {
 
           {clients.length === 0 && (
             <Card className="col-span-full">
-              <CardContent className="py-12 text-center text-muted-foreground text-[13px]">
+              <CardContent className="py-12 text-center text-muted-foreground text-[15px]">
                 No clients configured yet. Use the form above to add your first client.
               </CardContent>
             </Card>

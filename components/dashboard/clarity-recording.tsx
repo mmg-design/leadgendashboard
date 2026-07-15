@@ -37,10 +37,10 @@ export function ClarityRecordingLink({
           <div className="p-2 rounded-lg bg-[#001A2E]/8">
             <MousePointerClick size={16} className="text-[#001A2E]/70" />
           </div>
-          <div className="text-[17px] font-headline font-normal text-foreground/80">
+          <div className="text-[22px] font-headline font-normal text-foreground/80">
             Behavior Insights
           </div>
-          <span className="ml-auto text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground uppercase tracking-wide">
+          <span className="ml-auto text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground uppercase tracking-wide">
             Clarity
           </span>
         </div>
@@ -53,11 +53,11 @@ export function ClarityRecordingLink({
           >
             <div className="flex items-center justify-center gap-1 mb-0.5">
               <Scroll size={11} className="text-[#001A2E]/60" />
-              <span className="text-[18px] font-light text-foreground tabular-nums">
+              <span className="text-[20px] font-light text-foreground tabular-nums">
                 {homepageScrollDepth !== null ? `${homepageScrollDepth}%` : "—"}
               </span>
             </div>
-            <div className="text-[9px] text-muted-foreground leading-tight">Home scroll depth</div>
+            <div className="text-[11px] text-muted-foreground leading-tight">Home scroll depth</div>
           </div>
           <div
             className={`rounded-lg p-2.5 text-center ${rageClicks > 0 ? "bg-amber-50" : "bg-muted/30"}`}
@@ -65,11 +65,11 @@ export function ClarityRecordingLink({
           >
             <div className="flex items-center justify-center gap-1 mb-0.5">
               <Zap size={11} className={rageClicks > 0 ? "text-amber-600" : "text-muted-foreground/40"} />
-              <span className={`text-[18px] font-light tabular-nums ${rageClicks > 0 ? "text-amber-700" : "text-foreground"}`}>
+              <span className={`text-[20px] font-light tabular-nums ${rageClicks > 0 ? "text-amber-700" : "text-foreground"}`}>
                 {rageClicks}
               </span>
             </div>
-            <div className={`text-[9px] leading-tight ${rageClicks > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
+            <div className={`text-[11px] leading-tight ${rageClicks > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
               Rage clicks
             </div>
           </div>
@@ -79,18 +79,18 @@ export function ClarityRecordingLink({
           >
             <div className="flex items-center justify-center gap-1 mb-0.5">
               <MousePointerClick size={11} className={deadClicks > 0 ? "text-orange-600" : "text-muted-foreground/40"} />
-              <span className={`text-[18px] font-light tabular-nums ${deadClicks > 0 ? "text-orange-700" : "text-foreground"}`}>
+              <span className={`text-[20px] font-light tabular-nums ${deadClicks > 0 ? "text-orange-700" : "text-foreground"}`}>
                 {deadClicks}
               </span>
             </div>
-            <div className={`text-[9px] leading-tight ${deadClicks > 0 ? "text-orange-600" : "text-muted-foreground"}`}>
+            <div className={`text-[11px] leading-tight ${deadClicks > 0 ? "text-orange-600" : "text-muted-foreground"}`}>
               Dead clicks
             </div>
           </div>
         </div>
 
         {/* Per-page engagement scores */}
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+        <div className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
           Engagement score by page
         </div>
         <div className="flex-1 space-y-1 mb-3">
@@ -107,21 +107,21 @@ export function ClarityRecordingLink({
                   className="flex items-center gap-2 py-1 px-1.5 rounded hover:bg-muted/40 transition-colors group"
                   title={`Scroll depth: ${page.scrollDepth ?? "—"}% · ${page.totalSessions} sessions`}
                 >
-                  <span className="text-[10px] text-foreground/60 truncate flex-1">
+                  <span className="text-[12px] text-foreground/60 truncate flex-1">
                     {page.page.replace(/^https?:\/\/[^/]+/, "") || "/"}
                   </span>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <div className="w-16 h-1 bg-muted/50 rounded-full overflow-hidden">
                       <div className={`h-full ${color} rounded-full`} style={{ width: `${score}%` }} />
                     </div>
-                    <span className="text-[10px] font-medium text-foreground/60 w-6 text-right tabular-nums">{score}</span>
+                    <span className="text-[12px] font-medium text-foreground/60 w-6 text-right tabular-nums">{score}</span>
                   </div>
                   <ExternalLink size={8} className="text-muted-foreground/20 group-hover:text-[#001A2E]/40 shrink-0" />
                 </a>
               );
             })
           ) : (
-            <div className="py-3 text-center text-[10px] text-muted-foreground/40">
+            <div className="py-3 text-center text-[12px] text-muted-foreground/40">
               No page data yet
             </div>
           )}
@@ -131,7 +131,7 @@ export function ClarityRecordingLink({
           href={topSessionUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 text-[12px] font-medium rounded-lg bg-[#001A2E]/8 text-[#001A2E] hover:bg-[#001A2E]/15 transition-colors mt-auto"
+          className="inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 text-[14px] font-medium rounded-lg bg-[#001A2E]/8 text-[#001A2E] hover:bg-[#001A2E]/15 transition-colors mt-auto"
         >
           Open Clarity Dashboard
           <ExternalLink size={11} />

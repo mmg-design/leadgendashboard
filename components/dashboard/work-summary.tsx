@@ -61,15 +61,15 @@ export function WorkSummary({ clientName, data, loading, enabled, error, onRefre
       <Card>
         <CardContent className="pt-5 pb-4">
           <div className="flex items-start justify-between gap-3">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">
+            <div className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">
               Engagement
             </div>
             <div className="text-right">
-              <div className="text-[15px] font-headline font-normal text-[#001A2E] leading-tight">
+              <div className="text-[22px] font-headline font-normal text-[#001A2E] leading-tight">
                 {clientName}
               </div>
               {data?.engagementStartDate && (
-                <div className="flex items-center justify-end gap-1 text-[11px] text-muted-foreground mt-0.5">
+                <div className="flex items-center justify-end gap-1 text-[13px] text-muted-foreground mt-0.5">
                   <Calendar size={10} />
                   <span>Since {format(new Date(data.engagementStartDate), "MMM d, yyyy")}</span>
                 </div>
@@ -81,15 +81,15 @@ export function WorkSummary({ clientName, data, loading, enabled, error, onRefre
           {enabled && (
             <div className="mt-4 pt-3 border-t border-border/40">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
                   <Clock size={11} />
                   <span>Time tracked this month</span>
                 </div>
-                <div className="text-[18px] font-light text-[#001A2E] tabular-nums">
+                <div className="text-[20px] font-light text-[#001A2E] tabular-nums">
                   {error ? (
-                    <span className="text-[12px] text-red-500">Unavailable</span>
+                    <span className="text-[14px] text-red-500">Unavailable</span>
                   ) : loading ? (
-                    <span className="text-[12px] text-muted-foreground/40">—</span>
+                    <span className="text-[14px] text-muted-foreground/40">—</span>
                   ) : (
                     formatDuration(data?.timeTrackedThisMonthMs ?? 0)
                   )}
@@ -105,7 +105,7 @@ export function WorkSummary({ clientName, data, loading, enabled, error, onRefre
         <CardContent className="pt-5">
           <div className="flex items-center gap-2 mb-3">
             <Activity size={13} className="text-muted-foreground/60" />
-            <span className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <span className="text-[14px] font-semibold uppercase tracking-wider text-muted-foreground">
               Recent Activity
             </span>
             <button
@@ -119,11 +119,11 @@ export function WorkSummary({ clientName, data, loading, enabled, error, onRefre
           </div>
 
           {!enabled ? (
-            <p className="text-[12px] text-muted-foreground py-2">
+            <p className="text-[14px] text-muted-foreground py-2">
               Connect ClickUp to see recent activity.
             </p>
           ) : error ? (
-            <p className="text-[12px] text-red-500 py-2">{error}</p>
+            <p className="text-[14px] text-red-500 py-2">{error}</p>
           ) : loading ? (
             <div className="space-y-2 animate-pulse">
               {[1, 2, 3, 4].map((i) => (
@@ -131,24 +131,24 @@ export function WorkSummary({ clientName, data, loading, enabled, error, onRefre
               ))}
             </div>
           ) : activityStream.length === 0 ? (
-            <p className="text-[12px] text-muted-foreground py-2">No recent activity.</p>
+            <p className="text-[14px] text-muted-foreground py-2">No recent activity.</p>
           ) : (
             <div className="space-y-0">
               {activityStream.map((item) => (
                 <div key={item.id} className="py-2.5 border-b border-border/40 last:border-0">
-                  <div className="text-[13px] font-medium text-foreground/85 leading-snug mb-1">
+                  <div className="text-[15px] font-medium text-foreground/85 leading-snug mb-1">
                     {item.name}
                   </div>
                   {item.text && (
-                    <p className="text-[11px] text-foreground/55 leading-snug line-clamp-2 mb-1">
+                    <p className="text-[13px] text-foreground/55 leading-snug line-clamp-2 mb-1">
                       {item.text}
                     </p>
                   )}
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#001A2E]/[0.07] text-[#001A2E]/70 truncate max-w-[130px]">
+                    <span className="text-[12px] font-medium px-1.5 py-0.5 rounded bg-[#001A2E]/[0.07] text-[#001A2E]/70 truncate max-w-[130px]">
                       {item.phase}
                     </span>
-                    <span className="text-[10px] text-muted-foreground/50 shrink-0">
+                    <span className="text-[12px] text-muted-foreground/50 shrink-0">
                       {formatDistanceToNow(new Date(item.ts), { addSuffix: true })}
                     </span>
                   </div>

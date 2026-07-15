@@ -243,12 +243,12 @@ function StageCard({
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-[#001A2E]/8 text-[#001A2E] shrink-0">{icon}</div>
             <div>
-              <div className="text-[13px] font-medium text-foreground/80">{title}</div>
-              <div className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">{source}</div>
+              <div className="text-[15px] font-medium text-foreground/80">{title}</div>
+              <div className="text-[12px] text-muted-foreground/60 uppercase tracking-wide">{source}</div>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[24px] font-headline font-normal text-[#001A2E] leading-none">
+            <span className="text-[28px] font-headline font-normal text-[#001A2E] leading-none">
               {value.toLocaleString()}
             </span>
             <button
@@ -269,17 +269,17 @@ function StageCard({
               style={{ width: `${widthPct}%` }}
             />
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1.5">{note}</p>
+          <p className="text-[13px] text-muted-foreground mt-1.5">{note}</p>
           {dropOff !== undefined && dropOff > 0 && (
-            <p className="text-[11px] text-amber-600 mt-1">
+            <p className="text-[13px] text-amber-600 mt-1">
               {dropOff.toLocaleString()} people left before this step
             </p>
           )}
         </div>
 
         <div className="pt-2.5 border-t border-border/50 space-y-1">
-          <p className="text-[12px] text-foreground/80">{insight}</p>
-          <p className="text-[12px] text-[#001A2E] font-medium">→ {action}</p>
+          <p className="text-[14px] text-foreground/80">{insight}</p>
+          <p className="text-[14px] text-[#001A2E] font-medium">→ {action}</p>
         </div>
       </CardContent>
     </Card>
@@ -376,7 +376,7 @@ function MiniGoalCard({
         </div>
 
         <div className="flex items-baseline gap-1.5">
-          <span className="text-[22px] font-headline font-normal text-[#001A2E] leading-none">
+          <span className="text-[24px] font-headline font-normal text-[#001A2E] leading-none">
             {count.toLocaleString()}
           </span>
           <span className="text-[9.5px] font-medium text-muted-foreground uppercase tracking-wide">
@@ -388,7 +388,7 @@ function MiniGoalCard({
           <div className="h-full rounded-full bg-[#001A2E] transition-all" style={{ width: `${widthPct}%` }} />
         </div>
 
-        <p className="text-[10px] text-muted-foreground leading-snug">{caption}</p>
+        <p className="text-[12px] text-muted-foreground leading-snug">{caption}</p>
       </CardContent>
     </Card>
   );
@@ -473,8 +473,8 @@ function FunnelPanel({
     <>
       <Card className="xl:sticky xl:top-8">
         <CardContent className="pt-5">
-          <p className="text-[13px] font-medium text-foreground/80 mb-1">The funnel</p>
-          <p className="text-[11px] text-muted-foreground mb-4">Hover a stage for context</p>
+          <p className="text-[15px] font-medium text-foreground/80 mb-1">The funnel</p>
+          <p className="text-[13px] text-muted-foreground mb-4">Hover a stage for context</p>
 
           <svg viewBox={`0 0 ${FUNNEL_WIDTH} ${svgHeight}`} width="100%" height={svgHeight} className="overflow-visible">
             {stages.map((stage, i) => {
@@ -524,13 +524,13 @@ function FunnelPanel({
       >
         {hoveredStage && (
           <>
-            <p className="text-[14px] font-semibold text-[#001A2E] mb-1.5">
+            <p className="text-[16px] font-semibold text-[#001A2E] mb-1.5">
               {hoveredStage.label} — {hoveredStage.count.toLocaleString()}
             </p>
-            <p className="text-[13px] text-foreground/70 leading-relaxed">{hoveredStage.insight}</p>
+            <p className="text-[15px] text-foreground/70 leading-relaxed">{hoveredStage.insight}</p>
             {hoveredStage.sources && hoveredStage.sources.length > 0 && (
               <div className="mt-2.5 pt-2.5 border-t border-border/50">
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
+                <p className="text-[13px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
                   How they got here
                 </p>
                 <div className="space-y-1.5">
@@ -624,7 +624,7 @@ export function Attribution({
 
   if (loading && !ga) {
     return (
-      <div className="flex items-center justify-center py-24 text-muted-foreground gap-2 text-[13px]">
+      <div className="flex items-center justify-center py-24 text-muted-foreground gap-2 text-[15px]">
         <Loader2 size={18} className="animate-spin" /> Loading the road...
       </div>
     );
@@ -633,7 +633,7 @@ export function Attribution({
   if (!ga) {
     return (
       <Card>
-        <CardContent className="py-16 text-center text-muted-foreground text-[14px]">
+        <CardContent className="py-16 text-center text-muted-foreground text-[16px]">
           No website data yet for this range.
         </CardContent>
       </Card>
@@ -726,7 +726,7 @@ export function Attribution({
 
               <button
                 onClick={() => setWizardMode("adding")}
-                className="flex flex-col items-center justify-center gap-1.5 min-h-[128px] text-[12px] font-medium text-[#001A2E] border border-dashed border-[#001A2E]/25 rounded-lg hover:bg-[#001A2E]/[0.03] hover:border-[#001A2E]/40 transition-colors"
+                className="flex flex-col items-center justify-center gap-1.5 min-h-[128px] text-[14px] font-medium text-[#001A2E] border border-dashed border-[#001A2E]/25 rounded-lg hover:bg-[#001A2E]/[0.03] hover:border-[#001A2E]/40 transition-colors"
               >
                 <Plus size={16} />
                 {conversions.length === 0 ? "Create a new conversion event" : "Add another"}
@@ -741,12 +741,12 @@ export function Attribution({
           <Card>
             <CardContent className="pt-5 space-y-2.5">
               <div className="flex items-center justify-between">
-                <p className="text-[13px] font-medium text-foreground/80">What might be slowing people down</p>
-                <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">
+                <p className="text-[15px] font-medium text-foreground/80">What might be slowing people down</p>
+                <span className="text-[12px] text-muted-foreground/60 uppercase tracking-wide">
                   Source: Microsoft Clarity, site-wide, last 30 days
                 </span>
               </div>
-              <div className="space-y-2 text-[13px] text-foreground/80">
+              <div className="space-y-2 text-[15px] text-foreground/80">
                 {clarity?.homepageScrollDepth != null && (
                   <p>
                     On the homepage specifically, people only scroll about{" "}
@@ -777,7 +777,7 @@ export function Attribution({
               {conversions
                 .filter((c) => c.change !== null)
                 .map((c) => (
-                  <div key={c.id} className="flex items-center gap-2 text-[13px]">
+                  <div key={c.id} className="flex items-center gap-2 text-[15px]">
                     {c.change! >= 0 ? (
                       <TrendingUp size={16} className="text-emerald-600 shrink-0" />
                     ) : (

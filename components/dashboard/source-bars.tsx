@@ -47,7 +47,7 @@ export function SourceBars({ data, title = "Traffic Sources" }: SourceBarsProps)
       <CardHeader>
         <div className="flex items-center gap-2">
           <Globe size={15} className="text-muted-foreground/60" />
-          <CardTitle className="text-[17px] font-headline font-normal text-muted-foreground">{title}</CardTitle>
+          <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">{title}</CardTitle>
         </div>
       </CardHeader>
       <CardContent>
@@ -64,11 +64,11 @@ export function SourceBars({ data, title = "Traffic Sources" }: SourceBarsProps)
                 onMouseLeave={() => setHoveredIndex(null)}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[12px] font-medium text-foreground/80 flex items-center gap-1 min-w-0">
+                  <span className="text-[14px] font-medium text-foreground/80 flex items-center gap-1 min-w-0">
                     {meta.label}
                     <Info size={10} className="text-muted-foreground/40 shrink-0" />
                   </span>
-                  <span className="text-[11px] text-muted-foreground ml-auto tabular-nums shrink-0">
+                  <span className="text-[13px] text-muted-foreground ml-auto tabular-nums shrink-0">
                     {item.sessions.toLocaleString()}
                   </span>
                 </div>
@@ -81,7 +81,7 @@ export function SourceBars({ data, title = "Traffic Sources" }: SourceBarsProps)
 
                 {/* Tooltip */}
                 {isHovered && (
-                  <div className="absolute z-20 left-0 top-full mt-1.5 w-64 bg-white border border-border/60 rounded-lg shadow-lg px-3 py-2.5 text-[11px] leading-relaxed text-foreground/70 pointer-events-none">
+                  <div className="absolute z-20 left-0 top-full mt-1.5 w-64 bg-white border border-border/60 rounded-lg shadow-lg px-3 py-2.5 text-[13px] leading-relaxed text-foreground/70 pointer-events-none">
                     <span className="font-semibold text-foreground/90">{meta.label}:</span>{" "}
                     {meta.description}
                   </div>

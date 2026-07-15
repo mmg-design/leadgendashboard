@@ -405,11 +405,11 @@ export default function ClientDashboard() {
             "linear-gradient(90deg, rgba(255,255,255,0.9) 0%, rgba(228,242,247,0.8) 100%)",
         }}
       >
-        <div className="max-w-[1400px] mx-auto px-8 py-4 flex items-center justify-between">
+        <div className="max-w-[1440px] mx-auto px-6 md:px-10 py-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link
               href="/"
-              className="text-[13px] text-muted-foreground hover:text-foreground transition-colors"
+              className="text-[15px] text-muted-foreground hover:text-foreground transition-colors"
             >
               &larr; All Clients
             </Link>
@@ -430,7 +430,7 @@ export default function ClientDashboard() {
                 <Building2 size={16} className="text-[#001A2E]/40" />
               </div>
             )}
-            <h1 className="text-[24px] font-headline font-normal tracking-tight text-[#001A2E]">
+            <h1 className="text-[clamp(2rem,3vw,2.75rem)] font-headline font-normal tracking-tight text-[#001A2E]">
               {clientName}
             </h1>
           </div>
@@ -462,7 +462,7 @@ export default function ClientDashboard() {
         <div className="bg-white border-b border-[#001A2E]/[0.08] shadow-sm">
           <div className="max-w-[1400px] mx-auto px-8 py-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-[15px] font-semibold text-[#001A2E] tracking-tight">
+              <h2 className="text-[17px] font-semibold text-[#001A2E] tracking-tight">
                 Client Settings
               </h2>
               <button
@@ -476,20 +476,20 @@ export default function ClientDashboard() {
             <div className="grid gap-6 md:grid-cols-3">
               {/* General */}
               <div className="space-y-3">
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">
                   General
                 </div>
                 <div>
-                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Client Name</label>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">Client Name</label>
                   <input
                     type="text"
                     value={settingsForm.name}
                     onChange={(e) => setSettingsForm({ ...settingsForm, name: e.target.value })}
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
                 <div>
-                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Project Icon</label>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">Project Icon</label>
                   <label
                     onDragOver={(e) => {
                       e.preventDefault();
@@ -532,75 +532,75 @@ export default function ClientDashboard() {
                     </span>
                   </label>
                   {iconUploadError && (
-                    <p className="mt-1 text-[10px] text-red-600">{iconUploadError}</p>
+                    <p className="mt-1 text-[12px] text-red-600">{iconUploadError}</p>
                   )}
                 </div>
               </div>
 
               {/* Analytics */}
               <div className="space-y-3">
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Analytics
                 </div>
                 <div>
-                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">GA4 Property ID</label>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">GA4 Property ID</label>
                   <input
                     type="text"
                     value={settingsForm.gaPropertyId}
                     onChange={(e) => setSettingsForm({ ...settingsForm, gaPropertyId: e.target.value })}
                     placeholder="properties/123456789"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                   <div className="mt-1.5">
                     <GaServiceAccountHint />
                   </div>
                 </div>
                 <div>
-                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Clarity Project ID</label>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">Clarity Project ID</label>
                   <input
                     type="text"
                     value={settingsForm.clarityProjectId}
                     onChange={(e) => setSettingsForm({ ...settingsForm, clarityProjectId: e.target.value })}
                     placeholder="abc123xyz"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
               </div>
 
               {/* SEO & Project Work */}
               <div className="space-y-3">
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">
                   SEO &amp; Project Work
                 </div>
                 <div>
-                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">SE Ranking Project ID</label>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">SE Ranking Project ID</label>
                   <input
                     type="text"
                     value={settingsForm.seRankingProjectId}
                     onChange={(e) => setSettingsForm({ ...settingsForm, seRankingProjectId: e.target.value })}
                     placeholder="123456"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
-                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">From the SE Ranking project URL</p>
+                  <p className="text-[12px] text-muted-foreground/60 mt-0.5">From the SE Ranking project URL</p>
                 </div>
                 <div>
-                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">ClickUp List IDs</label>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">ClickUp List IDs</label>
                   <input
                     type="text"
                     value={settingsForm.clickupListIds}
                     onChange={(e) => setSettingsForm({ ...settingsForm, clickupListIds: e.target.value })}
                     placeholder="901234567, 901234568"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
-                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">Comma-separated, from ClickUp list URLs</p>
+                  <p className="text-[12px] text-muted-foreground/60 mt-0.5">Comma-separated, from ClickUp list URLs</p>
                 </div>
                 <div>
-                  <label className="text-[12px] font-medium text-foreground/70 mb-1 block">Engagement Start Date</label>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">Engagement Start Date</label>
                   <input
                     type="date"
                     value={settingsForm.clickupEngagementStart}
                     onChange={(e) => setSettingsForm({ ...settingsForm, clickupEngagementStart: e.target.value })}
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
               </div>
@@ -610,7 +610,7 @@ export default function ClientDashboard() {
               <button
                 onClick={handleSaveSettings}
                 disabled={saving}
-                className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-white bg-[#0CA4C3] rounded-lg hover:bg-[#0394B2] disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 text-[15px] font-medium text-white bg-[#0CA4C3] rounded-lg hover:bg-[#0394B2] disabled:opacity-50 transition-colors"
               >
                 {saving ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -623,7 +623,7 @@ export default function ClientDashboard() {
               </button>
               <button
                 onClick={() => setSettingsOpen(false)}
-                className="px-4 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="px-4 py-2 text-[15px] font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Cancel
               </button>
@@ -633,20 +633,20 @@ export default function ClientDashboard() {
       )}
 
       {/* Dashboard */}
-      <main className="max-w-[1400px] mx-auto px-8 py-8">
+      <main className="max-w-[1440px] mx-auto px-6 md:px-10 py-10 md:py-14">
         {gaError && (
-          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg text-[13px] border border-red-100">
+          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg text-[15px] border border-red-100">
             {gaError}
           </div>
         )}
 
-        <div className="flex gap-6 items-start">
+        <div className="flex gap-8 items-start">
           {/* ── Sidebar ── */}
-          <aside className="w-[172px] shrink-0">
+          <aside className="w-[190px] shrink-0">
             <nav className="space-y-1 xl:sticky xl:top-8">
               <button
                 onClick={() => setActiveSection("overview")}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[15px] font-medium transition-colors ${
                   activeSection === "overview"
                     ? "bg-[#001A2E]/10 text-[#001A2E]"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -656,7 +656,7 @@ export default function ClientDashboard() {
               </button>
               <button
                 onClick={() => setActiveSection("attribution")}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[15px] font-medium transition-colors ${
                   activeSection === "attribution"
                     ? "bg-[#001A2E]/10 text-[#001A2E]"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -681,9 +681,9 @@ export default function ClientDashboard() {
                 onRefresh={() => fetchGa(true)}
               />
             ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-8 items-start">
           {/* ── Left column ── */}
-          <div className="min-w-0 space-y-6">
+          <div className="min-w-0 space-y-8">
             {/* Search Performance */}
             <SearchPerformance
               data={seRanking}
@@ -694,10 +694,11 @@ export default function ClientDashboard() {
             />
 
             {/* Website Performance */}
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div className="flex items-center justify-between px-1">
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Website Performance
+                <div>
+                  <div className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#0394B2] mb-1.5">Analytics overview</div>
+                  <h2 className="font-headline text-[28px] text-[#001A2E]">Website Performance</h2>
                 </div>
                 <button
                   onClick={() => fetchGa(true)}

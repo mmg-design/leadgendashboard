@@ -129,8 +129,28 @@
   }
   body {
     @apply text-foreground font-sans;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.5;
     background: linear-gradient(160deg, #e8f6f8 0%, #f8fcfd 38%, #ffffff 68%, #edf8f6 100%);
     background-attachment: fixed;
     min-height: 100vh;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
   }
 }

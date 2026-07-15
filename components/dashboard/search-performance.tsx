@@ -38,13 +38,13 @@ function DeltaBadge({ delta }: { delta: number | null }) {
   if (delta === null) return <Minus size={12} className="text-muted-foreground/30" />;
   if (delta > 0)
     return (
-      <span className="flex items-center gap-0.5 text-emerald-600 text-[11px] font-semibold">
+      <span className="flex items-center gap-0.5 text-emerald-600 text-[13px] font-semibold">
         <ArrowUp size={10} />+{delta}
       </span>
     );
   if (delta < 0)
     return (
-      <span className="flex items-center gap-0.5 text-amber-600 text-[11px] font-semibold">
+      <span className="flex items-center gap-0.5 text-amber-600 text-[13px] font-semibold">
         <ArrowDown size={10} />{delta}
       </span>
     );
@@ -54,7 +54,7 @@ function DeltaBadge({ delta }: { delta: number | null }) {
 function PositionBadge({ position }: { position: number }) {
   if (position === 0)
     return (
-      <span className="text-[11px] font-medium px-1.5 py-0.5 rounded border tabular-nums bg-muted/30 text-muted-foreground/40 border-border">
+      <span className="text-[13px] font-medium px-1.5 py-0.5 rounded border tabular-nums bg-muted/30 text-muted-foreground/40 border-border">
         —
       </span>
     );
@@ -67,7 +67,7 @@ function PositionBadge({ position }: { position: number }) {
       ? "bg-muted/60 text-foreground/70 border-border"
       : "bg-muted/30 text-muted-foreground border-border";
   return (
-    <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border tabular-nums ${color}`}>
+    <span className={`text-[13px] font-semibold px-1.5 py-0.5 rounded border tabular-nums ${color}`}>
       #{position}
     </span>
   );
@@ -97,12 +97,12 @@ function MetricTile({
     <div className="flex flex-col gap-1 rounded-xl bg-muted/30 border border-border/50 px-3 py-3">
       <div className="flex items-center gap-1.5 text-muted-foreground/60">
         {icon}
-        <span className="text-[9px] font-semibold uppercase tracking-wider">{label}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider">{label}</span>
       </div>
       <div className={`text-[26px] font-light tabular-nums leading-none ${valueClass ?? "text-foreground"}`}>
         {value}
       </div>
-      {sub && <div className="text-[10px] text-muted-foreground/50">{sub}</div>}
+      {sub && <div className="text-[12px] text-muted-foreground/50">{sub}</div>}
     </div>
   );
 }
@@ -117,16 +117,16 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
         <CardHeader>
           <div className="flex items-center gap-2">
             <Search size={15} className="text-muted-foreground/60" />
-            <CardTitle className="text-[17px] font-headline font-normal text-muted-foreground">
+            <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">
               Search Performance
             </CardTitle>
-            <span className="ml-auto text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground tracking-wide uppercase">
+            <span className="ml-auto text-[12px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground tracking-wide uppercase">
               Not configured
             </span>
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-[15px] text-muted-foreground">
             Add an SE Ranking project ID in settings to enable keyword tracking.
           </p>
         </CardContent>
@@ -140,7 +140,7 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
         <CardHeader>
           <div className="flex items-center gap-2">
             <Search size={15} className="text-muted-foreground/60" />
-            <CardTitle className="text-[17px] font-headline font-normal text-muted-foreground">
+            <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">
               Search Performance
             </CardTitle>
           </div>
@@ -165,13 +165,13 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
         <CardHeader>
           <div className="flex items-center gap-2">
             <Search size={15} className="text-muted-foreground/60" />
-            <CardTitle className="text-[17px] font-headline font-normal text-muted-foreground">
+            <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">
               Search Performance
             </CardTitle>
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-[13px] text-red-500">{error || "No data available"}</p>
+          <p className="text-[15px] text-red-500">{error || "No data available"}</p>
         </CardContent>
       </Card>
     );
@@ -190,10 +190,10 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
       <CardHeader>
         <div className="flex items-center gap-2">
           <Search size={15} className="text-muted-foreground/60" />
-          <CardTitle className="text-[17px] font-headline font-normal text-muted-foreground">
+          <CardTitle className="text-[22px] font-headline font-normal text-muted-foreground">
             Search Performance
           </CardTitle>
-          <span className="text-[11px] text-muted-foreground">SE Ranking</span>
+          <span className="text-[13px] text-muted-foreground">SE Ranking</span>
           <button
             onClick={onRefresh}
             disabled={loading || !onRefresh}
@@ -240,22 +240,22 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
         {/* Summary row — keep as-is */}
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg bg-muted/30 px-3 py-2.5 text-center">
-            <div className="text-[22px] font-light text-foreground tabular-nums">{data.totalKeywords}</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">Keywords tracked</div>
+            <div className="text-[24px] font-light text-foreground tabular-nums">{data.totalKeywords}</div>
+            <div className="text-[12px] text-muted-foreground mt-0.5">Keywords tracked</div>
           </div>
           <div className="rounded-lg bg-emerald-50 px-3 py-2.5 text-center">
             <div className="flex items-center justify-center gap-1">
               <TrendingUp size={13} className="text-emerald-600" />
-              <span className="text-[22px] font-light text-emerald-700 tabular-nums">{data.movedUp}</span>
+              <span className="text-[24px] font-light text-emerald-700 tabular-nums">{data.movedUp}</span>
             </div>
-            <div className="text-[10px] text-emerald-600 mt-0.5">Moved up</div>
+            <div className="text-[12px] text-emerald-600 mt-0.5">Moved up</div>
           </div>
           <div className="rounded-lg bg-amber-50 px-3 py-2.5 text-center">
             <div className="flex items-center justify-center gap-1">
               <TrendingDown size={13} className="text-amber-600" />
-              <span className="text-[22px] font-light text-amber-700 tabular-nums">{data.movedDown}</span>
+              <span className="text-[24px] font-light text-amber-700 tabular-nums">{data.movedDown}</span>
             </div>
-            <div className="text-[10px] text-amber-600 mt-0.5">Moved down</div>
+            <div className="text-[12px] text-amber-600 mt-0.5">Moved down</div>
           </div>
         </div>
 
@@ -267,16 +267,16 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
               className="w-full flex items-center justify-between py-2 px-2 rounded-lg hover:bg-muted/30 transition-colors group"
             >
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">
                   All keywords ({keywords.length})
                 </span>
                 {unranked.length > 0 && (
-                  <span className="text-[10px] text-muted-foreground/40">{unranked.length} not yet ranked</span>
+                  <span className="text-[12px] text-muted-foreground/40">{unranked.length} not yet ranked</span>
                 )}
               </div>
               <div className="flex items-center gap-2">
                 {unchanged > 0 && keywordsOpen && (
-                  <span className="text-[10px] text-muted-foreground/50">{unchanged} unchanged</span>
+                  <span className="text-[12px] text-muted-foreground/50">{unchanged} unchanged</span>
                 )}
                 {keywordsOpen
                   ? <ChevronUp size={13} className="text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
@@ -288,10 +288,10 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
             {keywordsOpen && (
               <>
                 <div className="flex items-center gap-3 px-2 pb-1 border-b border-border/40 mb-1 mt-1">
-                  <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-5">#</span>
-                  <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Keyword</span>
-                  <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-12 text-center">Rank</span>
-                  <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-12 text-right">7d change</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-5">#</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60 flex-1">Keyword</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-12 text-center">Rank</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60 w-12 text-right">7d change</span>
                 </div>
 
                 <div
@@ -304,8 +304,8 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
                         key={kw.id}
                         className={`flex items-center gap-3 py-2 px-2 rounded-md hover:bg-muted/30 transition-colors ${kw.position === 0 ? "opacity-50" : ""}`}
                       >
-                        <span className="text-[11px] font-medium text-muted-foreground/40 w-5 text-right shrink-0">{i + 1}</span>
-                        <span className="text-[12px] text-foreground/80 flex-1 truncate" title={kw.keyword}>{kw.keyword}</span>
+                        <span className="text-[13px] font-medium text-muted-foreground/40 w-5 text-right shrink-0">{i + 1}</span>
+                        <span className="text-[14px] text-foreground/80 flex-1 truncate" title={kw.keyword}>{kw.keyword}</span>
                         <div className="w-12 flex justify-center shrink-0">
                           <PositionBadge position={kw.position} />
                         </div>
@@ -320,7 +320,7 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
                 {keywords.length > 7 && (
                   <button
                     onClick={() => setExpanded((e) => !e)}
-                    className="mt-1 w-full flex items-center justify-center gap-1 py-1.5 text-[10px] text-muted-foreground/50 hover:text-muted-foreground rounded-md hover:bg-muted/30 transition-colors"
+                    className="mt-1 w-full flex items-center justify-center gap-1 py-1.5 text-[12px] text-muted-foreground/50 hover:text-muted-foreground rounded-md hover:bg-muted/30 transition-colors"
                   >
                     {expanded ? <><ChevronUp size={11} /> Show less</> : <><ChevronDown size={11} /> Show all {keywords.length}</>}
                   </button>
@@ -330,8 +330,8 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
           </div>
         ) : (
           <div className="py-6 text-center">
-            <p className="text-[12px] text-muted-foreground/60">No keywords tracked yet.</p>
-            <p className="text-[11px] text-muted-foreground/40 mt-1">
+            <p className="text-[14px] text-muted-foreground/60">No keywords tracked yet.</p>
+            <p className="text-[13px] text-muted-foreground/40 mt-1">
               Rankings typically appear within 1–3 days of project setup.
             </p>
           </div>

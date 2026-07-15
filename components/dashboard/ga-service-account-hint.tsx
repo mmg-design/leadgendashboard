@@ -23,14 +23,14 @@ export function GaServiceAccountHint() {
   };
 
   return (
-    <div className="rounded-md border border-[#001A2E]/15 bg-[#001A2E]/[0.04] px-2.5 py-2 text-[10px] leading-relaxed text-muted-foreground/80">
+    <div className="rounded-md border border-[#001A2E]/15 bg-[#001A2E]/[0.04] px-2.5 py-2 text-[12px] leading-relaxed text-muted-foreground/80">
       <p className="mb-1">
         Before this works, add this email as a <strong>Viewer</strong> in GA4 → Admin → Property Access Management for this property:
       </p>
       <button
         type="button"
         onClick={handleCopy}
-        className="flex w-full items-center justify-between gap-2 rounded border border-[#001A2E]/15 bg-white/70 px-2 py-1 font-mono text-[10px] text-[#001A2E] hover:bg-white transition-colors"
+        className="flex w-full items-center justify-between gap-2 rounded border border-[#001A2E]/15 bg-white/70 px-2 py-1 font-mono text-[12px] text-[#001A2E] hover:bg-white transition-colors"
       >
         <span className="truncate">{email}</span>
         {copied ? <Check size={12} className="shrink-0" /> : <Copy size={12} className="shrink-0" />}

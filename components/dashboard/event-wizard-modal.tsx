@@ -195,8 +195,8 @@ export function EventWizardModal({
               </div>
             )}
             <div className="min-w-0">
-              <h2 className="text-[16px] font-headline font-normal text-[#001A2E] truncate">{headerTitle}</h2>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Step {step} of 3</p>
+              <h2 className="text-[22px] font-headline font-normal text-[#001A2E] truncate">{headerTitle}</h2>
+              <p className="text-[13px] text-muted-foreground mt-0.5">Step {step} of 3</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted/60 transition-colors">
@@ -207,7 +207,7 @@ export function EventWizardModal({
         <div className="p-5 space-y-4">
           {step === 1 && (
             <div className="space-y-2">
-              <p className="text-[13px] font-medium text-foreground/80 mb-1">How do you know someone converted?</p>
+              <p className="text-[15px] font-medium text-foreground/80 mb-1">How do you know someone converted?</p>
               {TYPE_OPTIONS.map((opt) => {
                 const Icon = opt.icon;
                 const active = conversionType === opt.type;
@@ -223,8 +223,8 @@ export function EventWizardModal({
                       <Icon size={15} />
                     </div>
                     <div>
-                      <div className="text-[13px] font-medium text-foreground/80">{opt.title}</div>
-                      <div className="text-[11px] text-muted-foreground">{opt.desc}</div>
+                      <div className="text-[15px] font-medium text-foreground/80">{opt.title}</div>
+                      <div className="text-[13px] text-muted-foreground">{opt.desc}</div>
                     </div>
                   </button>
                 );
@@ -236,7 +236,7 @@ export function EventWizardModal({
             <div className="space-y-4">
               {conversionType === "pageview" && (
                 <div>
-                  <p className="text-[11px] font-medium text-foreground/70 mb-1.5">
+                  <p className="text-[13px] font-medium text-foreground/70 mb-1.5">
                     {suggestionsLoading
                       ? "Checking what's actually firing on this site..."
                       : relevantSuggestions.length > 0
@@ -254,7 +254,7 @@ export function EventWizardModal({
                             key={value}
                             type="button"
                             onClick={() => pickSuggestion(s)}
-                            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+                            className={`text-[13px] px-2.5 py-1 rounded-full border transition-colors ${
                               active ? "border-[#001A2E] bg-[#001A2E]/10 text-[#001A2E]" : "border-border/60 text-muted-foreground hover:border-[#001A2E]/40"
                             }`}
                           >
@@ -264,28 +264,28 @@ export function EventWizardModal({
                       })}
                     </div>
                   )}
-                  <label className="text-[11px] font-medium text-foreground/70 mb-1 block">Page path</label>
+                  <label className="text-[13px] font-medium text-foreground/70 mb-1 block">Page path</label>
                   <input
                     type="text"
                     value={conversionValue}
                     onChange={(e) => setConversionValue(e.target.value)}
                     placeholder="/thank-you"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
               )}
 
               {conversionType === "click" && (
                 <div>
-                  <label className="text-[11px] font-medium text-foreground/70 mb-1 block">Exact button text</label>
+                  <label className="text-[13px] font-medium text-foreground/70 mb-1 block">Exact button text</label>
                   <input
                     type="text"
                     value={conversionValue}
                     onChange={(e) => setConversionValue(e.target.value)}
                     placeholder="Schedule My Call"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
-                  <p className="text-[10px] text-muted-foreground/60 mt-1">
+                  <p className="text-[12px] text-muted-foreground/60 mt-1">
                     Type it exactly as it appears on the button — we&apos;ll match it automatically.
                   </p>
                 </div>
@@ -293,7 +293,7 @@ export function EventWizardModal({
 
               {conversionType === "form_submit" && (
                 <div>
-                  <label className="text-[11px] font-medium text-foreground/70 mb-1 block">
+                  <label className="text-[13px] font-medium text-foreground/70 mb-1 block">
                     Which form? (optional description)
                   </label>
                   <input
@@ -301,9 +301,9 @@ export function EventWizardModal({
                     value={conversionValue}
                     onChange={(e) => setConversionValue(e.target.value)}
                     placeholder="Contact form"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
-                  <p className="text-[10px] text-muted-foreground/60 mt-1">
+                  <p className="text-[12px] text-muted-foreground/60 mt-1">
                     Counts any form submission — narrow it to one page below if you only want a specific form.
                   </p>
                 </div>
@@ -311,7 +311,7 @@ export function EventWizardModal({
 
               {conversionType === "scroll_depth" && (
                 <div>
-                  <label className="text-[11px] font-medium text-foreground/70 mb-1 block">How far down? (%)</label>
+                  <label className="text-[13px] font-medium text-foreground/70 mb-1 block">How far down? (%)</label>
                   <input
                     type="number"
                     min={1}
@@ -319,28 +319,28 @@ export function EventWizardModal({
                     value={conversionValue}
                     onChange={(e) => setConversionValue(e.target.value)}
                     placeholder="50"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
               )}
 
               {conversionType === "time_on_page" && (
                 <div>
-                  <label className="text-[11px] font-medium text-foreground/70 mb-1 block">How many seconds?</label>
+                  <label className="text-[13px] font-medium text-foreground/70 mb-1 block">How many seconds?</label>
                   <input
                     type="number"
                     min={1}
                     value={conversionValue}
                     onChange={(e) => setConversionValue(e.target.value)}
                     placeholder="30"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
               )}
 
               {isSnippetType && (
                 <div>
-                  <label className="text-[11px] font-medium text-foreground/70 mb-1 block">
+                  <label className="text-[13px] font-medium text-foreground/70 mb-1 block">
                     Only on a specific page? (optional)
                   </label>
                   <input
@@ -348,13 +348,13 @@ export function EventWizardModal({
                     value={scopePagePath}
                     onChange={(e) => setScopePagePath(e.target.value)}
                     placeholder="/pricing"
-                    className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
               )}
 
               <div>
-                <label className="text-[11px] font-medium text-foreground/70 mb-1 block">
+                <label className="text-[13px] font-medium text-foreground/70 mb-1 block">
                   What do you call this? (optional)
                 </label>
                 <input
@@ -362,7 +362,7 @@ export function EventWizardModal({
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
                   placeholder="Booked a call"
-                  className="w-full px-3 py-2 text-[13px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                  className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                 />
               </div>
             </div>
@@ -371,13 +371,13 @@ export function EventWizardModal({
           {step === 3 && (
             <div className="space-y-4">
               <div className="p-3 rounded-lg bg-[#001A2E]/[0.04] border border-[#001A2E]/10">
-                <p className="text-[13px] text-foreground/80">{describeGoal(conversionType, conversionValue, scopePagePath)}</p>
-                {label && <p className="text-[11px] text-muted-foreground mt-1">Labeled as &quot;{label}&quot;</p>}
+                <p className="text-[15px] text-foreground/80">{describeGoal(conversionType, conversionValue, scopePagePath)}</p>
+                {label && <p className="text-[13px] text-muted-foreground mt-1">Labeled as &quot;{label}&quot;</p>}
               </div>
 
               {showSnippetStep && (
                 <div className="space-y-2">
-                  <p className="text-[12px] font-medium text-foreground/80">
+                  <p className="text-[14px] font-medium text-foreground/80">
                     One-time setup — paste this into your site&apos;s custom code (footer), then you&apos;re done forever:
                   </p>
                   <div className="relative">
@@ -396,14 +396,14 @@ export function EventWizardModal({
                       {copied ? <Check size={12} /> : <Copy size={12} />}
                     </button>
                   </div>
-                  <p className="text-[10px] text-muted-foreground/60">
+                  <p className="text-[12px] text-muted-foreground/60">
                     Every future click, form, scroll, or time-based event you create for this client uses this
                     same snippet — no more code edits after this.
                   </p>
                 </div>
               )}
 
-              {error && <p className="text-[11px] text-red-600">{error}</p>}
+              {error && <p className="text-[13px] text-red-600">{error}</p>}
             </div>
           )}
         </div>
@@ -411,7 +411,7 @@ export function EventWizardModal({
         <div className="flex items-center justify-between px-5 py-4 border-t border-border/50">
           <button
             onClick={() => (step === 1 ? onClose() : setStep((s) => (s - 1) as 1 | 2))}
-            className="px-3 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+            className="px-3 py-2 text-[15px] font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             {step === 1 ? "Cancel" : "Back"}
           </button>
@@ -419,7 +419,7 @@ export function EventWizardModal({
             <button
               onClick={() => setStep((s) => (s + 1) as 2 | 3)}
               disabled={step === 2 && !canContinue()}
-              className="px-4 py-2 text-[13px] font-medium text-white bg-[#0CA4C3] rounded-lg hover:bg-[#0394B2] disabled:opacity-50 transition-colors"
+              className="px-4 py-2 text-[15px] font-medium text-white bg-[#0CA4C3] rounded-lg hover:bg-[#0394B2] disabled:opacity-50 transition-colors"
             >
               Continue
             </button>
@@ -427,7 +427,7 @@ export function EventWizardModal({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-white bg-[#0CA4C3] rounded-lg hover:bg-[#0394B2] disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 text-[15px] font-medium text-white bg-[#0CA4C3] rounded-lg hover:bg-[#0394B2] disabled:opacity-50 transition-colors"
             >
               {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <Check size={14} /> : null}
               {saving ? "Saving..." : saved ? "Saved!" : submitLabel}
