@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Keep production artifacts away from Ship Studio's managed dev cache.
-  // Running `next build` while the preview is open must not corrupt `.next/dev`.
-  distDir: process.env.NEXT_DIST_DIR || ".next",
+  // Keep production artifacts away from Ship Studio's managed dev cache locally.
+  // Vercel always expects the default ".next" output dir (it sets VERCEL=1 during
+  // build), so ignore the override there even though it runs the same npm script.
+  distDir: process.env.VERCEL ? ".next" : (process.env.NEXT_DIST_DIR || ".next"),
 };
 
 export default nextConfig;
