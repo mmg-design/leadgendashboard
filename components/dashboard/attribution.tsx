@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { GoalConfig } from "@/lib/clients";
-import { EventWizardModal, type WizardValues } from "@/components/dashboard/event-wizard-modal";
+import { EventWizardModal, TYPE_ICONS, type WizardValues } from "@/components/dashboard/event-wizard-modal";
 import {
   Search,
   Eye,
-  Trophy,
   TrendingUp,
   TrendingDown,
   Loader2,
@@ -233,6 +232,7 @@ function StageCard({
 }
 
 function MiniGoalCard({
+  icon,
   title,
   count,
   widthPct,
@@ -246,6 +246,7 @@ function MiniGoalCard({
   onConfirmDelete,
   onCancelDelete,
 }: {
+  icon: React.ReactNode;
   title: string;
   count: number;
   widthPct: number;
@@ -265,7 +266,7 @@ function MiniGoalCard({
         <div className="flex items-start justify-between gap-1">
           <div className="flex items-center gap-1.5 min-w-0">
             <div className="p-1 rounded-md bg-[#0B4F6C]/8 text-[#0B4F6C] shrink-0">
-              <Trophy size={11} />
+              {icon}
             </div>
             <span className="text-[11.5px] font-medium text-foreground/80 truncate" title={title}>
               {title}
@@ -333,19 +334,28 @@ function MiniGoalCard({
   );
 }
 
-function trapezoidClipPath(topPct: number, bottomPct: number): string {
-  const topL = (100 - topPct) / 2;
-  const topR = 100 - topL;
-  const botL = (100 - bottomPct) / 2;
-  const botR = 100 - botL;
-  return `polygon(${topL}% 0%, ${topR}% 0%, ${botR}% 100%, ${botL}% 100%)`;
-}
-
 interface FunnelStageDatum {
   label: string;
   count: number;
   insight: string;
   color: string;
+}
+
+const FUNNEL_SEGMENT_HEIGHT = 88;
+const FUNNEL_WIDTH = 280;
+
+// A smooth S-curve taper between one stage's width and the next, instead of a
+// hard-angled trapezoid — reads as a flowing funnel rather than a stack of wedges.
+function curvySegmentPath(topPct: number, bottomPct: number, yTop: number): string {
+  const yBot = yTop + FUNNEL_SEGMENT_HEIGHT;
+  const yMid = yTop + FUNNEL_SEGMENT_HEIGHT / 2;
+  const topW = (topPct / 100) * FUNNEL_WIDTH;
+  const botW = (bottomPct / 100) * FUNNEL_WIDTH;
+  const topL = (FUNNEL_WIDTH - topW) / 2;
+  const topR = FUNNEL_WIDTH - topL;
+  const botL = (FUNNEL_WIDTH - botW) / 2;
+  const botR = FUNNEL_WIDTH - botL;
+  return `M ${topL},${yTop} C ${topL},${yMid} ${botL},${yMid} ${botL},${yBot} L ${botR},${yBot} C ${botR},${yMid} ${topR},${yMid} ${topR},${yTop} Z`;
 }
 
 function FunnelPanel({
@@ -363,7 +373,9 @@ function FunnelPanel({
   conversions: ConversionResult[];
   maxCount: number;
 }) {
-  const [hovered, setHovered] = useState<{ top: number; left: number; stage: FunnelStageDatum } | null>(null);
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
+  const [hoveredStage, setHoveredStage] = useState<FunnelStageDatum | null>(null);
   const branchColors = ["#3b8fa8", "#5aa3b8", "#7bb8c9", "#9ccbd6"];
 
   const stages: FunnelStageDatum[] = [
@@ -377,14 +389,23 @@ function FunnelPanel({
     })),
   ];
 
+  // True proportional widths — only a thin floor so a zero-count stage still renders as a sliver, not nothing.
   function widthPctFor(count: number): number {
-    return Math.max((count / maxCount) * 100, 30);
+    return Math.max((count / maxCount) * 100, 6);
   }
 
-  function handleEnter(e: React.MouseEvent<HTMLDivElement>, stage: FunnelStageDatum) {
+  function handleEnter(e: React.MouseEvent<SVGGElement>, stage: FunnelStageDatum) {
     const rect = e.currentTarget.getBoundingClientRect();
-    setHovered({ top: rect.top + rect.height / 2, left: rect.left - 14, stage });
+    setTooltipPos({ top: rect.top + rect.height / 2, left: rect.left - 16 });
+    setHoveredStage(stage);
+    setTooltipVisible(true);
   }
+
+  function handleLeave() {
+    setTooltipVisible(false);
+  }
+
+  const svgHeight = stages.length * FUNNEL_SEGMENT_HEIGHT;
 
   return (
     <>
@@ -393,42 +414,61 @@ function FunnelPanel({
           <p className="text-[13px] font-medium text-foreground/80 mb-1">The funnel</p>
           <p className="text-[11px] text-muted-foreground mb-4">Hover a stage for context</p>
 
-          <div className="space-y-[3px] rounded-lg overflow-hidden">
+          <svg viewBox={`0 0 ${FUNNEL_WIDTH} ${svgHeight}`} width="100%" height={svgHeight} className="overflow-visible">
             {stages.map((stage, i) => {
               const widthPct = widthPctFor(stage.count);
               const prevWidthPct = i === 0 ? 100 : widthPctFor(stages[i - 1].count);
+              const yTop = i * FUNNEL_SEGMENT_HEIGHT;
+              const yMid = yTop + FUNNEL_SEGMENT_HEIGHT / 2;
+              const path = curvySegmentPath(prevWidthPct, widthPct, yTop);
+              const label = stage.label.length > 28 ? `${stage.label.slice(0, 26)}…` : stage.label;
               return (
-                <div
+                <g
                   key={stage.label + i}
                   onMouseEnter={(e) => handleEnter(e, stage)}
-                  onMouseLeave={() => setHovered(null)}
-                  className="relative mx-auto flex items-center justify-center h-20 text-white cursor-default transition-opacity hover:opacity-95"
-                  style={{ clipPath: trapezoidClipPath(prevWidthPct, widthPct), backgroundColor: stage.color }}
+                  onMouseLeave={handleLeave}
+                  className="cursor-default"
                 >
-                  <div className="text-center px-4">
-                    <div className="text-[22px] font-headline font-normal leading-none">
-                      {stage.count.toLocaleString()}
-                    </div>
-                    <div className="text-[10.5px] mt-1 opacity-90 truncate max-w-[200px]">{stage.label}</div>
-                  </div>
-                </div>
+                  <path d={path} fill={stage.color} className="transition-opacity duration-150 hover:opacity-90" />
+                  <text
+                    x={FUNNEL_WIDTH / 2}
+                    y={yMid - 6}
+                    textAnchor="middle"
+                    fill="white"
+                    fontSize="21"
+                    fontWeight="500"
+                  >
+                    {stage.count.toLocaleString()}
+                  </text>
+                  <text x={FUNNEL_WIDTH / 2} y={yMid + 15} textAnchor="middle" fill="white" fontSize="11" opacity="0.9">
+                    {label}
+                  </text>
+                </g>
               );
             })}
-          </div>
+          </svg>
         </CardContent>
       </Card>
 
-      {hovered && (
-        <div
-          className="fixed z-[60] w-64 p-3.5 rounded-lg bg-[#1a1a1a] text-white text-[11.5px] leading-relaxed shadow-xl pointer-events-none"
-          style={{ top: hovered.top, left: hovered.left, transform: "translate(-100%, -50%)" }}
-        >
-          <p className="font-medium mb-1">
-            {hovered.stage.label} — {hovered.stage.count.toLocaleString()}
-          </p>
-          <p className="text-white/80">{hovered.stage.insight}</p>
-        </div>
-      )}
+      <div
+        className={`fixed z-[60] w-72 p-4 rounded-xl bg-white border border-border/60 shadow-2xl pointer-events-none transition-all duration-200 ease-out ${
+          tooltipVisible ? "opacity-100" : "opacity-0"
+        }`}
+        style={{
+          top: tooltipPos.top,
+          left: tooltipPos.left,
+          transform: `translate(-100%, -50%) scale(${tooltipVisible ? 1 : 0.95})`,
+        }}
+      >
+        {hoveredStage && (
+          <>
+            <p className="text-[14px] font-semibold text-[#0B4F6C] mb-1.5">
+              {hoveredStage.label} — {hoveredStage.count.toLocaleString()}
+            </p>
+            <p className="text-[13px] text-foreground/70 leading-relaxed">{hoveredStage.insight}</p>
+          </>
+        )}
+      </div>
     </>
   );
 }
@@ -584,10 +624,13 @@ export function Attribution({
               {conversions.map((conv) => {
                 const isPendingDelete = pendingDeleteId === conv.id;
                 const pctOfEngaged = engagedSessions > 0 ? Math.round((conv.count / engagedSessions) * 100) : 0;
+                const goalType = goals.find((g) => g.id === conv.id)?.conversionType || "pageview";
+                const GoalIcon = TYPE_ICONS[goalType];
 
                 return (
                   <MiniGoalCard
                     key={conv.id}
+                    icon={<GoalIcon size={11} />}
                     title={conv.label || conv.page}
                     count={conv.count}
                     widthPct={Math.max((conv.count / maxCount) * 100, 6)}

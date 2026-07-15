@@ -51,6 +51,27 @@ const TYPE_OPTIONS: { type: WizardConversionType; icon: typeof FileText; title: 
   { type: "time_on_page", icon: Clock, title: "Someone stays on the page a while", desc: "Fires after N seconds" },
 ];
 
+// Shared with the Attribution cards so every card's icon matches its trigger type.
+export const TYPE_ICONS: Record<WizardConversionType, typeof FileText> = {
+  pageview: FileText,
+  click: MousePointerClick,
+  form_submit: FileCheck2,
+  scroll_depth: ArrowDownWideNarrow,
+  time_on_page: Clock,
+  event: FileText,
+};
+
+// Short noun-phrase used to name the modal header live as the user fills things in.
+function shortDescribe(type: WizardConversionType, value: string): string {
+  if (!value) return "";
+  if (type === "pageview") return `Visit to ${value}`;
+  if (type === "click") return `Click on "${value}"`;
+  if (type === "form_submit") return value;
+  if (type === "scroll_depth") return `Scroll to ${value}%`;
+  if (type === "time_on_page") return `${value}s on page`;
+  return `GA4 event "${value}"`;
+}
+
 function describeGoal(type: WizardConversionType, value: string, scopePagePath: string): string {
   const scope = scopePagePath ? ` on ${scopePagePath}` : "";
   if (type === "pageview") return `We'll count it every time someone visits ${value}.`;
@@ -111,7 +132,7 @@ export function EventWizardModal({
   onSubmit,
   onClose,
 }: EventWizardModalProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(initial ? 2 : 1);
   const [conversionType, setConversionType] = useState<WizardConversionType>(initial?.conversionType || "pageview");
   const [conversionValue, setConversionValue] = useState(initial?.conversionValue || "");
   const [scopePagePath, setScopePagePath] = useState(initial?.scopePagePath || "");
@@ -156,6 +177,10 @@ export function EventWizardModal({
 
   const showSnippetStep = step === 3 && isSnippetType && isFirstSnippetGoal;
 
+  const liveName = label.trim() || shortDescribe(conversionType, conversionValue.trim());
+  const headerTitle = liveName || (initial ? "Edit conversion event" : "Create a new conversion event");
+  const TypeIcon = TYPE_ICONS[conversionType];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
       <div
@@ -163,11 +188,16 @@ export function EventWizardModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
-          <div>
-            <h2 className="text-[16px] font-headline font-normal text-[#0B4F6C]">
-              {initial ? "Edit conversion event" : "Create a new conversion event"}
-            </h2>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Step {step} of 3</p>
+          <div className="flex items-center gap-2.5 min-w-0">
+            {liveName && (
+              <div className="p-1.5 rounded-md bg-[#0B4F6C]/8 text-[#0B4F6C] shrink-0">
+                <TypeIcon size={14} />
+              </div>
+            )}
+            <div className="min-w-0">
+              <h2 className="text-[16px] font-headline font-normal text-[#0B4F6C] truncate">{headerTitle}</h2>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Step {step} of 3</p>
+            </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted/60 transition-colors">
             <X size={16} />
