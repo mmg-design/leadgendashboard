@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getClient } from "@/lib/clients";
+
+type FunnelRecommendation = {
+  title: string;
+  recommendation: string;
+  evidence: string;
+  impact: "high" | "medium" | "low";
+};
 
 export async function POST(req: NextRequest) {
   if (!process.env.GEMINI_API_KEY) {
@@ -11,7 +19,42 @@ export async function POST(req: NextRequest) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const body = await req.json();
-    const { clientName, range, ga, visitors, clarity, seRanking, clickUp } = body;
+    const { clientName, clientSlug, range, ga, visitors, clarity, seRanking, clickUp, mode, replaceIndex, existingRecommendations } = body;
+
+    if (mode === "funnel-recommendations") {
+      const config = typeof clientSlug === "string" ? await getClient(clientSlug) : null;
+      const resolvedName = config?.name || clientName || clientSlug || "Client";
+      const siteContext = config?.domain ? await fetchSiteContext(config.domain) : "Site content unavailable.";
+      const dataContext = buildDataContext(resolvedName, range, ga, visitors, clarity, seRanking, clickUp);
+      const replacementInstruction = Number.isInteger(replaceIndex)
+        ? `Replace recommendation ${replaceIndex + 1}. Return one recommendation in the recommendations array. Do not repeat these existing ideas: ${JSON.stringify(existingRecommendations || [])}`
+        : "Return 3 to 5 distinct recommendations, ordered by expected impact.";
+
+      const prompt = `You are a senior conversion-rate optimization strategist. Analyze the measured funnel and the site's actual messaging. Make specific recommendations supported by the supplied evidence. Never invent a metric, page, feature, or user behavior. If evidence is limited, say what should be measured rather than pretending certainty.
+
+${dataContext}
+### Public site content
+${siteContext}
+
+${replacementInstruction}
+Respond as raw JSON only:
+{
+  "recommendations": [{
+    "title": "Short action-oriented title",
+    "recommendation": "A concrete change: what to change, where, and why (maximum 45 words)",
+    "evidence": "The exact dashboard metric or site-content observation supporting it (maximum 28 words)",
+    "impact": "high|medium|low"
+  }]
+}`;
+
+      const result = await model.generateContent(prompt);
+      const parsed = parseModelJson(result.response.text()) as { recommendations?: FunnelRecommendation[] };
+      const recommendations = Array.isArray(parsed.recommendations)
+        ? parsed.recommendations.filter(isFunnelRecommendation).slice(0, Number.isInteger(replaceIndex) ? 1 : 5)
+        : [];
+      if (recommendations.length === 0) throw new Error("Gemini did not return usable recommendations");
+      return NextResponse.json({ recommendations });
+    }
 
     const dataContext = buildDataContext(clientName, range, ga, visitors, clarity, seRanking, clickUp);
 
@@ -31,15 +74,54 @@ Respond in this exact JSON format (no markdown fences, just raw JSON):
 }`;
 
     const result = await model.generateContent(prompt);
-    const rawText = result.response.text().trim();
-    const jsonStr = rawText.replace(/^```json?\n?/, "").replace(/\n?```$/, "");
-    const analysis = JSON.parse(jsonStr);
+    const analysis = parseModelJson(result.response.text());
 
     return NextResponse.json({ analysis });
   } catch (err: unknown) {
     console.error("AI analysis error:", err);
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+function parseModelJson(raw: string): unknown {
+  const json = raw.trim().replace(/^```json?\s*/i, "").replace(/\s*```$/, "");
+  return JSON.parse(json);
+}
+
+function isFunnelRecommendation(value: unknown): value is FunnelRecommendation {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Record<string, unknown>;
+  return typeof item.title === "string" && typeof item.recommendation === "string" &&
+    typeof item.evidence === "string" && ["high", "medium", "low"].includes(String(item.impact));
+}
+
+async function fetchSiteContext(domain: string): Promise<string> {
+  try {
+    const candidate = /^https?:\/\//i.test(domain) ? domain : `https://${domain}`;
+    const url = new URL(candidate);
+    const host = url.hostname.toLowerCase();
+    if (host === "localhost" || host.endsWith(".local") || /^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+      return "Site content unavailable for a non-public hostname.";
+    }
+    const response = await fetch(url, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(6000),
+      headers: { "User-Agent": "MMG-LeadGen-Analysis/1.0" },
+    });
+    if (!response.ok) return `Site returned HTTP ${response.status}; content unavailable.`;
+    const html = (await response.text()).slice(0, 120_000);
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/\s+/g, " ")
+      .trim();
+    return `Homepage URL: ${url.toString()}\nHomepage text: ${text.slice(0, 12_000)}`;
+  } catch {
+    return "Site content could not be fetched.";
   }
 }
 
@@ -62,7 +144,20 @@ function buildDataContext(
     }
     ctx += `\n- Unique Visitors: ${ga.summary.uniqueVisitors?.toLocaleString() || "N/A"}\n`;
     ctx += `- Engagement Rate: ${ga.summary.engagementRate || ga.summary.bounceRate || "N/A"}\n`;
+    if (ga.summary.engagedSessions !== undefined) {
+      const dropOff = Math.max((ga.summary.sessions || 0) - ga.summary.engagedSessions, 0);
+      ctx += `- Engaged Sessions: ${ga.summary.engagedSessions.toLocaleString()}\n`;
+      ctx += `- Visit-to-engagement Drop-off: ${dropOff.toLocaleString()} sessions\n`;
+    }
     ctx += `- Avg Session Duration: ${ga.summary.avgSessionDuration || "N/A"}\n`;
+    if (ga.comparison?.label) ctx += `- Comparison Baseline: ${ga.comparison.label}\n`;
+    if (ga.summary.conversions?.length) {
+      ctx += `- Conversion Events:\n`;
+      ga.summary.conversions.forEach((conversion: { label?: string; page?: string; count?: number; change?: number | null }) => {
+        const change = conversion.change == null ? "no prior-period baseline" : `${conversion.change > 0 ? "+" : ""}${conversion.change}% vs prior period`;
+        ctx += `  · ${conversion.label || conversion.page || "Conversion"}: ${conversion.count || 0} (${change})\n`;
+      });
+    }
     if (ga.topSources?.length) {
       ctx += `- Top Sources: ${ga.topSources.slice(0, 4).map((s: any) => `${s.source} (${s.sessions})`).join(", ")}\n`;
     }

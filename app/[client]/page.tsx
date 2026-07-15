@@ -35,8 +35,10 @@ import {
 } from "lucide-react";
 
 interface GAData {
+  comparison?: { label?: string };
   summary: {
     sessions: number;
+    previousSessions?: number;
     sessionsChange?: number | null;
     pageviews: number;
     uniqueVisitors: number;
@@ -44,9 +46,9 @@ interface GAData {
     bounceRate: string;
     engagementRate?: string;
     engagedSessions?: number;
-    conversions: { id: string; page: string; label?: string; count: number; change: number | null; sources?: { source: string; count: number }[] }[];
+    conversions: { id: string; page: string; label?: string; count: number; previousCount?: number; change: number | null; sources?: { source: string; count: number }[] }[];
   };
-  dailySessions: { date: string; sessions: number; pageviews: number }[];
+  dailySessions: { date: string; sessions: number; pageviews: number; topPages?: { page: string; views: number }[] }[];
   topSources: { source: string; sessions: number }[];
   topPages: { page: string; views: number; engagementScore?: number; avgDuration?: number }[];
 }

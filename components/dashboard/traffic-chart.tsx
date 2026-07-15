@@ -12,9 +12,59 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp } from "lucide-react";
 
+interface DailyPoint {
+  date: string;
+  sessions: number;
+  pageviews: number;
+  topPages?: { page: string; views: number }[];
+}
+
 interface TrafficChartProps {
-  data: { date: string; sessions: number; pageviews: number }[];
+  data: DailyPoint[];
   title?: string;
+}
+
+function ChartTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: { dataKey: string; value: number; color: string; payload: DailyPoint }[];
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  const point = payload[0].payload;
+
+  return (
+    <div
+      style={{
+        backgroundColor: "#fff",
+        border: "1px solid rgba(0,0,0,0.06)",
+        borderRadius: "8px",
+        fontSize: "12px",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+        padding: "8px 12px",
+      }}
+    >
+      <p style={{ fontWeight: 500, marginBottom: 4 }}>{point.date}</p>
+      {payload.map((entry) => (
+        <p key={entry.dataKey} style={{ color: entry.color, margin: 0 }}>
+          {entry.dataKey} : {entry.value}
+        </p>
+      ))}
+      {point.topPages && point.topPages.length > 0 && (
+        <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+          <p style={{ fontSize: 10.5, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.03em", color: "#6b7280", marginBottom: 3 }}>
+            Top pages
+          </p>
+          {point.topPages.map((p) => (
+            <p key={p.page} style={{ margin: "2px 0", color: "#374151" }}>
+              {p.page} <span style={{ color: "#9ca3af" }}>· {p.views.toLocaleString()}</span>
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function TrafficChart({ data, title = "Traffic Overview" }: TrafficChartProps) {
@@ -57,16 +107,7 @@ export function TrafficChart({ data, title = "Traffic Overview" }: TrafficChartP
                 axisLine={false}
                 tickLine={false}
               />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid rgba(0,0,0,0.06)",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                  padding: "8px 12px",
-                }}
-              />
+              <Tooltip content={<ChartTooltip />} />
               <Area
                 type="monotone"
                 dataKey="sessions"

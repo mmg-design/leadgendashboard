@@ -16,6 +16,7 @@ import {
   X,
   GripVertical,
   AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 
 interface ConversionResult {
@@ -23,13 +24,16 @@ interface ConversionResult {
   page: string;
   label?: string;
   count: number;
+  previousCount?: number;
   change: number | null;
   sources?: { source: string; count: number }[];
 }
 
 interface AttributionGAData {
+  comparison?: { label?: string };
   summary: {
     sessions: number;
+    previousSessions?: number;
     sessionsChange?: number | null;
     engagementRate?: string;
     engagedSessions?: number;
@@ -80,13 +84,20 @@ interface ActionItem {
   text: string;
 }
 
+interface FunnelRecommendation {
+  title: string;
+  recommendation: string;
+  evidence: string;
+  impact: "high" | "medium" | "low";
+}
+
 function parsePercent(value?: string): number {
   if (!value) return 0;
   const n = parseFloat(value.replace("%", ""));
   return isNaN(n) ? 0 : n;
 }
 
-function foundSiteInsight(sessionsChange: number | null | undefined, visited: number) {
+function foundSiteInsight(sessionsChange: number | null | undefined, visited: number, previousSessions?: number, comparisonLabel = "previous period") {
   const sessions = visited.toLocaleString();
   if (sessionsChange === null || sessionsChange === undefined) {
     return {
@@ -96,18 +107,18 @@ function foundSiteInsight(sessionsChange: number | null | undefined, visited: nu
   }
   if (sessionsChange <= -10) {
     return {
-      insight: `Traffic dropped ${Math.abs(sessionsChange)}% compared to the previous period, down to ${sessions} sessions.`,
+      insight: `Traffic dropped ${Math.abs(sessionsChange)}% versus the ${comparisonLabel}${previousSessions !== undefined ? ` (${previousSessions.toLocaleString()} → ${sessions})` : ""}.`,
       action: "Check recent search rankings and any paused campaigns for what changed.",
     };
   }
   if (sessionsChange >= 10) {
     return {
-      insight: `Traffic grew ${sessionsChange}% compared to the previous period, up to ${sessions} sessions.`,
+      insight: `Traffic grew ${sessionsChange}% versus the ${comparisonLabel}${previousSessions !== undefined ? ` (${previousSessions.toLocaleString()} → ${sessions})` : ""}.`,
       action: "Find out what's driving the increase and double down on it.",
     };
   }
   return {
-    insight: `Traffic has held roughly steady at ${sessions} sessions compared to the previous period.`,
+    insight: `Traffic held roughly steady versus the ${comparisonLabel}${previousSessions !== undefined ? ` (${previousSessions.toLocaleString()} → ${sessions})` : ""}.`,
     action: "Traffic is stable - focus effort on the steps below instead.",
   };
 }
@@ -410,7 +421,7 @@ interface FunnelStageDatum {
   sources?: { source: string; count: number }[];
 }
 
-const FUNNEL_SEGMENT_HEIGHT = 88;
+const FUNNEL_SEGMENT_HEIGHT = 96;
 const FUNNEL_WIDTH = 280;
 
 // A smooth S-curve taper between one stage's width and the next, instead of a
@@ -514,7 +525,16 @@ function FunnelPanel({
                   >
                     {stage.count.toLocaleString()}
                   </text>
-                  <text x={FUNNEL_WIDTH / 2} y={yMid + 15} textAnchor="middle" fill="white" fontSize="11" opacity="0.9">
+                  <rect
+                    x="40"
+                    y={yMid + 2}
+                    width="200"
+                    height="22"
+                    rx="11"
+                    fill="white"
+                    fillOpacity="0.94"
+                  />
+                  <text x={FUNNEL_WIDTH / 2} y={yMid + 17} textAnchor="middle" fill="#001A2E" fontSize="11.5" fontWeight="500">
                     {label}
                   </text>
                 </g>
@@ -582,6 +602,43 @@ export function Attribution({
   const [actionOrder, setActionOrder] = useState<string[]>(actionItemsState.order);
   const [dragActionKey, setDragActionKey] = useState<string | null>(null);
   const [dismissingActionKeys, setDismissingActionKeys] = useState<Set<string>>(new Set());
+  const [recommendations, setRecommendations] = useState<FunnelRecommendation[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [refreshingRecommendation, setRefreshingRecommendation] = useState<number | null>(null);
+  const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
+
+  async function generateRecommendations(replaceIndex?: number) {
+    if (!ga) return;
+    if (replaceIndex === undefined) setRecommendationsLoading(true);
+    else setRefreshingRecommendation(replaceIndex);
+    setRecommendationsError(null);
+    try {
+      const res = await fetch("/api/ai-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "funnel-recommendations",
+          clientSlug,
+          range,
+          ga,
+          clarity,
+          replaceIndex,
+          existingRecommendations: recommendations.map((item) => item.title),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !Array.isArray(data.recommendations)) {
+        throw new Error(data.error || "Could not generate recommendations");
+      }
+      if (replaceIndex === undefined) setRecommendations(data.recommendations);
+      else setRecommendations((current) => current.map((item, i) => i === replaceIndex ? data.recommendations[0] : item));
+    } catch (err) {
+      setRecommendationsError(err instanceof Error ? err.message : "Could not generate recommendations");
+    } finally {
+      setRecommendationsLoading(false);
+      setRefreshingRecommendation(null);
+    }
+  }
 
   useEffect(() => {
     if (wizardMode === "closed" || suggestions || suggestionsLoading) return;
@@ -706,7 +763,7 @@ export function Attribution({
 
   const maxCount = Math.max(visited, engagedSessions, ...conversions.map((c) => c.count), 1);
 
-  const foundSite = foundSiteInsight(ga.summary.sessionsChange, visited);
+  const foundSite = foundSiteInsight(ga.summary.sessionsChange, visited, ga.summary.previousSessions, ga.comparison?.label);
   const stuckAround = stuckAroundInsight(engagementPct, engagedSessions, visited);
 
   const SNIPPET_TYPES = ["click", "form_submit", "scroll_depth", "time_on_page"];
@@ -873,40 +930,68 @@ export function Attribution({
           </Card>
         )}
 
-        {visibleActionKeys.length > 0 && (
-          <Card>
-            <CardContent className="pt-5 space-y-1">
-              <p className="text-[15px] font-medium text-foreground/80 mb-2">What to do next</p>
-              <div className="space-y-1">
-                {visibleActionKeys.map((key) => {
-                  const item = actionItemsByKey.get(key)!;
-                  return (
-                    <div
-                      key={key}
-                      draggable
-                      onDragStart={() => handleActionDragStart(key)}
-                      onDragOver={(e) => handleActionDragOver(e, key, visibleActionKeys)}
-                      onDragEnd={handleActionDragEnd}
-                      className={`flex items-center gap-2.5 p-2 rounded-lg group hover:bg-muted/40 transition-colors ${
-                        dragActionKey === key ? "opacity-40" : ""
-                      }`}
-                    >
-                      <GripVertical size={14} className="text-muted-foreground/40 shrink-0 cursor-grab" />
-                      <div className="text-[#0CA4C3] shrink-0">{item.icon}</div>
-                      <p className="flex-1 text-[14px] text-foreground/80">{item.text}</p>
+        {(visibleActionKeys.length > 0 || recommendations.length > 0) && (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-4 px-1">
+              <div>
+                <p className="text-[15px] font-medium text-foreground/80">What to do next</p>
+                <p className="text-[12px] text-muted-foreground">Gemini analyzes the live funnel, GA history, behavior data, and public site messaging.</p>
+              </div>
+              <button
+                onClick={() => generateRecommendations()}
+                disabled={recommendationsLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#001A2E] text-white text-[12px] font-medium hover:bg-[#01384C] disabled:opacity-50"
+              >
+                {recommendationsLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                {recommendations.length ? "Refresh all" : "Generate recommendations"}
+              </button>
+            </div>
+
+            {recommendationsError && (
+              <p className="text-[13px] text-red-600 px-1">{recommendationsError}</p>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {recommendations.length > 0 ? recommendations.map((item, index) => (
+                <Card key={`${item.title}-${index}`} className="py-0 overflow-hidden">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Sparkles size={14} className="text-[#0CA4C3] shrink-0" />
+                        <p className="font-medium text-[14px] text-[#001A2E] leading-snug">{item.title}</p>
+                      </div>
                       <button
-                        onClick={() => handleDismissActionItem(key)}
-                        title="Dismiss"
-                        className="p-1 rounded-md text-muted-foreground/50 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                        onClick={() => generateRecommendations(index)}
+                        disabled={refreshingRecommendation !== null}
+                        title="Generate a different recommendation"
+                        className="p-1.5 rounded-md text-[#0CA4C3] hover:text-white hover:bg-[#0CA4C3] disabled:opacity-40 shrink-0"
                       >
-                        <X size={13} />
+                        <RefreshCw size={12} className={refreshingRecommendation === index ? "animate-spin" : ""} />
                       </button>
                     </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                    <p className="text-[13px] text-foreground/80 leading-relaxed">{item.recommendation}</p>
+                    <div className="pt-2 border-t border-border/60 flex items-start justify-between gap-3">
+                      <p className="text-[11.5px] text-muted-foreground leading-relaxed"><span className="font-medium text-foreground/65">Why:</span> {item.evidence}</p>
+                      <span className={`text-[10px] uppercase tracking-wide font-semibold shrink-0 ${item.impact === "high" ? "text-emerald-700" : item.impact === "medium" ? "text-amber-700" : "text-muted-foreground"}`}>{item.impact} impact</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )) : visibleActionKeys.map((key) => {
+                const item = actionItemsByKey.get(key)!;
+                return (
+                  <Card key={key} className="py-0 group">
+                    <CardContent className="p-4 flex items-start gap-3">
+                      <div className="text-[#0CA4C3] mt-0.5 shrink-0">{item.icon}</div>
+                      <p className="flex-1 text-[13px] text-foreground/80 leading-relaxed">{item.text}</p>
+                      <button onClick={() => generateRecommendations()} title="Refresh with Gemini" className="p-1 rounded-md text-[#0CA4C3] hover:bg-[#0CA4C3] hover:text-white shrink-0">
+                        <RefreshCw size={12} />
+                      </button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
         )}
       </div>
 

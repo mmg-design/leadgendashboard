@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000 --webpack",
+    "dev": "NEXT_DIST_DIR=.next-dev next dev -p 3000 --webpack",
     "build": "NEXT_DIST_DIR=.next-build next build",
     "start": "NEXT_DIST_DIR=.next-build next start",
     "lint": "eslint"

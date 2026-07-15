@@ -77,12 +77,22 @@ export async function GET(req: NextRequest) {
       args: [client, range],
     });
     if (cached.rows.length > 0) {
-      return NextResponse.json(JSON.parse(cached.rows[0].data as string));
+      const cachedData = JSON.parse(cached.rows[0].data as string);
+      // Older cached payloads used a non-adjacent 60–31-days-ago baseline.
+      if (cachedData?.comparison?.previous) return NextResponse.json(cachedData);
     }
   }
 
-  const daysMap: Record<string, string> = { "7d": "7daysAgo", "30d": "30daysAgo", "90d": "90daysAgo" };
-  const startDate = daysMap[range] || "7daysAgo";
+  const periodDays: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 };
+  const days = periodDays[range] || 7;
+  // GA date ranges are inclusive. A seven-day window ending today therefore
+  // starts six days ago; the comparison is the immediately preceding seven days.
+  const currentDateRange = { startDate: `${days - 1}daysAgo`, endDate: "today", name: "current" };
+  const previousDateRange = {
+    startDate: `${days * 2 - 1}daysAgo`,
+    endDate: `${days}daysAgo`,
+    name: "previous",
+  };
   const goals = config.goals;
 
   try {
@@ -90,13 +100,10 @@ export async function GET(req: NextRequest) {
       analyticsClient = getAnalyticsClient();
     }
 
-    const [summaryReport, dailyReport, sourcesReport] = await Promise.all([
+    const [summaryReport, dailyReport, sourcesReport, dailyPagesReport] = await Promise.all([
       analyticsClient.runReport({
         property: `properties/${propertyId}`,
-        dateRanges: [
-          { startDate, endDate: "today" },
-          { startDate: "60daysAgo", endDate: "31daysAgo" },
-        ],
+        dateRanges: [currentDateRange, previousDateRange],
         metrics: [
           { name: "sessions" },
           { name: "screenPageViews" },
@@ -109,7 +116,7 @@ export async function GET(req: NextRequest) {
       }),
       analyticsClient.runReport({
         property: `properties/${propertyId}`,
-        dateRanges: [{ startDate, endDate: "today" }],
+        dateRanges: [currentDateRange],
         dimensions: [{ name: "date" }],
         metrics: [
           { name: "sessions" },
@@ -119,11 +126,24 @@ export async function GET(req: NextRequest) {
       }),
       analyticsClient.runReport({
         property: `properties/${propertyId}`,
-        dateRanges: [{ startDate, endDate: "today" }],
+        dateRanges: [currentDateRange],
         dimensions: [{ name: "sessionSource" }],
         metrics: [{ name: "sessions" }],
         orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
         limit: 10,
+      }),
+      // Per-day top pages for the traffic chart's hover tooltip - ordered by date
+      // then views-desc within each date, so we can just take the first 3 per day.
+      analyticsClient.runReport({
+        property: `properties/${propertyId}`,
+        dateRanges: [currentDateRange],
+        dimensions: [{ name: "date" }, { name: "pagePath" }],
+        metrics: [{ name: "screenPageViews" }],
+        orderBys: [
+          { dimension: { dimensionName: "date", orderType: "ALPHANUMERIC" } },
+          { metric: { metricName: "screenPageViews" }, desc: true },
+        ],
+        limit: 5000,
       }),
     ]);
 
@@ -132,16 +152,13 @@ export async function GET(req: NextRequest) {
         const [summary, daily, sourceBreakdown] = await Promise.all([
           analyticsClient!.runReport({
             property: `properties/${propertyId}`,
-            dateRanges: [
-              { startDate, endDate: "today" },
-              { startDate: "60daysAgo", endDate: "31daysAgo" },
-            ],
+            dateRanges: [currentDateRange, previousDateRange],
             metrics: [{ name: "eventCount" }],
             dimensionFilter: conversionFilterFor(goal),
           }),
           analyticsClient!.runReport({
             property: `properties/${propertyId}`,
-            dateRanges: [{ startDate, endDate: "today" }],
+            dateRanges: [currentDateRange],
             dimensions: [{ name: "date" }],
             metrics: [{ name: "eventCount" }],
             dimensionFilter: conversionFilterFor(goal),
@@ -152,7 +169,7 @@ export async function GET(req: NextRequest) {
           // "what channel started sessions that included this conversion event."
           analyticsClient!.runReport({
             property: `properties/${propertyId}`,
-            dateRanges: [{ startDate, endDate: "today" }],
+            dateRanges: [currentDateRange],
             dimensions: [{ name: "sessionSourceMedium" }],
             metrics: [{ name: "eventCount" }],
             dimensionFilter: conversionFilterFor(goal),
@@ -162,8 +179,10 @@ export async function GET(req: NextRequest) {
         ]);
 
         const rows = summary[0]?.rows || [];
-        const current = parseInt(rows[0]?.metricValues?.[0]?.value || "0");
-        const prev = parseInt(rows[1]?.metricValues?.[0]?.value || "0");
+        const currentRow = rows.find((row) => row.dimensionValues?.some((value) => value.value === "current")) || rows[0];
+        const previousRow = rows.find((row) => row.dimensionValues?.some((value) => value.value === "previous")) || rows[1];
+        const current = parseInt(currentRow?.metricValues?.[0]?.value || "0");
+        const prev = parseInt(previousRow?.metricValues?.[0]?.value || "0");
         const change = prev > 0 ? Math.round(((current - prev) / prev) * 100) : null;
 
         const dailyCounts = (daily[0]?.rows || []).map((row) => {
@@ -182,6 +201,7 @@ export async function GET(req: NextRequest) {
           page: goal.conversionValue,
           label: goal.label,
           count: current,
+          previousCount: prev,
           change,
           daily: dailyCounts,
           sources,
@@ -191,7 +211,7 @@ export async function GET(req: NextRequest) {
 
     const [pagesReport] = await analyticsClient.runReport({
       property: `properties/${propertyId}`,
-      dateRanges: [{ startDate, endDate: "today" }],
+      dateRanges: [currentDateRange],
       dimensions: [{ name: "pagePath" }],
       metrics: [
         { name: "screenPageViews" },
@@ -203,8 +223,8 @@ export async function GET(req: NextRequest) {
     });
 
     const rows = summaryReport[0]?.rows || [];
-    const currentRow = rows[0];
-    const prevRow = rows[1];
+    const currentRow = rows.find((row) => row.dimensionValues?.some((value) => value.value === "current")) || rows[0];
+    const prevRow = rows.find((row) => row.dimensionValues?.some((value) => value.value === "previous")) || rows[1];
     const metrics = currentRow?.metricValues || [];
     const prevMetrics = prevRow?.metricValues || [];
     const avgDuration = parseFloat(metrics[3]?.value || "0");
@@ -218,6 +238,7 @@ export async function GET(req: NextRequest) {
 
     const summary = {
       sessions: currentSessions,
+      previousSessions: prevSessions,
       sessionsChange: sessionChange,
       pageviews: parseInt(metrics[1]?.value || "0"),
       uniqueVisitors: parseInt(metrics[2]?.value || "0"),
@@ -228,6 +249,20 @@ export async function GET(req: NextRequest) {
       conversions: goalResults,
     };
 
+    const dailyTopPages = new Map<string, { page: string; views: number }[]>();
+    for (const row of dailyPagesReport[0]?.rows || []) {
+      const dateStr = row.dimensionValues?.[0]?.value || "";
+      const formatted = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+      const list = dailyTopPages.get(formatted) || [];
+      if (list.length < 3) {
+        list.push({
+          page: row.dimensionValues?.[1]?.value || "/",
+          views: parseInt(row.metricValues?.[0]?.value || "0"),
+        });
+        dailyTopPages.set(formatted, list);
+      }
+    }
+
     const dailySessions = (dailyReport[0]?.rows || []).map((row) => {
       const dateStr = row.dimensionValues?.[0]?.value || "";
       const formatted = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
@@ -235,6 +270,7 @@ export async function GET(req: NextRequest) {
         date: formatted,
         sessions: parseInt(row.metricValues?.[0]?.value || "0"),
         pageviews: parseInt(row.metricValues?.[1]?.value || "0"),
+        topPages: dailyTopPages.get(formatted) || [],
       };
     });
 
@@ -253,6 +289,11 @@ export async function GET(req: NextRequest) {
     const data = {
       propertyId,
       range,
+      comparison: {
+        current: currentDateRange,
+        previous: previousDateRange,
+        label: `previous ${days} days`,
+      },
       summary,
       dailySessions,
       topSources,
