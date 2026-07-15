@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import type { GoalConfig } from "@/lib/clients";
+import type { GoalConfig, ActionItemsState } from "@/lib/clients";
 import { EventWizardModal, TYPE_ICONS, type WizardValues } from "@/components/dashboard/event-wizard-modal";
 import {
   Search,
   Eye,
-  TrendingUp,
-  TrendingDown,
   Loader2,
   Check,
   RefreshCw,
@@ -16,6 +14,8 @@ import {
   Pencil,
   Trash2,
   X,
+  GripVertical,
+  AlertTriangle,
 } from "lucide-react";
 
 interface ConversionResult {
@@ -68,8 +68,16 @@ interface AttributionProps {
   clarity: AttributionClarityData | null;
   loading?: boolean;
   range: string;
+  actionItemsState: ActionItemsState;
   onGoalsSaved: () => void;
+  onActionItemsSaved: () => void;
   onRefresh: () => void;
+}
+
+interface ActionItem {
+  key: string;
+  icon: React.ReactNode;
+  text: string;
 }
 
 function parsePercent(value?: string): number {
@@ -78,51 +86,56 @@ function parsePercent(value?: string): number {
   return isNaN(n) ? 0 : n;
 }
 
-function foundSiteInsight(sessionsChange: number | null | undefined) {
+function foundSiteInsight(sessionsChange: number | null | undefined, visited: number) {
+  const sessions = visited.toLocaleString();
   if (sessionsChange === null || sessionsChange === undefined) {
     return {
-      insight: "Not enough history yet to compare against the previous period.",
+      insight: `${sessions} sessions this period - not enough history yet to compare against the previous period.`,
       action: "Check back next period to see the trend.",
     };
   }
   if (sessionsChange <= -10) {
     return {
-      insight: `Traffic dropped ${Math.abs(sessionsChange)}% compared to the previous period.`,
+      insight: `Traffic dropped ${Math.abs(sessionsChange)}% compared to the previous period, down to ${sessions} sessions.`,
       action: "Check recent search rankings and any paused campaigns for what changed.",
     };
   }
   if (sessionsChange >= 10) {
     return {
-      insight: `Traffic grew ${sessionsChange}% compared to the previous period.`,
+      insight: `Traffic grew ${sessionsChange}% compared to the previous period, up to ${sessions} sessions.`,
       action: "Find out what's driving the increase and double down on it.",
     };
   }
   return {
-    insight: "Traffic has held roughly steady compared to the previous period.",
+    insight: `Traffic has held roughly steady at ${sessions} sessions compared to the previous period.`,
     action: "Traffic is stable - focus effort on the steps below instead.",
   };
 }
 
-function stuckAroundInsight(engagementPct: number) {
+function stuckAroundInsight(engagementPct: number, engagedSessions: number, visited: number) {
+  const pct = Math.round(engagementPct);
+  const left = Math.max(100 - pct, 0);
+  const counts = `${engagedSessions.toLocaleString()} of ${visited.toLocaleString()}`;
   if (engagementPct >= 60) {
     return {
-      insight: "Most visitors are actively engaging, not just glancing and leaving.",
+      insight: `${pct}% of visitors (${counts}) engaged meaningfully - well above typical.`,
       action: "See what's resonating in Top Pages on the Overview tab and lean into it.",
     };
   }
   if (engagementPct >= 40) {
     return {
-      insight: "About half of visitors engage meaningfully - the rest leave quickly.",
+      insight: `${pct}% of visitors (${counts}) engaged meaningfully; the other ${left}% left quickly.`,
       action: "Check scroll depth and rage clicks below for where people lose interest.",
     };
   }
   return {
-    insight: "Most visitors leave without real engagement.",
+    insight: `Only ${pct}% of visitors (${counts}) stuck around - most leave within seconds.`,
     action: "The message above the fold likely isn't landing - revisit the headline and first section.",
   };
 }
 
-function tookActionInsight(converted: number, change: number | null) {
+function tookActionInsight(converted: number, change: number | null, pctOfEngaged: number) {
+  const count = converted.toLocaleString();
   if (converted === 0) {
     return {
       insight: "No conversions recorded yet this period.",
@@ -131,18 +144,18 @@ function tookActionInsight(converted: number, change: number | null) {
   }
   if (change === null) {
     return {
-      insight: "Not enough history yet to compare against the previous period.",
+      insight: `${count} conversions so far (${pctOfEngaged}% of engaged sessions) - not enough history yet to compare against the previous period.`,
       action: "Check back next period to see whether this is trending up or down.",
     };
   }
   if (change < 0) {
     return {
-      insight: `Down ${Math.abs(change)}% compared to the previous period.`,
+      insight: `${count} conversions, down ${Math.abs(change)}% compared to the previous period (${pctOfEngaged}% of engaged sessions).`,
       action: "Check whether traffic to the money pages dropped, or the conversion step broke.",
     };
   }
   return {
-    insight: `Up ${change}% compared to the previous period.`,
+    insight: `${count} conversions, up ${change}% compared to the previous period (${pctOfEngaged}% of engaged sessions).`,
     action: "See which traffic sources are driving these and invest more there.",
   };
 }
@@ -219,7 +232,6 @@ function StageCard({
   source,
   dropOff,
   insight,
-  action,
   widthPct,
   onRefresh,
   refreshing,
@@ -231,31 +243,30 @@ function StageCard({
   source: string;
   dropOff?: number;
   insight: string;
-  action: string;
   widthPct: number;
   onRefresh: () => void;
   refreshing: boolean;
 }) {
   return (
-    <Card>
-      <CardContent className="pt-5 space-y-3">
+    <Card className="py-4">
+      <CardContent className="space-y-2.5">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-[#001A2E]/8 text-[#001A2E] shrink-0">{icon}</div>
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-[#0CA4C3] text-white shrink-0">{icon}</div>
             <div>
-              <div className="font-headline text-[24px] font-normal leading-none tracking-[-0.02em] text-[#001A2E]">{title}</div>
-              <div className="text-[12px] text-[#097388]/75 uppercase tracking-wide">{source}</div>
+              <div className="font-headline text-[19px] font-normal leading-tight tracking-[-0.02em] text-[#001A2E]">{title}</div>
+              <div className="text-[11px] text-[#097388]/75 uppercase tracking-wide">{source}</div>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[28px] font-headline font-normal text-[#001A2E] leading-none">
+            <span className="text-[26px] font-headline font-normal text-[#001A2E] leading-none">
               {value.toLocaleString()}
             </span>
             <button
               onClick={onRefresh}
               disabled={refreshing}
               title={`Refresh ${title.toLowerCase()}`}
-              className="p-1 rounded-md text-[#097388]/55 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
+              className="p-1 rounded-md text-[#0CA4C3] hover:text-white hover:bg-[#0CA4C3] transition-colors disabled:opacity-30"
             >
               <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
             </button>
@@ -263,7 +274,7 @@ function StageCard({
         </div>
 
         <div>
-          <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
             <div
               className="h-full rounded-full bg-[#001A2E] transition-all"
               style={{ width: `${widthPct}%` }}
@@ -277,10 +288,7 @@ function StageCard({
           )}
         </div>
 
-        <div className="pt-2.5 border-t border-border/50 space-y-1">
-          <p className="text-[14px] text-foreground/80">{insight}</p>
-          <p className="text-[14px] text-[#001A2E] font-medium">→ {action}</p>
-        </div>
+        <p className="text-[13px] text-foreground/80 pt-2 border-t border-border/50">{insight}</p>
       </CardContent>
     </Card>
   );
@@ -316,11 +324,11 @@ function MiniGoalCard({
   onCancelDelete: () => void;
 }) {
   return (
-    <Card>
-      <CardContent className="p-3 space-y-2">
+    <Card className="py-3">
+      <CardContent className="p-2.5 space-y-1.5">
         <div className="flex items-start justify-between gap-1">
           <div className="flex items-center gap-1.5 min-w-0">
-            <div className="p-1 rounded-md bg-[#001A2E]/8 text-[#001A2E] shrink-0">
+            <div className="p-1 rounded-md bg-[#0CA4C3] text-white shrink-0">
               {icon}
             </div>
             <span className="text-[11.5px] font-medium text-foreground/80 truncate" title={title}>
@@ -352,21 +360,21 @@ function MiniGoalCard({
                   onClick={onRefresh}
                   disabled={refreshing}
                   title="Refresh"
-                  className="p-1 rounded-md text-[#097388]/65 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
+                  className="p-1 rounded-md text-[#0CA4C3] hover:text-white hover:bg-[#0CA4C3] transition-colors disabled:opacity-30"
                 >
                   <RefreshCw size={10.5} className={refreshing ? "animate-spin" : ""} />
                 </button>
                 <button
                   onClick={onEdit}
                   title="Edit"
-                  className="p-1 rounded-md text-[#097388]/65 hover:text-muted-foreground hover:bg-muted/40 transition-colors"
+                  className="p-1 rounded-md text-[#0CA4C3] hover:text-white hover:bg-[#0CA4C3] transition-colors"
                 >
                   <Pencil size={10.5} />
                 </button>
                 <button
                   onClick={onRequestDelete}
                   title="Delete"
-                  className="p-1 rounded-md text-[#097388]/65 hover:text-red-600 hover:bg-red-50 transition-colors"
+                  className="p-1 rounded-md text-[#0CA4C3] hover:text-red-600 hover:bg-red-50 transition-colors"
                 >
                   <Trash2 size={10.5} />
                 </button>
@@ -445,7 +453,11 @@ function FunnelPanel({
     ...conversions.map((c, i) => ({
       label: c.label || c.page,
       count: c.count,
-      insight: tookActionInsight(c.count, c.change).insight,
+      insight: tookActionInsight(
+        c.count,
+        c.change,
+        engagedSessions > 0 ? Math.round((c.count / engagedSessions) * 100) : 0
+      ).insight,
       color: branchColors[i % branchColors.length],
       sources: c.sources,
     })),
@@ -471,10 +483,10 @@ function FunnelPanel({
 
   return (
     <>
-      <Card className="xl:sticky xl:top-8">
-        <CardContent className="pt-5">
-          <p className="font-headline text-[22px] font-normal text-[#001A2E] mb-1">The funnel</p>
-          <p className="text-[13px] text-muted-foreground mb-4">Hover a stage for context</p>
+      <Card className="xl:sticky xl:top-8 py-4">
+        <CardContent>
+          <p className="font-headline text-[19px] font-normal text-[#001A2E] mb-1">The funnel</p>
+          <p className="text-[13px] text-muted-foreground mb-3">Hover a stage for context</p>
 
           <svg viewBox={`0 0 ${FUNNEL_WIDTH} ${svgHeight}`} width="100%" height={svgHeight} className="overflow-visible">
             {stages.map((stage, i) => {
@@ -513,7 +525,7 @@ function FunnelPanel({
       </Card>
 
       <div
-        className={`fixed z-[60] w-80 p-4 rounded-xl bg-white border border-border/60 shadow-2xl pointer-events-none transition-all duration-200 ease-out ${
+        className={`fixed z-[60] w-80 p-4 rounded-xl bg-white border border-[#0CA4C3]/25 shadow-2xl shadow-[#0CA4C3]/10 pointer-events-none transition-all duration-200 ease-out ${
           tooltipVisible ? "opacity-100" : "opacity-0"
         }`}
         style={{
@@ -529,8 +541,8 @@ function FunnelPanel({
             </p>
             <p className="text-[15px] text-foreground/70 leading-relaxed">{hoveredStage.insight}</p>
             {hoveredStage.sources && hoveredStage.sources.length > 0 && (
-              <div className="mt-2.5 pt-2.5 border-t border-border/50">
-                <p className="text-[13px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
+              <div className="mt-2.5 pt-2.5 border-t border-[#0CA4C3]/20">
+                <p className="text-[13px] font-medium text-[#0CA4C3] uppercase tracking-wide mb-1.5">
                   How they got here
                 </p>
                 <div className="space-y-1.5">
@@ -557,7 +569,9 @@ export function Attribution({
   clarity,
   loading,
   range,
+  actionItemsState,
   onGoalsSaved,
+  onActionItemsSaved,
   onRefresh,
 }: AttributionProps) {
   const [wizardMode, setWizardMode] = useState<"closed" | "adding" | string>("closed"); // string = editing goal id
@@ -565,6 +579,9 @@ export function Attribution({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<DiscoverResult | null>(null);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [actionOrder, setActionOrder] = useState<string[]>(actionItemsState.order);
+  const [dragActionKey, setDragActionKey] = useState<string | null>(null);
+  const [dismissingActionKeys, setDismissingActionKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (wizardMode === "closed" || suggestions || suggestionsLoading) return;
@@ -576,6 +593,13 @@ export function Attribution({
       .finally(() => setSuggestionsLoading(false));
   }, [wizardMode, clientSlug, suggestions, suggestionsLoading]);
 
+  // Reconcile local drag order once the server-persisted order actually changes
+  // (e.g. on first load, or once our own PATCH round-trips back through props).
+  useEffect(() => {
+    setActionOrder(actionItemsState.order);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actionItemsState.order.join("|")]);
+
   async function persistGoals(next: GoalConfig[]) {
     await fetch("/api/clients", {
       method: "PATCH",
@@ -583,6 +607,41 @@ export function Attribution({
       body: JSON.stringify({ slug: clientSlug, goals: next }),
     });
     onGoalsSaved();
+  }
+
+  async function persistActionItemsState(next: ActionItemsState) {
+    await fetch("/api/clients", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: clientSlug, actionItemsState: next }),
+    });
+    onActionItemsSaved();
+  }
+
+  function handleDismissActionItem(key: string) {
+    setDismissingActionKeys((prev) => new Set(prev).add(key));
+    persistActionItemsState({ dismissed: [...actionItemsState.dismissed, key], order: actionOrder });
+  }
+
+  function handleActionDragStart(key: string) {
+    setDragActionKey(key);
+  }
+
+  function handleActionDragOver(e: React.DragEvent, overKey: string, visibleKeys: string[]) {
+    e.preventDefault();
+    if (!dragActionKey || dragActionKey === overKey) return;
+    const fromIndex = visibleKeys.indexOf(dragActionKey);
+    const toIndex = visibleKeys.indexOf(overKey);
+    if (fromIndex === -1 || toIndex === -1) return;
+    const next = [...visibleKeys];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    setActionOrder(next);
+  }
+
+  function handleActionDragEnd() {
+    setDragActionKey(null);
+    persistActionItemsState({ dismissed: actionItemsState.dismissed, order: actionOrder });
   }
 
   async function handleWizardSubmit(values: WizardValues) {
@@ -647,12 +706,57 @@ export function Attribution({
 
   const maxCount = Math.max(visited, engagedSessions, ...conversions.map((c) => c.count), 1);
 
-  const foundSite = foundSiteInsight(ga.summary.sessionsChange);
-  const stuckAround = stuckAroundInsight(engagementPct);
+  const foundSite = foundSiteInsight(ga.summary.sessionsChange, visited);
+  const stuckAround = stuckAroundInsight(engagementPct, engagedSessions, visited);
 
   const SNIPPET_TYPES = ["click", "form_submit", "scroll_depth", "time_on_page"];
   const isFirstSnippetGoal = !goals.some((g) => SNIPPET_TYPES.includes(g.conversionType));
   const editingGoal = wizardMode !== "closed" && wizardMode !== "adding" ? goals.find((g) => g.id === wizardMode) : undefined;
+
+  const actionItems: ActionItem[] = [
+    { key: "traffic", icon: <Search size={14} />, text: foundSite.action },
+    { key: "engagement", icon: <Eye size={14} />, text: stuckAround.action },
+    ...conversions.map((c) => {
+      const pctOfEngaged = engagedSessions > 0 ? Math.round((c.count / engagedSessions) * 100) : 0;
+      const goalType = goals.find((g) => g.id === c.id)?.conversionType || "pageview";
+      const GoalIcon = TYPE_ICONS[goalType];
+      return {
+        key: `conversion-${c.id}`,
+        icon: <GoalIcon size={14} />,
+        text: tookActionInsight(c.count, c.change, pctOfEngaged).action,
+      };
+    }),
+    ...(clarity?.homepageScrollDepth != null && clarity.homepageScrollDepth < 50
+      ? [{
+          key: "scroll-depth",
+          icon: <AlertTriangle size={14} />,
+          text: "Homepage scroll depth is low - revisit the headline and first section above the fold.",
+        }]
+      : []),
+    ...((clarity?.rageClicks ?? 0) > 0
+      ? [{
+          key: "rage-clicks",
+          icon: <AlertTriangle size={14} />,
+          text: "People are rage-clicking something sitewide - find what looks clickable but doesn't work and fix it.",
+        }]
+      : []),
+    ...((clarity?.deadClicks ?? 0) > 0
+      ? [{
+          key: "dead-clicks",
+          icon: <AlertTriangle size={14} />,
+          text: "People are clicking things sitewide that aren't real buttons or links - consider making them interactive.",
+        }]
+      : []),
+  ];
+
+  const actionItemsByKey = new Map(actionItems.map((item) => [item.key, item]));
+  const orderedActionKeys = [
+    ...actionOrder.filter((k) => actionItemsByKey.has(k)),
+    ...actionItems.map((i) => i.key).filter((k) => !actionOrder.includes(k)),
+  ];
+  const visibleActionKeys = orderedActionKeys.filter(
+    (k) => !actionItemsState.dismissed.includes(k) && !dismissingActionKeys.has(k)
+  );
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6 items-start">
@@ -669,7 +773,6 @@ export function Attribution({
                 source="Source: Google Analytics 4"
                 widthPct={Math.max((visited / maxCount) * 100, 6)}
                 insight={foundSite.insight}
-                action={foundSite.action}
                 onRefresh={onRefresh}
                 refreshing={!!loading}
               />
@@ -688,7 +791,6 @@ export function Attribution({
                 dropOff={visited - engagedSessions}
                 widthPct={Math.max((engagedSessions / maxCount) * 100, 6)}
                 insight={stuckAround.insight}
-                action={stuckAround.action}
                 onRefresh={onRefresh}
                 refreshing={!!loading}
               />
@@ -771,24 +873,38 @@ export function Attribution({
           </Card>
         )}
 
-        {conversions.some((c) => c.change !== null) && (
+        {visibleActionKeys.length > 0 && (
           <Card>
-            <CardContent className="pt-5 space-y-2">
-              {conversions
-                .filter((c) => c.change !== null)
-                .map((c) => (
-                  <div key={c.id} className="flex items-center gap-2 text-[15px]">
-                    {c.change! >= 0 ? (
-                      <TrendingUp size={16} className="text-emerald-600 shrink-0" />
-                    ) : (
-                      <TrendingDown size={16} className="text-red-600 shrink-0" />
-                    )}
-                    <span>
-                      {c.label || c.page}: {c.change! >= 0 ? "up" : "down"}{" "}
-                      <strong>{Math.abs(c.change!)}%</strong> compared to the previous period.
-                    </span>
-                  </div>
-                ))}
+            <CardContent className="pt-5 space-y-1">
+              <p className="text-[15px] font-medium text-foreground/80 mb-2">What to do next</p>
+              <div className="space-y-1">
+                {visibleActionKeys.map((key) => {
+                  const item = actionItemsByKey.get(key)!;
+                  return (
+                    <div
+                      key={key}
+                      draggable
+                      onDragStart={() => handleActionDragStart(key)}
+                      onDragOver={(e) => handleActionDragOver(e, key, visibleActionKeys)}
+                      onDragEnd={handleActionDragEnd}
+                      className={`flex items-center gap-2.5 p-2 rounded-lg group hover:bg-muted/40 transition-colors ${
+                        dragActionKey === key ? "opacity-40" : ""
+                      }`}
+                    >
+                      <GripVertical size={14} className="text-muted-foreground/40 shrink-0 cursor-grab" />
+                      <div className="text-[#0CA4C3] shrink-0">{item.icon}</div>
+                      <p className="flex-1 text-[14px] text-foreground/80">{item.text}</p>
+                      <button
+                        onClick={() => handleDismissActionItem(key)}
+                        title="Dismiss"
+                        className="p-1 rounded-md text-muted-foreground/50 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
         )}

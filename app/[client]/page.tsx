@@ -118,6 +118,7 @@ interface ClientConfig {
     };
   };
   goals?: GoalConfig[];
+  actionItemsState?: { dismissed: string[]; order: string[] };
 }
 
 type SettingsIntegrations = {
@@ -669,11 +670,13 @@ export default function ClientDashboard() {
               <Attribution
                 clientSlug={clientSlug}
                 goals={clientConfig?.goals || []}
+                actionItemsState={clientConfig?.actionItemsState || { dismissed: [], order: [] }}
                 ga={ga}
                 clarity={clarity}
                 loading={gaLoading}
                 range={range}
                 onGoalsSaved={() => { fetchClientConfig(); fetchGa(true); }}
+                onActionItemsSaved={() => { fetchClientConfig(); }}
                 onRefresh={() => fetchGa(true)}
               />
             ) : (

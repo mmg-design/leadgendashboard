@@ -82,6 +82,13 @@ async function initSchema(db: Client) {
   } catch {
     await db.execute("ALTER TABLE clients ADD COLUMN sort_order INTEGER");
   }
+
+  // Migration: add action_items_state column if missing (existing DBs)
+  try {
+    await db.execute("SELECT action_items_state FROM clients LIMIT 1");
+  } catch {
+    await db.execute("ALTER TABLE clients ADD COLUMN action_items_state TEXT");
+  }
 }
 
 export async function getDb(): Promise<Client> {

@@ -50,6 +50,27 @@ export interface ClientConfig {
     };
   };
   goals: GoalConfig[];
+  actionItemsState: ActionItemsState;
+}
+
+export interface ActionItemsState {
+  dismissed: string[]; // insight keys the user has X'd out
+  order: string[]; // insight keys in the user's manual priority order
+}
+
+const EMPTY_ACTION_ITEMS_STATE: ActionItemsState = { dismissed: [], order: [] };
+
+function normalizeActionItemsState(raw: string | null): ActionItemsState {
+  if (!raw) return EMPTY_ACTION_ITEMS_STATE;
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      dismissed: Array.isArray(parsed?.dismissed) ? parsed.dismissed.filter((s: unknown) => typeof s === "string") : [],
+      order: Array.isArray(parsed?.order) ? parsed.order.filter((s: unknown) => typeof s === "string") : [],
+    };
+  } catch {
+    return EMPTY_ACTION_ITEMS_STATE;
+  }
 }
 
 // Accepts either the current array shape or the legacy single-goal-object shape,
@@ -77,6 +98,7 @@ function rowToConfig(row: Record<string, unknown>): ClientConfig {
     iconUrl: (row.icon_url as string) || undefined,
     integrations: JSON.parse(row.integrations as string),
     goals: normalizeGoals(row.goals as string | null),
+    actionItemsState: normalizeActionItemsState(row.action_items_state as string | null),
   };
 }
 
@@ -96,7 +118,7 @@ export async function getClient(slug: string): Promise<ClientConfig | null> {
   return rowToConfig(result.rows[0] as Record<string, unknown>);
 }
 
-export async function createClient(config: Omit<ClientConfig, "goals">): Promise<void> {
+export async function createClient(config: Omit<ClientConfig, "goals" | "actionItemsState">): Promise<void> {
   const db = await getDb();
   await db.execute({
     sql: "INSERT INTO clients (slug, name, domain, icon_url, integrations) VALUES (?, ?, ?, ?, ?)",
@@ -111,6 +133,7 @@ export async function updateClient(
     iconUrl?: string;
     integrations?: ClientConfig["integrations"];
     goals?: GoalConfig[];
+    actionItemsState?: ActionItemsState;
   }
 ): Promise<void> {
   const db = await getDb();
@@ -123,10 +146,18 @@ export async function updateClient(
     ? { ...current.integrations, ...updates.integrations }
     : current.integrations;
   const newGoals = updates.goals !== undefined ? updates.goals : current.goals;
+  const newActionItemsState = updates.actionItemsState !== undefined ? updates.actionItemsState : current.actionItemsState;
 
   await db.execute({
-    sql: "UPDATE clients SET name = ?, icon_url = ?, integrations = ?, goals = ? WHERE slug = ?",
-    args: [newName, newIconUrl || null, JSON.stringify(newIntegrations), JSON.stringify(newGoals), slug],
+    sql: "UPDATE clients SET name = ?, icon_url = ?, integrations = ?, goals = ?, action_items_state = ? WHERE slug = ?",
+    args: [
+      newName,
+      newIconUrl || null,
+      JSON.stringify(newIntegrations),
+      JSON.stringify(newGoals),
+      JSON.stringify(newActionItemsState),
+      slug,
+    ],
   });
 }
 
