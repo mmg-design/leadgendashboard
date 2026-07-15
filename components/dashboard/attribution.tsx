@@ -375,8 +375,13 @@ function MiniGoalCard({
           </div>
         </div>
 
-        <div className="text-[22px] font-headline font-normal text-[#0B4F6C] leading-none">
-          {count.toLocaleString()}
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-[22px] font-headline font-normal text-[#0B4F6C] leading-none">
+            {count.toLocaleString()}
+          </span>
+          <span className="text-[9.5px] font-medium text-muted-foreground uppercase tracking-wide">
+            {count === 1 ? "Lead" : "Leads"}
+          </span>
         </div>
 
         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
@@ -435,8 +440,8 @@ function FunnelPanel({
   const branchColors = ["#3b8fa8", "#5aa3b8", "#7bb8c9", "#9ccbd6"];
 
   const stages: FunnelStageDatum[] = [
-    { label: "Found the site", count: visited, insight: foundSiteInsightText, color: "#0B4F6C" },
-    { label: "Stuck around", count: engagedSessions, insight: stuckAroundInsightText, color: "#11809e" },
+    { label: "Visitors", count: visited, insight: foundSiteInsightText, color: "#0B4F6C" },
+    { label: "Warm", count: engagedSessions, insight: stuckAroundInsightText, color: "#11809e" },
     ...conversions.map((c, i) => ({
       label: c.label || c.page,
       count: c.count,
@@ -658,7 +663,7 @@ export function Attribution({
             <div className="flex-1 min-w-0">
               <StageCard
                 icon={<Search size={16} />}
-                title="Found the site"
+                title="Visitors"
                 value={visited}
                 note={`Sessions · Last ${range}`}
                 source="Source: Google Analytics 4"
@@ -676,7 +681,7 @@ export function Attribution({
             <div className="flex-1 min-w-0">
               <StageCard
                 icon={<Eye size={16} />}
-                title="Stuck around"
+                title="Warm"
                 value={engagedSessions}
                 note={`${engagementPct.toFixed(0)}% of sessions were actively engaged, not just a quick look`}
                 source="Source: Google Analytics 4 (engaged sessions)"
