@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
 import {
   Radar,
   Plus,
@@ -48,7 +49,7 @@ const integrationMeta = [
     label: "Google Analytics 4",
     icon: BarChart3,
     badge: "GA4",
-    tooltip: "This pulls traffic data — sessions, pageviews, top pages, etc. Open analytics.google.com, click the gear icon (Admin), then Property Settings. The Property ID is the number at the top (like 430286560). Ask Andy if you need help with service account access.",
+    tooltip: "This pulls traffic data — sessions, pageviews, top pages, etc. Open analytics.google.com, click the gear icon (Admin), then Property Settings. The Property ID is the number at the top (like 430286560). You'll also need to add our service account as a Viewer on this property — see the copyable email below once GA4 is enabled.",
     fields: [
       { name: "propertyId", label: "Property ID", placeholder: "e.g. 430286560", hint: "The number from GA4 → Admin → Property Settings" },
     ],
@@ -393,6 +394,7 @@ export default function Home() {
                                       )}
                                     </div>
                                   ))}
+                                  {int.key === "googleAnalytics" && <GaServiceAccountHint />}
                                 </div>
                               )}
                             </div>
