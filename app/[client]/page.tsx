@@ -44,7 +44,7 @@ interface GAData {
     bounceRate: string;
     engagementRate?: string;
     engagedSessions?: number;
-    conversions: { id: string; page: string; label?: string; count: number; change: number | null }[];
+    conversions: { id: string; page: string; label?: string; count: number; change: number | null; sources?: { source: string; count: number }[] }[];
   };
   dailySessions: { date: string; sessions: number; pageviews: number }[];
   topSources: { source: string; sessions: number }[];

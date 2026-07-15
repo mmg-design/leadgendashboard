@@ -129,7 +129,7 @@ export async function GET(req: NextRequest) {
 
     const goalResults = await Promise.all(
       goals.map(async (goal) => {
-        const [summary, daily] = await Promise.all([
+        const [summary, daily, sourceBreakdown] = await Promise.all([
           analyticsClient!.runReport({
             property: `properties/${propertyId}`,
             dateRanges: [
@@ -147,6 +147,18 @@ export async function GET(req: NextRequest) {
             dimensionFilter: conversionFilterFor(goal),
             orderBys: [{ dimension: { dimensionName: "date", orderType: "ALPHANUMERIC" } }],
           }),
+          // Aggregate traffic-source breakdown scoped to this conversion — not
+          // individual visitors (GA4 doesn't expose per-user IP/identity), just
+          // "what channel started sessions that included this conversion event."
+          analyticsClient!.runReport({
+            property: `properties/${propertyId}`,
+            dateRanges: [{ startDate, endDate: "today" }],
+            dimensions: [{ name: "sessionSourceMedium" }],
+            metrics: [{ name: "eventCount" }],
+            dimensionFilter: conversionFilterFor(goal),
+            orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+            limit: 5,
+          }),
         ]);
 
         const rows = summary[0]?.rows || [];
@@ -160,6 +172,11 @@ export async function GET(req: NextRequest) {
           return { date: formatted, count: parseInt(row.metricValues?.[0]?.value || "0") };
         });
 
+        const sources = (sourceBreakdown[0]?.rows || []).map((row) => ({
+          source: row.dimensionValues?.[0]?.value || "(unknown)",
+          count: parseInt(row.metricValues?.[0]?.value || "0"),
+        }));
+
         return {
           id: goal.id,
           page: goal.conversionValue,
@@ -167,6 +184,7 @@ export async function GET(req: NextRequest) {
           count: current,
           change,
           daily: dailyCounts,
+          sources,
         };
       })
     );

@@ -24,6 +24,7 @@ interface ConversionResult {
   label?: string;
   count: number;
   change: number | null;
+  sources?: { source: string; count: number }[];
 }
 
 interface AttributionGAData {
@@ -144,6 +145,60 @@ function tookActionInsight(converted: number, change: number | null) {
     insight: `Up ${change}% compared to the previous period.`,
     action: "See which traffic sources are driving these and invest more there.",
   };
+}
+
+const KNOWN_SOURCE_NAMES: Record<string, string> = {
+  google: "Google",
+  bing: "Bing",
+  yahoo: "Yahoo",
+  duckduckgo: "DuckDuckGo",
+  facebook: "Facebook",
+  instagram: "Instagram",
+  linkedin: "LinkedIn",
+  youtube: "YouTube",
+  twitter: "Twitter/X",
+  "x.com": "Twitter/X",
+  tiktok: "TikTok",
+  pinterest: "Pinterest",
+  reddit: "Reddit",
+};
+
+function prettySourceName(source: string): string {
+  const key = source.toLowerCase().trim();
+  return KNOWN_SOURCE_NAMES[key] || source;
+}
+
+// Translates GA4's raw "source / medium" pair (e.g. "exactmedicare.com / referral",
+// "(direct) / (none)") into a plain-English sentence describing how the visitor
+// actually arrived — this is GA4 attribution data, not anything from Clarity.
+function describeJourney(sourceMedium: string): string {
+  const [rawSource, rawMedium] = sourceMedium.split(" / ").map((s) => s.trim());
+  const source = rawSource || "an unknown source";
+  const medium = (rawMedium || "").toLowerCase();
+  const prettySource = prettySourceName(source);
+
+  if (source === "(direct)" || medium === "(none)") {
+    return "Went straight to the site — typed the URL directly or used a bookmark";
+  }
+  if (medium.includes("organic")) {
+    return `Found the site through a ${prettySource} search`;
+  }
+  if (medium.includes("cpc") || medium.includes("ppc") || medium === "paid") {
+    return `Clicked a paid ad on ${prettySource}`;
+  }
+  if (medium.includes("social")) {
+    return `Came from a social post on ${prettySource}`;
+  }
+  if (medium.includes("email")) {
+    return "Clicked a link in an email";
+  }
+  if (medium === "referral") {
+    return `Followed a link from ${prettySource}`;
+  }
+  if (medium === "(not set)" || !medium) {
+    return `Arrived via ${prettySource}`;
+  }
+  return `Arrived via ${prettySource} (${rawMedium})`;
 }
 
 function RailStep({ color, isFirst, isLast }: { color: string; isFirst?: boolean; isLast?: boolean }) {
@@ -339,6 +394,7 @@ interface FunnelStageDatum {
   count: number;
   insight: string;
   color: string;
+  sources?: { source: string; count: number }[];
 }
 
 const FUNNEL_SEGMENT_HEIGHT = 88;
@@ -386,6 +442,7 @@ function FunnelPanel({
       count: c.count,
       insight: tookActionInsight(c.count, c.change).insight,
       color: branchColors[i % branchColors.length],
+      sources: c.sources,
     })),
   ];
 
@@ -451,7 +508,7 @@ function FunnelPanel({
       </Card>
 
       <div
-        className={`fixed z-[60] w-72 p-4 rounded-xl bg-white border border-border/60 shadow-2xl pointer-events-none transition-all duration-200 ease-out ${
+        className={`fixed z-[60] w-80 p-4 rounded-xl bg-white border border-border/60 shadow-2xl pointer-events-none transition-all duration-200 ease-out ${
           tooltipVisible ? "opacity-100" : "opacity-0"
         }`}
         style={{
@@ -466,6 +523,21 @@ function FunnelPanel({
               {hoveredStage.label} — {hoveredStage.count.toLocaleString()}
             </p>
             <p className="text-[13px] text-foreground/70 leading-relaxed">{hoveredStage.insight}</p>
+            {hoveredStage.sources && hoveredStage.sources.length > 0 && (
+              <div className="mt-2.5 pt-2.5 border-t border-border/50">
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
+                  How they got here
+                </p>
+                <div className="space-y-1.5">
+                  {hoveredStage.sources.map((s) => (
+                    <p key={s.source} className="text-[12.5px] text-foreground/80 leading-snug">
+                      {describeJourney(s.source)}
+                      <span className="text-muted-foreground"> · {s.count} {s.count === 1 ? "person" : "people"}</span>
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
