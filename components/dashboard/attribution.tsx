@@ -506,7 +506,10 @@ function FunnelPanel({
               const yTop = i * FUNNEL_SEGMENT_HEIGHT;
               const yMid = yTop + FUNNEL_SEGMENT_HEIGHT / 2;
               const path = curvySegmentPath(prevWidthPct, widthPct, yTop);
-              const label = stage.label.length > 28 ? `${stage.label.slice(0, 26)}…` : stage.label;
+              const label = stage.label.length > 24 ? `${stage.label.slice(0, 22)}…` : stage.label;
+              // Chip hugs the label's own length instead of a fixed bar, so a short
+              // word like "Warm" doesn't sit inside an oversized, near-empty pill.
+              const pillWidth = Math.min(FUNNEL_WIDTH - 24, Math.max(52, label.length * 6.4 + 28));
               return (
                 <g
                   key={stage.label + i}
@@ -526,15 +529,15 @@ function FunnelPanel({
                     {stage.count.toLocaleString()}
                   </text>
                   <rect
-                    x="40"
+                    x={(FUNNEL_WIDTH - pillWidth) / 2}
                     y={yMid + 2}
-                    width="200"
-                    height="22"
-                    rx="11"
+                    width={pillWidth}
+                    height="21"
+                    rx="10.5"
                     fill="white"
                     fillOpacity="0.94"
                   />
-                  <text x={FUNNEL_WIDTH / 2} y={yMid + 17} textAnchor="middle" fill="#001A2E" fontSize="11.5" fontWeight="500">
+                  <text x={FUNNEL_WIDTH / 2} y={yMid + 16.5} textAnchor="middle" fill="#001A2E" fontSize="11" fontWeight="500" letterSpacing="0.01em">
                     {label}
                   </text>
                 </g>
@@ -893,42 +896,6 @@ export function Attribution({
             </div>
           </div>
         </div>
-
-        {(clarity?.homepageScrollDepth != null ||
-          (clarity?.rageClicks ?? 0) > 0 ||
-          (clarity?.deadClicks ?? 0) > 0) && (
-          <Card>
-            <CardContent className="pt-5 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <p className="text-[15px] font-medium text-foreground/80">What might be slowing people down</p>
-                <span className="text-[12px] text-[#097388]/75 uppercase tracking-wide">
-                  Source: Microsoft Clarity, site-wide, last 30 days
-                </span>
-              </div>
-              <div className="space-y-2 text-[15px] text-foreground/80">
-                {clarity?.homepageScrollDepth != null && (
-                  <p>
-                    On the homepage specifically, people only scroll about{" "}
-                    <strong>{Math.round(clarity.homepageScrollDepth)}%</strong> of the way down before
-                    leaving.
-                  </p>
-                )}
-                {(clarity?.rageClicks ?? 0) > 0 && (
-                  <p>
-                    <strong>{clarity!.rageClicks}</strong> people sitewide clicked something rapidly and
-                    repeatedly - usually a sign something looked clickable but didn&apos;t work.
-                  </p>
-                )}
-                {(clarity?.deadClicks ?? 0) > 0 && (
-                  <p>
-                    <strong>{clarity!.deadClicks}</strong> people sitewide clicked on something that
-                    wasn&apos;t actually a button or link.
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {(visibleActionKeys.length > 0 || recommendations.length > 0) && (
           <section className="space-y-3">

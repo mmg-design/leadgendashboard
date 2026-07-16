@@ -712,7 +712,7 @@ export default function ClientDashboard() {
               </div>
 
               {/* Stat cards */}
-              <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+              <div className="grid gap-4 grid-cols-2 md:grid-cols-4 auto-rows-fr items-stretch">
                 <StatCard
                   title="Sessions"
                   value={ga?.summary.sessions?.toLocaleString() || "-"}

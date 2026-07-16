@@ -99,7 +99,7 @@ function MetricTile({
         {icon}
         <span className="text-[11px] font-semibold uppercase tracking-wider">{label}</span>
       </div>
-      <div className={`text-[26px] font-light tabular-nums leading-none ${valueClass ?? "text-foreground"}`}>
+      <div className={`text-[30px] font-headline font-normal tabular-nums tracking-[-0.02em] leading-none ${valueClass ?? "text-foreground"}`}>
         {value}
       </div>
       {sub && <div className="text-[12px] text-[#097388]/65">{sub}</div>}
@@ -240,20 +240,20 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
         {/* Summary row - keep as-is */}
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg bg-muted/30 px-3 py-2.5 text-center">
-            <div className="text-[24px] font-light text-foreground tabular-nums">{data.totalKeywords}</div>
+            <div className="text-[27px] font-headline font-normal tracking-[-0.02em] text-foreground tabular-nums">{data.totalKeywords}</div>
             <div className="text-[12px] text-muted-foreground mt-0.5">Keywords tracked</div>
           </div>
           <div className="rounded-lg bg-emerald-50 px-3 py-2.5 text-center">
             <div className="flex items-center justify-center gap-1">
               <TrendingUp size={13} className="text-emerald-600" />
-              <span className="text-[24px] font-light text-emerald-700 tabular-nums">{data.movedUp}</span>
+              <span className="text-[27px] font-headline font-normal tracking-[-0.02em] text-emerald-700 tabular-nums">{data.movedUp}</span>
             </div>
             <div className="text-[12px] text-emerald-600 mt-0.5">Moved up</div>
           </div>
           <div className="rounded-lg bg-amber-50 px-3 py-2.5 text-center">
             <div className="flex items-center justify-center gap-1">
               <TrendingDown size={13} className="text-amber-600" />
-              <span className="text-[24px] font-light text-amber-700 tabular-nums">{data.movedDown}</span>
+              <span className="text-[27px] font-headline font-normal tracking-[-0.02em] text-amber-700 tabular-nums">{data.movedDown}</span>
             </div>
             <div className="text-[12px] text-amber-600 mt-0.5">Moved down</div>
           </div>

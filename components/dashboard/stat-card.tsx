@@ -19,11 +19,11 @@ const healthColors = {
 
 export function StatCard({ title, value, subtitle, icon, tooltip, health }: StatCardProps) {
   return (
-    <Card className={`overflow-visible relative hover:z-50 ${health ? `border-[2px] ${healthColors[health]}` : ""}`}>
-      <CardContent className="pt-1">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[15px] font-medium text-muted-foreground tracking-tight">
+    <Card className={`h-full min-w-0 overflow-visible relative hover:z-50 ${health ? `border-[2px] ${healthColors[health]}` : ""}`}>
+      <CardContent className="h-full pt-1 flex flex-col">
+        <div className="flex items-center justify-between gap-2 mb-3 min-w-0">
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="whitespace-nowrap text-[clamp(12px,1vw,15px)] font-medium text-muted-foreground tracking-tight">
               {title}
             </span>
             {tooltip && (
@@ -39,14 +39,14 @@ export function StatCard({ title, value, subtitle, icon, tooltip, health }: Stat
             )}
           </div>
           {icon && (
-            <div className="text-[#001A2E]/30">{icon}</div>
+            <div className="text-[#001A2E]/30 shrink-0">{icon}</div>
           )}
         </div>
         <div className="text-[44px] font-headline font-normal tracking-tight leading-none text-[#001A2E]">
           {value}
         </div>
         {subtitle && (
-          <p className="text-[13px] text-muted-foreground mt-2 tracking-wide uppercase">
+          <p className="text-[13px] text-muted-foreground mt-auto pt-2 tracking-wide uppercase">
             {subtitle}
           </p>
         )}

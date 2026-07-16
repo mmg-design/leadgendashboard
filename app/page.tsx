@@ -451,9 +451,9 @@ export default function Home() {
         </div>
         <div className="grid gap-5 md:grid-cols-2">
           {clients.map((client) => {
-            const enabledSources = Object.entries(client.integrations)
-              .filter(([, v]) => v?.enabled)
-              .map(([k]) => k);
+            const enabledSources = integrationMeta.filter(
+              (integration) => client.integrations[integration.key]?.enabled
+            );
             const isPendingDelete = pendingDeleteSlug === client.slug;
             const isDeleting = deletingSlug === client.slug;
 
@@ -467,7 +467,7 @@ export default function Home() {
                 onClick={() => !isPendingDelete && router.push(`/${client.slug}`)}
                 className={`transition-opacity ${dragSlug === client.slug ? "opacity-40" : ""}`}
               >
-                <Card className="relative group min-h-[220px] bg-white hover:-translate-y-1 hover:shadow-[0_22px_55px_rgba(0,0,0,0.22)] hover:border-[#0CA4C3]/30 transition-all duration-300 cursor-pointer">
+                <Card className="relative group bg-white hover:-translate-y-1 hover:shadow-[0_22px_55px_rgba(0,0,0,0.22)] hover:border-[#0CA4C3]/30 transition-all duration-300 cursor-pointer">
                   <div
                     className="absolute left-2 top-2 p-1 text-[#097388]/45 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Drag to reorder"
@@ -529,20 +529,26 @@ export default function Home() {
                       {client.name}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-[15px] text-muted-foreground mb-5">
+                  <CardContent className="pb-6">
+                    <p className="text-[15px] text-muted-foreground mb-4">
                       {client.domain}
                     </p>
-                    <div className="flex gap-1.5 flex-wrap">
-                      {enabledSources.map((s) => (
-                        <span
-                          key={s}
-                          className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#001A2E]/[0.06] text-[#001A2E]/70 tracking-wide uppercase"
-                        >
-                          {s === "googleAnalytics" ? "GA4" : s === "seRanking" ? "SEO" : s === "clickup" ? "Tasks" : s}
-                        </span>
-                      ))}
-                    </div>
+                    {enabledSources.length > 0 && (
+                      <div className="flex gap-2 flex-wrap">
+                        {enabledSources.map((source) => {
+                          const Icon = source.icon;
+                          return (
+                            <span
+                              key={source.key}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-[#0CA4C3]/20 bg-[#0CA4C3]/10 px-2.5 py-1 text-[11px] font-semibold tracking-[0.08em] text-[#01384C] uppercase"
+                            >
+                              <Icon size={12} strokeWidth={2} className="text-[#0394B2]" />
+                              {source.badge}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
