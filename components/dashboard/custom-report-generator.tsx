@@ -5,14 +5,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { BarChart3, Check, Clipboard, FileText, Loader2, Sparkles } from "lucide-react";
 
-type DailyPoint = { range: "pre" | "post"; date: string; sessions: number; pageviews: number; engagedSessions: number };
+type ReportMode = "comparison" | "single" | "prompt-only";
+type DailyPoint = { range: "pre" | "post" | "single"; date: string; sessions: number; pageviews: number; engagedSessions: number };
 type VisibilityPoint = { range: "pre" | "post" | "outside"; date: string; score: number };
 type Result = {
   report?: string;
   prompt?: string;
   data?: {
-    ga?: { summary?: { pre?: Record<string, number>; post?: Record<string, number>; changes?: Record<string, number | null> }; daily?: DailyPoint[] };
-    seranking?: { summary?: { pre?: Record<string, number | null>; post?: Record<string, number | null> }; visibilityHistory?: VisibilityPoint[] };
+    ga?: { summary?: { pre?: Record<string, number>; post?: Record<string, number>; single?: Record<string, number>; changes?: Record<string, number | null> }; daily?: DailyPoint[] };
+    seranking?: { summary?: { pre?: Record<string, number | null>; post?: Record<string, number | null>; single?: Record<string, number | null> }; visibilityHistory?: VisibilityPoint[] };
   };
   availability?: Record<string, string>;
   limitations?: string[];
@@ -28,7 +29,7 @@ function defaultDates() {
   const preEnd = new Date(postStart); preEnd.setDate(preEnd.getDate() - 1);
   const preStart = new Date(preEnd); preStart.setDate(preStart.getDate() - 59);
   const fmt = (date: Date) => date.toISOString().slice(0, 10);
-  return { preStart: fmt(preStart), preEnd: fmt(preEnd), postStart: fmt(postStart), postEnd: fmt(postEnd) };
+  return { preStart: fmt(preStart), preEnd: fmt(preEnd), postStart: fmt(postStart), postEnd: fmt(postEnd), singleStart: fmt(postStart), singleEnd: fmt(postEnd) };
 }
 
 function MetricComparison({ label, pre, post, suffix = "" }: { label: string; pre?: number | null; post?: number | null; suffix?: string }) {
@@ -45,6 +46,10 @@ function MetricComparison({ label, pre, post, suffix = "" }: { label: string; pr
       </CardContent>
     </Card>
   );
+}
+
+function MetricSingle({ label, value, suffix = "" }: { label: string; value?: number | null; suffix?: string }) {
+  return <Card className="py-0"><CardContent className="p-4"><p className="text-[11px] uppercase tracking-[0.1em] text-[#097388]/75 font-semibold">{label}</p><p className="mt-2 font-headline text-[29px] text-[#001A2E]">{value == null ? "—" : `${value.toLocaleString()}${suffix}`}</p></CardContent></Card>;
 }
 
 function ReportBody({ report }: { report: string }) {
@@ -65,6 +70,7 @@ function ReportBody({ report }: { report: string }) {
 
 export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: string; clientName: string }) {
   const defaults = useMemo(defaultDates, []);
+  const [mode, setMode] = useState<ReportMode>("comparison");
   const [dates, setDates] = useState(defaults);
   const [query, setQuery] = useState(EXAMPLE_QUERY);
   const [sources, setSources] = useState({ ga: true, clarity: true, seranking: true });
@@ -80,10 +86,10 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clientSlug, query, output,
-          pre: { start: dates.preStart, end: dates.preEnd },
-          post: { start: dates.postStart, end: dates.postEnd },
-          sources: Object.entries(sources).filter(([, enabled]) => enabled).map(([source]) => source),
+          clientSlug, query, output, mode,
+          ...(mode === "comparison" ? { pre: { start: dates.preStart, end: dates.preEnd }, post: { start: dates.postStart, end: dates.postEnd } } : {}),
+          ...(mode === "single" ? { range: { start: dates.singleStart, end: dates.singleEnd } } : {}),
+          sources: mode === "prompt-only" ? [] : Object.entries(sources).filter(([, enabled]) => enabled).map(([source]) => source),
         }),
       });
       const data = await response.json();
@@ -104,7 +110,7 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
 
   const ga = result?.data?.ga;
   const se = result?.data?.seranking;
-  const chartData = (ga?.daily || []).map((point) => ({ ...point, periodLabel: point.range === "pre" ? "Pre-launch" : "Post-launch" }));
+  const chartData = (ga?.daily || []).map((point) => ({ ...point, periodLabel: point.range === "pre" ? "Pre-launch" : point.range === "post" ? "Post-launch" : "Selected range" }));
 
   return (
     <div className="space-y-6">
@@ -116,7 +122,11 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
 
       <Card>
         <CardContent className="pt-5 space-y-5">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div className="flex flex-wrap gap-2">
+            {([['comparison', 'Compare two periods'], ['single', 'Single date range'], ['prompt-only', 'Prompt only']] as const).map(([value, label]) => <button key={value} onClick={() => { setMode(value); setResult(null); }} className={`rounded-lg border px-3.5 py-2 text-[13px] font-medium transition-colors ${mode === value ? "border-[#001A2E] bg-[#001A2E] text-white" : "border-border bg-background text-muted-foreground hover:text-foreground"}`}>{label}</button>)}
+          </div>
+
+          {mode === "comparison" && <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {(["pre", "post"] as const).map((period) => (
               <div key={period} className="rounded-xl border border-border/70 bg-muted/20 p-4">
                 <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-[#097388]/75 mb-3">{period === "pre" ? "Pre-launch period" : "Post-launch period"}</p>
@@ -126,7 +136,11 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
                 </div>
               </div>
             ))}
-          </div>
+          </div>}
+
+          {mode === "single" && <div className="rounded-xl border border-border/70 bg-muted/20 p-4"><p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-[#097388]/75 mb-3">Analysis period</p><div className="grid grid-cols-2 gap-3 max-w-xl"><label className="text-[12px] text-muted-foreground">Start<input type="date" value={dates.singleStart} onChange={(event) => setDates((current) => ({ ...current, singleStart: event.target.value }))} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-[14px] text-foreground" /></label><label className="text-[12px] text-muted-foreground">End<input type="date" value={dates.singleEnd} onChange={(event) => setDates((current) => ({ ...current, singleEnd: event.target.value }))} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-[14px] text-foreground" /></label></div></div>}
+
+          {mode === "prompt-only" && <div className="rounded-xl border border-[#0CA4C3]/20 bg-[#0CA4C3]/5 p-4 text-[13px] text-[#01384C]">No dates or analytics will be pulled. This creates a clean strategic prompt from your request.</div>}
 
           <div>
             <label className="text-[13px] font-medium text-foreground/80">What should the report answer?</label>
@@ -134,14 +148,14 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border/60 pt-4">
-            <div className="flex flex-wrap gap-2">
+            <div className={`flex flex-wrap gap-2 ${mode === "prompt-only" ? "invisible" : ""}`}>
               {([['ga', 'Google Analytics 4'], ['clarity', 'Microsoft Clarity'], ['seranking', 'SE Ranking']] as const).map(([key, label]) => (
                 <label key={key} className={`cursor-pointer rounded-full border px-3 py-1.5 text-[12px] font-medium ${sources[key] ? "border-[#0CA4C3]/35 bg-[#0CA4C3]/10 text-[#01384C]" : "border-border text-muted-foreground"}`}><input type="checkbox" checked={sources[key]} onChange={(event) => setSources((current) => ({ ...current, [key]: event.target.checked }))} className="sr-only" />{label}</label>
               ))}
             </div>
             <div className="flex gap-2">
               <button onClick={() => run("prompt")} disabled={loading !== null} className="inline-flex items-center gap-2 rounded-lg border border-[#001A2E]/20 px-4 py-2 text-[13px] font-medium text-[#001A2E] hover:bg-[#001A2E]/5 disabled:opacity-50">{loading === "prompt" ? <Loader2 size={14} className="animate-spin" /> : <Clipboard size={14} />}Generate prompt</button>
-              <button onClick={() => run("report")} disabled={loading !== null} className="inline-flex items-center gap-2 rounded-lg bg-[#001A2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#01384C] disabled:opacity-50">{loading === "report" ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}Generate report</button>
+              {mode !== "prompt-only" && <button onClick={() => run("report")} disabled={loading !== null} className="inline-flex items-center gap-2 rounded-lg bg-[#001A2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#01384C] disabled:opacity-50">{loading === "report" ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}Generate report</button>}
             </div>
           </div>
         </CardContent>
@@ -153,7 +167,8 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
         <div className="space-y-6">
           {result.limitations && result.limitations.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="text-[13px] font-semibold text-amber-900">Data notes</p>{result.limitations.map((item) => <p key={item} className="mt-1 text-[12px] leading-relaxed text-amber-800">{item}</p>)}</div>}
 
-          {ga?.summary && <div className="grid grid-cols-2 xl:grid-cols-4 gap-3"><MetricComparison label="Sessions" pre={ga.summary.pre?.sessions} post={ga.summary.post?.sessions} /><MetricComparison label="Pageviews" pre={ga.summary.pre?.pageviews} post={ga.summary.post?.pageviews} /><MetricComparison label="Users" pre={ga.summary.pre?.users} post={ga.summary.post?.users} /><MetricComparison label="Engagement rate" pre={(ga.summary.pre?.engagementRate || 0) * 100} post={(ga.summary.post?.engagementRate || 0) * 100} suffix="%" /></div>}
+          {ga?.summary && mode === "comparison" && <div className="grid grid-cols-2 xl:grid-cols-4 gap-3"><MetricComparison label="Sessions" pre={ga.summary.pre?.sessions} post={ga.summary.post?.sessions} /><MetricComparison label="Pageviews" pre={ga.summary.pre?.pageviews} post={ga.summary.post?.pageviews} /><MetricComparison label="Users" pre={ga.summary.pre?.users} post={ga.summary.post?.users} /><MetricComparison label="Engagement rate" pre={(ga.summary.pre?.engagementRate || 0) * 100} post={(ga.summary.post?.engagementRate || 0) * 100} suffix="%" /></div>}
+          {ga?.summary?.single && mode === "single" && <div className="grid grid-cols-2 xl:grid-cols-4 gap-3"><MetricSingle label="Sessions" value={ga.summary.single.sessions} /><MetricSingle label="Pageviews" value={ga.summary.single.pageviews} /><MetricSingle label="Users" value={ga.summary.single.users} /><MetricSingle label="Engagement rate" value={(ga.summary.single.engagementRate || 0) * 100} suffix="%" /></div>}
 
           {chartData.length > 0 && <Card><CardContent className="pt-5"><div className="flex items-center gap-2 mb-4"><BarChart3 size={15} className="text-[#0CA4C3]" /><p className="font-headline text-[21px] text-[#001A2E]">GA4 traffic by day</p></div><div className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><defs><linearGradient id="reportSessions" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#0CA4C3" stopOpacity={0.3}/><stop offset="95%" stopColor="#0CA4C3" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#001A2E18"/><XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={28}/><YAxis tick={{ fontSize: 10 }} width={36}/><Tooltip/><Area type="monotone" dataKey="sessions" stroke="#0CA4C3" strokeWidth={2} fill="url(#reportSessions)"/></AreaChart></ResponsiveContainer></div></CardContent></Card>}
 

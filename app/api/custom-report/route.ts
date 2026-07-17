@@ -159,11 +159,18 @@ async function fetchClarity(projectId: string) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { clientSlug, pre, post, query, sources, output = "report" } = body as { clientSlug?: string; pre?: NamedRange; post?: NamedRange; query?: string; sources?: string[]; output?: "report" | "prompt" };
-    if (!clientSlug || !pre || !post || !validDate(pre.start) || !validDate(pre.end) || !validDate(post.start) || !validDate(post.end)) return NextResponse.json({ error: "Client and valid pre/post dates are required" }, { status: 400 });
-    if (pre.start > pre.end || post.start > post.end) return NextResponse.json({ error: "Each start date must be on or before its end date" }, { status: 400 });
+    const { clientSlug, pre: requestedPre, post: requestedPost, range, mode = "comparison", query, sources, output = "report" } = body as { clientSlug?: string; pre?: NamedRange; post?: NamedRange; range?: NamedRange; mode?: "comparison" | "single" | "prompt-only"; query?: string; sources?: string[]; output?: "report" | "prompt" };
+    if (!clientSlug) return NextResponse.json({ error: "Client is required" }, { status: 400 });
     const config = await getClient(clientSlug);
     if (!config) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    if (mode === "prompt-only") {
+      const prompt = `You are a senior web analytics and SEO strategist working on ${config.name}.\n\nUser request:\n${query || "Analyze the client's performance and provide evidence-based recommendations."}\n\nUse any source data supplied with this prompt. Do not invent metrics or claim causation without evidence. Clearly identify missing information, state assumptions, cite the metric behind each conclusion, and provide practical next steps.`;
+      return NextResponse.json({ prompt, data: {}, availability: {}, limitations: ["Prompt-only mode does not pull client analytics data."] });
+    }
+    const pre = mode === "single" ? range : requestedPre;
+    const post = mode === "single" ? range : requestedPost;
+    if (!pre || !post || !validDate(pre.start) || !validDate(pre.end) || !validDate(post.start) || !validDate(post.end)) return NextResponse.json({ error: mode === "single" ? "A valid start and end date are required" : "Valid pre/post dates are required" }, { status: 400 });
+    if (pre.start > pre.end || post.start > post.end) return NextResponse.json({ error: "Each start date must be on or before its end date" }, { status: 400 });
     const selected = new Set(sources?.length ? sources : ["ga", "clarity", "seranking"]);
     const today = new Date().toISOString().slice(0, 10);
     const effectivePost = { ...post, end: post.end > today ? today : post.end };
@@ -189,12 +196,24 @@ export async function POST(req: NextRequest) {
       else availability.clarity = "not configured";
     }
     await Promise.all(jobs);
-    const prompt = `You are a senior web analytics and SEO strategist. Produce an evidence-based comparative report for ${config.name}.\n\nUser request:\n${query || "Compare the pre and post periods and explain material changes."}\n\nPre period: ${pre.start} through ${pre.end}\nPost period requested: ${post.start} through ${post.end}\nPost period available: ${effectivePost.start} through ${effectivePost.end}\n\nAvailability: ${JSON.stringify(availability, null, 2)}\nLimitations: ${limitations.join(" ") || "None"}\n\nStructured source data:\n${JSON.stringify(data, null, 2)}\n\nRules: Do not invent data. Distinguish correlation from causation. Cite the exact metric and period behind every conclusion. Call out incomplete or unavailable sources. Cover traffic, engagement, acquisition channels, content/pages, SEO visibility, keyword distribution, and actionable next steps when supported.`;
-    if (output === "prompt") return NextResponse.json({ prompt, data, availability, limitations, effectiveRanges: { pre, post: effectivePost } });
+    if (mode === "single") {
+      const ga = data.ga as { summary?: { post?: unknown }; daily?: Array<{ range: string }> } | undefined;
+      if (ga?.summary) ga.summary = { single: ga.summary.post } as typeof ga.summary;
+      if (ga?.daily) ga.daily = ga.daily.filter((point) => point.range === "post").map((point) => ({ ...point, range: "single" }));
+      const se = data.seranking as { summary?: { post?: unknown }; visibilityHistory?: Array<{ range: string }> } | undefined;
+      if (se?.summary) se.summary = { single: se.summary.post } as typeof se.summary;
+      if (se?.visibilityHistory) se.visibilityHistory = se.visibilityHistory.filter((point) => point.range === "post").map((point) => ({ ...point, range: "single" }));
+    }
+    const periodContext = mode === "single"
+      ? `Analysis period: ${pre.start} through ${effectivePost.end}`
+      : `Pre period: ${pre.start} through ${pre.end}\nPost period requested: ${post.start} through ${post.end}\nPost period available: ${effectivePost.start} through ${effectivePost.end}`;
+    const prompt = `You are a senior web analytics and SEO strategist. Produce an evidence-based ${mode === "single" ? "period analysis" : "comparative report"} for ${config.name}.\n\nUser request:\n${query || (mode === "single" ? "Analyze performance during this period." : "Compare the pre and post periods and explain material changes.")}\n\n${periodContext}\n\nAvailability: ${JSON.stringify(availability, null, 2)}\nLimitations: ${limitations.join(" ") || "None"}\n\nStructured source data:\n${JSON.stringify(data, null, 2)}\n\nRules: Do not invent data. Distinguish correlation from causation. Cite the exact metric and period behind every conclusion. Call out incomplete or unavailable sources. Cover traffic, engagement, acquisition channels, content/pages, SEO visibility, keyword distribution, and actionable next steps when supported.`;
+    const effectiveRanges = mode === "single" ? { range: { start: pre.start, end: effectivePost.end } } : { pre, post: effectivePost };
+    if (output === "prompt") return NextResponse.json({ prompt, data, availability, limitations, effectiveRanges });
     if (!process.env.GEMINI_API_KEY) return NextResponse.json({ error: "GEMINI_API_KEY is not configured", prompt, data, availability, limitations }, { status: 503 });
     const model = new GoogleGenerativeAI(process.env.GEMINI_API_KEY).getGenerativeModel({ model: "gemini-2.5-flash" });
     const result = await model.generateContent(`${prompt}\n\nWrite a detailed report with these headings: Executive Summary, KPI Comparison, Traffic and Acquisition, Engagement and Content, Search Visibility and Rankings, Clarity Context, What Changed, Recommendations, Data Limitations. Use concise markdown.`);
-    return NextResponse.json({ report: result.response.text(), prompt, data, availability, limitations, effectiveRanges: { pre, post: effectivePost } });
+    return NextResponse.json({ report: result.response.text(), prompt, data, availability, limitations, effectiveRanges });
   } catch (error) {
     console.error("Custom report error:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to generate report" }, { status: 500 });
