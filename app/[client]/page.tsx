@@ -828,8 +828,8 @@ export default function ClientDashboard() {
           {/* ── Right column ── */}
           <div className="self-start xl:sticky xl:top-8">
             <WorkSummary
-              clientSlug={clientSlug}
               clientName={clientName}
+              clientDomain={clientConfig?.domain || ""}
               data={clickUp}
               loading={clickUpLoading}
               enabled={clickupEnabled}

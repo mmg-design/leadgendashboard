@@ -6,6 +6,15 @@ const nextConfig: NextConfig = {
   // Vercel always expects the default ".next" output dir (it sets VERCEL=1 during
   // build), so ignore the override there even though it runs the same npm script.
   distDir: process.env.VERCEL ? ".next" : (process.env.NEXT_DIST_DIR || ".next"),
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "image.thum.io",
+        pathname: "/get/**",
+      },
+    ],
+  },
 };
 
 export default nextConfig;

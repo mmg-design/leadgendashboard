@@ -22,18 +22,14 @@ interface WorkSummaryData {
 }
 
 interface WorkSummaryProps {
-  clientSlug: string;
   clientName: string;
+  clientDomain: string;
   data: WorkSummaryData | null;
   loading: boolean;
   enabled: boolean;
   error?: string | null;
   onRefresh?: () => void;
 }
-
-const clientHeroImages: Record<string, string> = {
-  "the-translation-team": "/clients/the-translation-team/hero-card.png",
-};
 
 function formatDuration(ms: number): string {
   if (ms <= 0) return "0h";
@@ -45,8 +41,13 @@ function formatDuration(ms: number): string {
   return `${h}h ${m}m`;
 }
 
-export function WorkSummary({ clientSlug, clientName, data, loading, enabled, error, onRefresh }: WorkSummaryProps) {
-  const heroImage = clientHeroImages[clientSlug];
+export function WorkSummary({ clientName, clientDomain, data, loading, enabled, error, onRefresh }: WorkSummaryProps) {
+  const homepageUrl = clientDomain
+    ? (/^https?:\/\//i.test(clientDomain) ? clientDomain : `https://${clientDomain}`)
+    : null;
+  const heroImage = homepageUrl
+    ? `https://image.thum.io/get/width/1200/crop/675/noanimate/${homepageUrl}`
+    : null;
   // Merge activity feed + comments into a single stream, sorted by recency
   const activityStream: { id: string; name: string; phase: string; text?: string; ts: number }[] = [];
 
@@ -66,19 +67,21 @@ export function WorkSummary({ clientSlug, clientName, data, loading, enabled, er
     <div className="space-y-4">
       {/* Engagement card - name + date on right */}
       <Card className="overflow-hidden">
-        {heroImage && (
-          <div className="relative aspect-[4/5] overflow-hidden bg-[#001A2E]">
-            <Image
-              src={heroImage}
-              alt={`${clientName} website hero`}
-              fill
-              priority
-              sizes="(min-width: 1280px) 380px, 100vw"
-              className="object-cover"
-            />
-            <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10" />
+        <div className="relative aspect-video bg-[#EAF3F5] p-3">
+          <div className="relative size-full overflow-hidden rounded-md bg-white shadow-[0_10px_24px_rgba(0,26,46,0.18)] ring-1 ring-[#001A2E]/10">
+            {heroImage && (
+              <Image
+                src={heroImage}
+                alt={`${clientName} website hero`}
+                fill
+                priority
+                sizes="(min-width: 1280px) 380px, 100vw"
+                unoptimized
+                className="object-cover"
+              />
+            )}
           </div>
-        )}
+        </div>
         <CardContent className="pt-5 pb-4">
           <div className="flex items-start justify-between gap-3">
             <div className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">
