@@ -2,14 +2,20 @@
 
 import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { BarChart3, Check, Clipboard, FileText, Loader2, Sparkles } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { BarChart3, Check, ChevronDown, Clipboard, Info, Loader2, Sparkles } from "lucide-react";
 
 type ReportMode = "comparison" | "single" | "prompt-only";
-type DailyPoint = { range: "pre" | "post" | "single"; date: string; sessions: number; pageviews: number; engagedSessions: number };
+type DailyPoint = { range: "pre" | "post" | "single"; date: string; sessions: number; pageviews: number; engagedSessions: number; topPages?: Array<{ page: string; views: number }> };
 type VisibilityPoint = { range: "pre" | "post" | "outside"; date: string; score: number };
+type GeneratedReport = {
+  sections: Array<{ key: string; title: string; summary: string; insights: Array<{ label: string; value: string; explanation: string }> }>;
+  beforeAfter: { before: { title: string; points: string[] }; after: { title: string; points: string[] }; differentiators: string[] };
+  recommendations: Array<{ title: string; action: string; why: string }>;
+  context: string[];
+};
 type Result = {
-  report?: string;
+  report?: GeneratedReport;
   prompt?: string;
   data?: {
     ga?: { summary?: { pre?: Record<string, number>; post?: Record<string, number>; single?: Record<string, number>; changes?: Record<string, number | null> }; daily?: DailyPoint[] };
@@ -37,7 +43,7 @@ function MetricComparison({ label, pre, post, suffix = "" }: { label: string; pr
   return (
     <Card className="py-0">
       <CardContent className="p-4">
-        <p className="text-[11px] uppercase tracking-[0.1em] text-[#097388]/75 font-semibold">{label}</p>
+        <div className="flex items-center gap-1"><p className="text-[11px] uppercase tracking-[0.1em] text-[#097388]/75 font-semibold">{label}</p><PlainTooltip text={`${label} in the first period compared with the second period.`} /></div>
         <div className="mt-2 flex items-end justify-between gap-3">
           <div><p className="text-[11px] text-muted-foreground">Pre</p><p className="font-headline text-[25px] text-[#001A2E]">{pre == null ? "—" : `${pre.toLocaleString()}${suffix}`}</p></div>
           <div className="text-right"><p className="text-[11px] text-muted-foreground">Post</p><p className="font-headline text-[25px] text-[#001A2E]">{post == null ? "—" : `${post.toLocaleString()}${suffix}`}</p></div>
@@ -52,20 +58,23 @@ function MetricSingle({ label, value, suffix = "" }: { label: string; value?: nu
   return <Card className="py-0"><CardContent className="p-4"><p className="text-[11px] uppercase tracking-[0.1em] text-[#097388]/75 font-semibold">{label}</p><p className="mt-2 font-headline text-[29px] text-[#001A2E]">{value == null ? "—" : `${value.toLocaleString()}${suffix}`}</p></CardContent></Card>;
 }
 
-function ReportBody({ report }: { report: string }) {
-  return (
-    <div className="space-y-2 text-[14px] leading-7 text-foreground/80">
-      {report.split("\n").map((raw, index) => {
-        const line = raw.replace(/\*\*/g, "").trim();
-        if (!line) return <div key={index} className="h-2" />;
-        if (line.startsWith("### ")) return <h4 key={index} className="pt-3 text-[17px] font-semibold text-[#001A2E]">{line.slice(4)}</h4>;
-        if (line.startsWith("## ")) return <h3 key={index} className="pt-4 font-headline text-[24px] text-[#001A2E]">{line.slice(3)}</h3>;
-        if (line.startsWith("# ")) return <h2 key={index} className="font-headline text-[28px] text-[#001A2E]">{line.slice(2)}</h2>;
-        if (/^[-*]\s/.test(line)) return <div key={index} className="flex gap-2 pl-2"><span className="text-[#0CA4C3]">•</span><p>{line.slice(2)}</p></div>;
-        return <p key={index}>{line}</p>;
-      })}
-    </div>
-  );
+function PlainTooltip({ text }: { text: string }) {
+  return <span className="relative group/tip inline-flex"><Info size={12} className="text-[#097388]/45 cursor-help" /><span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden w-56 -translate-x-1/2 rounded-lg bg-[#001A2E] px-3 py-2 text-[12px] font-normal normal-case tracking-normal text-white shadow-xl group-hover/tip:block">{text}</span></span>;
+}
+
+function ReportSectionCard({ section }: { section: GeneratedReport["sections"][number] }) {
+  return <Card className="py-0 h-full"><CardContent className="p-5 space-y-4"><div><div className="flex items-center gap-2"><h3 className="font-headline text-[22px] text-[#001A2E]">{section.title}</h3><PlainTooltip text={`This card explains ${section.title.toLowerCase()} in simple terms.`} /></div><p className="mt-1 text-[13px] leading-relaxed text-foreground/65">{section.summary}</p></div><div className="space-y-3">{section.insights?.map((insight, index) => <div key={`${insight.label}-${index}`} className="rounded-lg bg-muted/30 p-3"><div className="flex items-center justify-between gap-3"><p className="text-[12px] font-semibold text-[#001A2E]">{insight.label}</p><p className="text-[13px] font-semibold text-[#0394B2] text-right">{insight.value}</p></div><p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{insight.explanation}</p></div>)}</div></CardContent></Card>;
+}
+
+function ReportChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{ dataKey: string; value: number; color: string; payload: DailyPoint }> }) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0].payload;
+  return <div className="max-w-[270px] rounded-lg border border-border bg-white p-3 text-[12px] shadow-xl"><p className="font-semibold text-[#001A2E]">{point.date}</p>{payload.map((item) => <p key={item.dataKey} style={{ color: item.color }} className="mt-1 capitalize">{item.dataKey}: {item.value.toLocaleString()}</p>)}{!!point.topPages?.length && <div className="mt-2 border-t border-border/70 pt-2"><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Most-viewed pages</p>{point.topPages.map((page) => <p key={page.page} className="mt-1 flex justify-between gap-3 text-foreground/75"><span className="truncate">{page.page}</span><span className="shrink-0 text-muted-foreground">{page.views} views</span></p>)}</div>}</div>;
+}
+
+function BeforeAfter({ report }: { report: GeneratedReport }) {
+  const periods = [report.beforeAfter?.before, report.beforeAfter?.after].filter(Boolean);
+  return <div className="space-y-3"><div className="grid grid-cols-1 md:grid-cols-2 gap-3">{periods.map((period, index) => <Card key={index} className="py-0"><CardContent className="p-5"><p className="font-headline text-[22px] text-[#001A2E]">{period.title}</p><div className="mt-3 space-y-2">{period.points?.map((point) => <div key={point} className="flex gap-2 text-[13px] leading-relaxed text-foreground/75"><span className="text-[#0CA4C3]">•</span><p>{point}</p></div>)}</div></CardContent></Card>)}</div>{!!report.beforeAfter?.differentiators?.length && <Card className="py-0 border-[#0CA4C3]/30"><CardContent className="p-5"><p className="text-[12px] font-semibold uppercase tracking-wide text-[#0394B2]">What changed</p><div className="mt-3 grid gap-2 md:grid-cols-2">{report.beforeAfter.differentiators.map((item) => <p key={item} className="text-[13px] leading-relaxed text-foreground/75">• {item}</p>)}</div></CardContent></Card>}</div>;
 }
 
 export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: string; clientName: string }) {
@@ -165,16 +174,14 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
 
       {result && !result.error && (
         <div className="space-y-6">
-          {result.limitations && result.limitations.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="text-[13px] font-semibold text-amber-900">Data notes</p>{result.limitations.map((item) => <p key={item} className="mt-1 text-[12px] leading-relaxed text-amber-800">{item}</p>)}</div>}
+          {ga?.summary && mode === "comparison" && <div className="grid grid-cols-1 md:grid-cols-3 gap-3"><MetricComparison label="Sessions" pre={ga.summary.pre?.sessions} post={ga.summary.post?.sessions} /><MetricComparison label="Pageviews" pre={ga.summary.pre?.pageviews} post={ga.summary.post?.pageviews} /><MetricComparison label="Users" pre={ga.summary.pre?.users} post={ga.summary.post?.users} /></div>}
+          {ga?.summary?.single && mode === "single" && <div className="grid grid-cols-1 md:grid-cols-3 gap-3"><MetricSingle label="Sessions" value={ga.summary.single.sessions} /><MetricSingle label="Pageviews" value={ga.summary.single.pageviews} /><MetricSingle label="Users" value={ga.summary.single.users} /></div>}
 
-          {ga?.summary && mode === "comparison" && <div className="grid grid-cols-2 xl:grid-cols-4 gap-3"><MetricComparison label="Sessions" pre={ga.summary.pre?.sessions} post={ga.summary.post?.sessions} /><MetricComparison label="Pageviews" pre={ga.summary.pre?.pageviews} post={ga.summary.post?.pageviews} /><MetricComparison label="Users" pre={ga.summary.pre?.users} post={ga.summary.post?.users} /><MetricComparison label="Engagement rate" pre={(ga.summary.pre?.engagementRate || 0) * 100} post={(ga.summary.post?.engagementRate || 0) * 100} suffix="%" /></div>}
-          {ga?.summary?.single && mode === "single" && <div className="grid grid-cols-2 xl:grid-cols-4 gap-3"><MetricSingle label="Sessions" value={ga.summary.single.sessions} /><MetricSingle label="Pageviews" value={ga.summary.single.pageviews} /><MetricSingle label="Users" value={ga.summary.single.users} /><MetricSingle label="Engagement rate" value={(ga.summary.single.engagementRate || 0) * 100} suffix="%" /></div>}
+          {chartData.length > 0 && <Card><CardContent className="pt-5"><div className="flex items-center gap-2 mb-4"><BarChart3 size={15} className="text-[#0CA4C3]" /><p className="font-headline text-[21px] text-[#001A2E]">GA4 traffic by day</p><PlainTooltip text="This shows how many visits happened each day. Hover to see the busiest pages." /></div><div className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><defs><linearGradient id="reportSessions" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#0CA4C3" stopOpacity={0.3}/><stop offset="95%" stopColor="#0CA4C3" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#001A2E18"/><XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={28}/><YAxis tick={{ fontSize: 10 }} width={36}/><Tooltip content={<ReportChartTooltip />} />{mode === "comparison" && <ReferenceLine x={dates.postStart} stroke="#001A2E" strokeWidth={2} label={{ value: "Comparison starts", position: "insideTopRight", fill: "#001A2E", fontSize: 11 }} />}<Area type="monotone" dataKey="sessions" stroke="#0CA4C3" strokeWidth={2} fill="url(#reportSessions)"/></AreaChart></ResponsiveContainer></div></CardContent></Card>}
 
-          {chartData.length > 0 && <Card><CardContent className="pt-5"><div className="flex items-center gap-2 mb-4"><BarChart3 size={15} className="text-[#0CA4C3]" /><p className="font-headline text-[21px] text-[#001A2E]">GA4 traffic by day</p></div><div className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><defs><linearGradient id="reportSessions" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#0CA4C3" stopOpacity={0.3}/><stop offset="95%" stopColor="#0CA4C3" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#001A2E18"/><XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={28}/><YAxis tick={{ fontSize: 10 }} width={36}/><Tooltip/><Area type="monotone" dataKey="sessions" stroke="#0CA4C3" strokeWidth={2} fill="url(#reportSessions)"/></AreaChart></ResponsiveContainer></div></CardContent></Card>}
+          {(se?.visibilityHistory?.length || 0) > 0 && <Card><CardContent className="pt-5"><div className="flex items-center gap-2 mb-4"><p className="font-headline text-[21px] text-[#001A2E]">SE Ranking visibility history</p><PlainTooltip text="Visibility shows how easy it is to find the site in search results. A higher line is better." /></div><div className="h-[280px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={se!.visibilityHistory}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#001A2E18"/><XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={28}/><YAxis tick={{ fontSize: 10 }} width={40}/><Tooltip/>{mode === "comparison" && <ReferenceLine x={dates.postStart} stroke="#0CA4C3" strokeWidth={2} label={{ value: "Comparison starts", position: "insideTopRight", fill: "#001A2E", fontSize: 11 }} />}<Line type="monotone" dataKey="score" stroke="#001A2E" strokeWidth={2} dot={false}/></LineChart></ResponsiveContainer></div></CardContent></Card>}
 
-          {(se?.visibilityHistory?.length || 0) > 0 && <Card><CardContent className="pt-5"><p className="font-headline text-[21px] text-[#001A2E] mb-4">SE Ranking visibility history</p><div className="h-[280px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={se!.visibilityHistory}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#001A2E18"/><XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={28}/><YAxis tick={{ fontSize: 10 }} width={40}/><Tooltip/><Line type="monotone" dataKey="score" stroke="#001A2E" strokeWidth={2} dot={false}/></LineChart></ResponsiveContainer></div></CardContent></Card>}
-
-          {result.report && <Card><CardContent className="pt-5"><div className="flex items-center gap-2 mb-4"><FileText size={15} className="text-[#0CA4C3]"/><p className="font-headline text-[23px] text-[#001A2E]">Generated report</p></div><ReportBody report={result.report} /></CardContent></Card>}
+          {result.report && <div className="space-y-5"><div><p className="font-headline text-[27px] text-[#001A2E]">Generated report</p><p className="text-[13px] text-muted-foreground">The main findings are grouped into quick, readable cards.</p></div><div className="grid grid-cols-1 lg:grid-cols-2 gap-4">{result.report.sections?.map((section) => <ReportSectionCard key={section.key} section={section} />)}</div>{mode === "comparison" && <BeforeAfter report={result.report} />}{!!result.report.recommendations?.length && <div><p className="mb-3 font-headline text-[22px] text-[#001A2E]">Recommendations</p><div className="grid gap-3 md:grid-cols-2">{result.report.recommendations.map((item) => <Card key={item.title} className="py-0"><CardContent className="p-4"><p className="text-[14px] font-semibold text-[#001A2E]">{item.title}</p><p className="mt-2 text-[13px] text-foreground/75">{item.action}</p><p className="mt-2 text-[12px] text-muted-foreground">Why: {item.why}</p></CardContent></Card>)}</div></div>}<details className="group rounded-xl border border-border bg-white"><summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-[13px] font-medium text-[#001A2E]">Supporting context and data limits<ChevronDown size={15} className="transition-transform group-open:rotate-180" /></summary><div className="border-t border-border px-5 py-4 space-y-2">{[...(result.report.context || []), ...(result.limitations || [])].map((item) => <p key={item} className="text-[12px] leading-relaxed text-muted-foreground">• {item}</p>)}</div></details></div>}
 
           {result.prompt && <Card><CardContent className="pt-5"><div className="flex items-center justify-between gap-4 mb-3"><p className="font-headline text-[21px] text-[#001A2E]">Reusable prompt</p><button onClick={copyPrompt} className="inline-flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground/70 hover:bg-muted/80">{copied ? <Check size={12}/> : <Clipboard size={12}/>} {copied ? "Copied" : "Copy"}</button></div><pre className="max-h-[360px] overflow-auto whitespace-pre-wrap rounded-xl bg-[#001A2E] p-4 text-[11px] leading-relaxed text-white/75">{result.prompt}</pre></CardContent></Card>}
         </div>

@@ -39,7 +39,7 @@ async function fetchGa(propertyId: string, pre: NamedRange, post: NamedRange) {
     { startDate: pre.start, endDate: pre.end, name: "pre" },
     { startDate: post.start, endDate: post.end, name: "post" },
   ];
-  const [summaryResponse, dailyResponse, sourcesResponse, pagesResponse] = await Promise.all([
+  const [summaryResponse, dailyResponse, sourcesResponse, pagesResponse, dailyPagesResponse] = await Promise.all([
     client.runReport({
       property: `properties/${propertyId}`,
       dateRanges,
@@ -73,6 +73,14 @@ async function fetchGa(propertyId: string, pre: NamedRange, post: NamedRange) {
       orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
       limit: 50,
     }),
+    client.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges,
+      dimensions: [{ name: "date" }, { name: "pagePath" }],
+      metrics: [{ name: "screenPageViews" }],
+      orderBys: [{ dimension: { dimensionName: "date" } }, { metric: { metricName: "screenPageViews" }, desc: true }],
+      limit: 10000,
+    }),
   ]);
   const summary = summaryResponse[0];
   const summarize = (name: string) => {
@@ -89,11 +97,26 @@ async function fetchGa(propertyId: string, pre: NamedRange, post: NamedRange) {
     const rangeIndex = report.dimensionHeaders?.findIndex((header) => header.name === "dateRange") ?? 0;
     return (report.rows || []).map((row) => mapper(row, row.dimensionValues?.[rangeIndex]?.value || "unknown"));
   };
+  const dailyTopPages = new Map<string, Array<{ page: string; views: number }>>();
+  mapRows(dailyPagesResponse[0], (row, range) => {
+    const headers = dailyPagesResponse[0].dimensionHeaders || [];
+    const dateIndex = headers.findIndex((header) => header.name === "date");
+    const pageIndex = headers.findIndex((header) => header.name === "pagePath");
+    const raw = row.dimensionValues?.[dateIndex]?.value || "";
+    const date = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+    const key = `${range}:${date}`;
+    const list = dailyTopPages.get(key) || [];
+    const views = Number(row.metricValues?.[0]?.value || 0);
+    if (views > 0 && list.length < 3) list.push({ page: row.dimensionValues?.[pageIndex]?.value || "/", views });
+    dailyTopPages.set(key, list);
+    return null;
+  });
   const daily = mapRows(dailyResponse[0], (row, range) => {
     const headers = dailyResponse[0].dimensionHeaders || [];
     const dateIndex = headers.findIndex((header) => header.name === "date");
     const raw = row.dimensionValues?.[dateIndex]?.value || "";
-    return { range, date: `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`, sessions: Number(row.metricValues?.[0]?.value || 0), pageviews: Number(row.metricValues?.[1]?.value || 0), engagedSessions: Number(row.metricValues?.[2]?.value || 0) };
+    const date = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+    return { range, date, sessions: Number(row.metricValues?.[0]?.value || 0), pageviews: Number(row.metricValues?.[1]?.value || 0), engagedSessions: Number(row.metricValues?.[2]?.value || 0), topPages: dailyTopPages.get(`${range}:${date}`) || [] };
   }).filter((point) => {
     const item = point as { range: string; date: string };
     return item.range === "pre" ? item.date >= pre.start && item.date <= pre.end : item.range === "post" ? item.date >= post.start && item.date <= post.end : false;
@@ -212,8 +235,10 @@ export async function POST(req: NextRequest) {
     if (output === "prompt") return NextResponse.json({ prompt, data, availability, limitations, effectiveRanges });
     if (!process.env.GEMINI_API_KEY) return NextResponse.json({ error: "GEMINI_API_KEY is not configured", prompt, data, availability, limitations }, { status: 503 });
     const model = new GoogleGenerativeAI(process.env.GEMINI_API_KEY).getGenerativeModel({ model: "gemini-2.5-flash" });
-    const result = await model.generateContent(`${prompt}\n\nWrite a detailed report with these headings: Executive Summary, KPI Comparison, Traffic and Acquisition, Engagement and Content, Search Visibility and Rankings, Clarity Context, What Changed, Recommendations, Data Limitations. Use concise markdown.`);
-    return NextResponse.json({ report: result.response.text(), prompt, data, availability, limitations, effectiveRanges });
+    const result = await model.generateContent(`${prompt}\n\nReturn raw JSON only, with no markdown fences, using this exact shape:\n{"sections":[{"key":"executive|kpi|traffic|engagement|search|clarity","title":"Section title","summary":"One short plain-English takeaway","insights":[{"label":"Short label","value":"Metric or finding","explanation":"One sentence at a sixth-grade reading level"}]}],"beforeAfter":{"before":{"title":"Before","points":["Only the important starting conditions"]},"after":{"title":"After","points":["Only the important ending conditions"]},"differentiators":["Only material differences"]},"recommendations":[{"title":"Action title","action":"Specific next step","why":"Metric-based reason"}],"context":["Detailed supporting fact or limitation"]}. Include exactly six section cards: Executive Summary, KPI Comparison, Traffic and Acquisition, Engagement and Content, Search Visibility and Rankings, and Clarity Context. Keep each summary under 35 words, each section to 2-4 insights, and explanations simple. Do not repeat the same metric across sections.`);
+    const reportText = result.response.text().trim().replace(/^```json?\s*/i, "").replace(/\s*```$/, "");
+    const report = JSON.parse(reportText);
+    return NextResponse.json({ report, prompt, data, availability, limitations, effectiveRanges });
   } catch (error) {
     console.error("Custom report error:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to generate report" }, { status: 500 });

@@ -682,7 +682,7 @@ export default function ClientDashboard() {
                 onClick={() => setActiveSection("overview")}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[15px] font-medium transition-colors ${
                   activeSection === "overview"
-                    ? "bg-[#001A2E]/10 text-[#001A2E]"
+                    ? "bg-[#0CA4C3] text-white shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
               >
@@ -692,21 +692,21 @@ export default function ClientDashboard() {
                 onClick={() => setActiveSection("attribution")}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[15px] font-medium transition-colors ${
                   activeSection === "attribution"
-                    ? "bg-[#001A2E]/10 text-[#001A2E]"
+                    ? "bg-[#0CA4C3] text-white shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
               >
-                <Route size={15} /> Attribution
+                <Route size={15} /> Lead Funnel
               </button>
               <button
                 onClick={() => setActiveSection("report-generator")}
                 className={`w-full flex items-start gap-2 px-3 py-2 rounded-lg text-left text-[14px] font-medium leading-snug transition-colors ${
                   activeSection === "report-generator"
-                    ? "bg-[#001A2E]/10 text-[#001A2E]"
+                    ? "bg-[#0CA4C3] text-white shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
               >
-                <FileChartColumn size={15} className="mt-0.5 shrink-0" /> Custom Report Generator
+                <FileChartColumn size={15} className="mt-0.5 shrink-0" /> Custom Reports
               </button>
               {activeSection === "report-generator" && (
                 <div className="ml-8 border-l border-[#0CA4C3]/25 pl-3 py-1 text-[12px] font-medium text-[#0394B2]">
