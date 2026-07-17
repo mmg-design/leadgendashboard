@@ -23,10 +23,15 @@ type Result = {
   };
   availability?: Record<string, string>;
   limitations?: string[];
+  effectiveRanges?: { pre?: { start: string; end: string }; post?: { start: string; end: string }; range?: { start: string; end: string } };
   error?: string;
 };
 
-const EXAMPLE_QUERY = `Analyze website performance in the two months before launch and the two months after launch. Use Google Analytics, SE Ranking, and Microsoft Clarity. Explain changes in traffic, engagement, acquisition, content performance, search visibility, keyword rankings, and the metrics we track. Identify material insights and recommended next steps without assuming the launch caused every change.`;
+const EXAMPLE_QUERY = `Analyze website performance in the two months before launch and the two months after launch. Use Google Analytics and SE Ranking. Explain changes in traffic, acquisition, content performance, search visibility, keyword rankings, and the metrics we track. Identify material insights and recommended next steps without assuming the launch caused every change.`;
+
+function inclusiveDays(start: string, end: string) {
+  return Math.max(Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86400000) + 1, 0);
+}
 
 function defaultDates() {
   const today = new Date();
@@ -38,32 +43,32 @@ function defaultDates() {
   return { preStart: fmt(preStart), preEnd: fmt(preEnd), postStart: fmt(postStart), postEnd: fmt(postEnd), singleStart: fmt(postStart), singleEnd: fmt(postEnd) };
 }
 
-function MetricComparison({ label, pre, post, suffix = "" }: { label: string; pre?: number | null; post?: number | null; suffix?: string }) {
+function MetricComparison({ label, pre, post, preDays, postDays }: { label: string; pre?: number | null; post?: number | null; preDays: number; postDays: number }) {
   const change = pre && post != null ? ((post - pre) / pre) * 100 : null;
   return (
-    <Card className="py-0">
+    <Card className="py-0 overflow-visible relative hover:z-[60]">
       <CardContent className="p-4">
         <div className="flex items-center gap-1"><p className="text-[11px] uppercase tracking-[0.1em] text-[#097388]/75 font-semibold">{label}</p><PlainTooltip text={`${label} in the first period compared with the second period.`} /></div>
         <div className="mt-2 flex items-end justify-between gap-3">
-          <div><p className="text-[11px] text-muted-foreground">Pre</p><p className="font-headline text-[25px] text-[#001A2E]">{pre == null ? "—" : `${pre.toLocaleString()}${suffix}`}</p></div>
-          <div className="text-right"><p className="text-[11px] text-muted-foreground">Post</p><p className="font-headline text-[25px] text-[#001A2E]">{post == null ? "—" : `${post.toLocaleString()}${suffix}`}</p></div>
+          <div><p className="text-[11px] text-muted-foreground">Pre · {preDays}-day total</p><p className="font-headline text-[25px] text-[#001A2E]">{pre == null ? "—" : pre.toLocaleString()}</p></div>
+          <div className="text-right"><p className="text-[11px] text-muted-foreground">Post · {postDays}-day total</p><p className="font-headline text-[25px] text-[#001A2E]">{post == null ? "—" : post.toLocaleString()}</p></div>
         </div>
-        <p className={`mt-2 text-[12px] font-medium ${change == null ? "text-muted-foreground" : change >= 0 ? "text-emerald-700" : "text-amber-700"}`}>{change == null ? "No comparable baseline" : `${change >= 0 ? "+" : ""}${change.toFixed(1)}%`}</p>
+        <p className={`mt-2 text-[12px] font-medium ${change == null ? "text-muted-foreground" : change >= 0 ? "text-emerald-700" : "text-amber-700"}`}>{change == null ? "No comparable baseline" : `Post is ${change >= 0 ? "+" : ""}${change.toFixed(1)}% vs. pre`}</p>
       </CardContent>
     </Card>
   );
 }
 
-function MetricSingle({ label, value, suffix = "" }: { label: string; value?: number | null; suffix?: string }) {
-  return <Card className="py-0"><CardContent className="p-4"><p className="text-[11px] uppercase tracking-[0.1em] text-[#097388]/75 font-semibold">{label}</p><p className="mt-2 font-headline text-[29px] text-[#001A2E]">{value == null ? "—" : `${value.toLocaleString()}${suffix}`}</p></CardContent></Card>;
+function MetricSingle({ label, value, days }: { label: string; value?: number | null; days: number }) {
+  return <Card className="py-0 overflow-visible relative hover:z-[60]"><CardContent className="p-4"><div className="flex items-center gap-1"><p className="text-[11px] uppercase tracking-[0.1em] text-[#097388]/75 font-semibold">{label}</p><PlainTooltip text={`${label} added up across the selected ${days}-day period.`} /></div><p className="mt-2 font-headline text-[29px] text-[#001A2E]">{value == null ? "—" : value.toLocaleString()}</p><p className="mt-1 text-[11px] text-muted-foreground">{days}-day total</p></CardContent></Card>;
 }
 
 function PlainTooltip({ text }: { text: string }) {
-  return <span className="relative group/tip inline-flex"><Info size={12} className="text-[#097388]/45 cursor-help" /><span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden w-56 -translate-x-1/2 rounded-lg bg-[#001A2E] px-3 py-2 text-[12px] font-normal normal-case tracking-normal text-white shadow-xl group-hover/tip:block">{text}</span></span>;
+  return <span className="relative z-[70] group/tip inline-flex"><Info size={12} className="text-[#097388]/45 cursor-help" /><span className="pointer-events-none absolute bottom-full left-1/2 z-[100] mb-2 hidden w-56 -translate-x-1/2 rounded-lg bg-[#001A2E] px-3 py-2 text-[12px] font-normal normal-case tracking-normal text-white shadow-xl group-hover/tip:block">{text}</span></span>;
 }
 
 function ReportSectionCard({ section }: { section: GeneratedReport["sections"][number] }) {
-  return <Card className="py-0 h-full"><CardContent className="p-5 space-y-4"><div><div className="flex items-center gap-2"><h3 className="font-headline text-[22px] text-[#001A2E]">{section.title}</h3><PlainTooltip text={`This card explains ${section.title.toLowerCase()} in simple terms.`} /></div><p className="mt-1 text-[13px] leading-relaxed text-foreground/65">{section.summary}</p></div><div className="space-y-3">{section.insights?.map((insight, index) => <div key={`${insight.label}-${index}`} className="rounded-lg bg-muted/30 p-3"><div className="flex items-center justify-between gap-3"><p className="text-[12px] font-semibold text-[#001A2E]">{insight.label}</p><p className="text-[13px] font-semibold text-[#0394B2] text-right">{insight.value}</p></div><p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{insight.explanation}</p></div>)}</div></CardContent></Card>;
+  return <Card className="py-0 h-full overflow-visible relative hover:z-50"><CardContent className="p-5 space-y-4"><div><div className="flex items-center gap-2"><h3 className="font-headline text-[22px] text-[#001A2E]">{section.title}</h3><PlainTooltip text={`This card explains ${section.title.toLowerCase()} in simple terms.`} /></div><details className="group mt-2"><summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-[13px] font-medium text-foreground/70">Read the takeaway<ChevronDown size={13} className="shrink-0 transition-transform group-open:rotate-180" /></summary><p className="mt-2 text-[13px] leading-relaxed text-foreground/65">{section.summary}</p></details></div><div className="space-y-2">{section.insights?.map((insight, index) => <details key={`${insight.label}-${index}`} className="group rounded-lg bg-muted/30 p-3"><summary className="flex cursor-pointer list-none items-center justify-between gap-3"><p className="text-[13px] font-semibold text-[#001A2E]">{insight.label}</p><div className="flex items-center gap-2"><p className="text-[14px] font-semibold text-[#0394B2] text-right">{insight.value}</p><ChevronDown size={13} className="shrink-0 text-muted-foreground transition-transform group-open:rotate-180" /></div></summary><p className="mt-2 border-t border-border/60 pt-2 text-[12px] leading-relaxed text-muted-foreground">{insight.explanation}</p></details>)}</div></CardContent></Card>;
 }
 
 function ReportChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{ dataKey: string; value: number; color: string; payload: DailyPoint }> }) {
@@ -74,7 +79,7 @@ function ReportChartTooltip({ active, payload }: { active?: boolean; payload?: A
 
 function BeforeAfter({ report }: { report: GeneratedReport }) {
   const periods = [report.beforeAfter?.before, report.beforeAfter?.after].filter(Boolean);
-  return <div className="space-y-3"><div className="grid grid-cols-1 md:grid-cols-2 gap-3">{periods.map((period, index) => <Card key={index} className="py-0"><CardContent className="p-5"><p className="font-headline text-[22px] text-[#001A2E]">{period.title}</p><div className="mt-3 space-y-2">{period.points?.map((point) => <div key={point} className="flex gap-2 text-[13px] leading-relaxed text-foreground/75"><span className="text-[#0CA4C3]">•</span><p>{point}</p></div>)}</div></CardContent></Card>)}</div>{!!report.beforeAfter?.differentiators?.length && <Card className="py-0 border-[#0CA4C3]/30"><CardContent className="p-5"><p className="text-[12px] font-semibold uppercase tracking-wide text-[#0394B2]">What changed</p><div className="mt-3 grid gap-2 md:grid-cols-2">{report.beforeAfter.differentiators.map((item) => <p key={item} className="text-[13px] leading-relaxed text-foreground/75">• {item}</p>)}</div></CardContent></Card>}</div>;
+  return <div className="space-y-3"><div className="grid grid-cols-1 md:grid-cols-2 gap-3">{periods.map((period, index) => <Card key={index} className="py-0"><CardContent className="p-5"><p className="font-headline text-[25px] text-[#001A2E]">{period.title}</p><div className="mt-4 space-y-3">{period.points?.map((point) => <div key={point} className="flex gap-2 text-[16px] leading-relaxed text-foreground/80"><span className="text-[#0CA4C3]">•</span><p>{point}</p></div>)}</div></CardContent></Card>)}</div>{!!report.beforeAfter?.differentiators?.length && <Card className="py-0 border-[#0CA4C3]/30"><CardContent className="p-5"><p className="font-headline text-[23px] text-[#001A2E]">What changed</p><div className="mt-4 grid gap-3 md:grid-cols-2">{report.beforeAfter.differentiators.map((item) => <p key={item} className="text-[15px] leading-relaxed text-foreground/80">• {item}</p>)}</div></CardContent></Card>}</div>;
 }
 
 export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: string; clientName: string }) {
@@ -82,7 +87,7 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
   const [mode, setMode] = useState<ReportMode>("comparison");
   const [dates, setDates] = useState(defaults);
   const [query, setQuery] = useState(EXAMPLE_QUERY);
-  const [sources, setSources] = useState({ ga: true, clarity: true, seranking: true });
+  const [sources, setSources] = useState({ ga: true, seranking: true });
   const [loading, setLoading] = useState<"report" | "prompt" | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [copied, setCopied] = useState(false);
@@ -120,6 +125,9 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
   const ga = result?.data?.ga;
   const se = result?.data?.seranking;
   const chartData = (ga?.daily || []).map((point) => ({ ...point, periodLabel: point.range === "pre" ? "Pre-launch" : point.range === "post" ? "Post-launch" : "Selected range" }));
+  const preDays = inclusiveDays(result?.effectiveRanges?.pre?.start || dates.preStart, result?.effectiveRanges?.pre?.end || dates.preEnd);
+  const postDays = inclusiveDays(result?.effectiveRanges?.post?.start || dates.postStart, result?.effectiveRanges?.post?.end || dates.postEnd);
+  const singleDays = inclusiveDays(result?.effectiveRanges?.range?.start || dates.singleStart, result?.effectiveRanges?.range?.end || dates.singleEnd);
 
   return (
     <div className="space-y-6">
@@ -158,7 +166,7 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border/60 pt-4">
             <div className={`flex flex-wrap gap-2 ${mode === "prompt-only" ? "invisible" : ""}`}>
-              {([['ga', 'Google Analytics 4'], ['clarity', 'Microsoft Clarity'], ['seranking', 'SE Ranking']] as const).map(([key, label]) => (
+              {([['ga', 'Google Analytics 4'], ['seranking', 'SE Ranking']] as const).map(([key, label]) => (
                 <label key={key} className={`cursor-pointer rounded-full border px-3 py-1.5 text-[12px] font-medium ${sources[key] ? "border-[#0CA4C3]/35 bg-[#0CA4C3]/10 text-[#01384C]" : "border-border text-muted-foreground"}`}><input type="checkbox" checked={sources[key]} onChange={(event) => setSources((current) => ({ ...current, [key]: event.target.checked }))} className="sr-only" />{label}</label>
               ))}
             </div>
@@ -174,14 +182,14 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
 
       {result && !result.error && (
         <div className="space-y-6">
-          {ga?.summary && mode === "comparison" && <div className="grid grid-cols-1 md:grid-cols-3 gap-3"><MetricComparison label="Sessions" pre={ga.summary.pre?.sessions} post={ga.summary.post?.sessions} /><MetricComparison label="Pageviews" pre={ga.summary.pre?.pageviews} post={ga.summary.post?.pageviews} /><MetricComparison label="Users" pre={ga.summary.pre?.users} post={ga.summary.post?.users} /></div>}
-          {ga?.summary?.single && mode === "single" && <div className="grid grid-cols-1 md:grid-cols-3 gap-3"><MetricSingle label="Sessions" value={ga.summary.single.sessions} /><MetricSingle label="Pageviews" value={ga.summary.single.pageviews} /><MetricSingle label="Users" value={ga.summary.single.users} /></div>}
+          {ga?.summary && mode === "comparison" && <div className="grid grid-cols-1 md:grid-cols-3 gap-3"><MetricComparison label="Sessions" pre={ga.summary.pre?.sessions} post={ga.summary.post?.sessions} preDays={preDays} postDays={postDays} /><MetricComparison label="Pageviews" pre={ga.summary.pre?.pageviews} post={ga.summary.post?.pageviews} preDays={preDays} postDays={postDays} /><MetricComparison label="Users" pre={ga.summary.pre?.users} post={ga.summary.post?.users} preDays={preDays} postDays={postDays} /></div>}
+          {ga?.summary?.single && mode === "single" && <div className="grid grid-cols-1 md:grid-cols-3 gap-3"><MetricSingle label="Sessions" value={ga.summary.single.sessions} days={singleDays} /><MetricSingle label="Pageviews" value={ga.summary.single.pageviews} days={singleDays} /><MetricSingle label="Users" value={ga.summary.single.users} days={singleDays} /></div>}
 
           {chartData.length > 0 && <Card><CardContent className="pt-5"><div className="flex items-center gap-2 mb-4"><BarChart3 size={15} className="text-[#0CA4C3]" /><p className="font-headline text-[21px] text-[#001A2E]">GA4 traffic by day</p><PlainTooltip text="This shows how many visits happened each day. Hover to see the busiest pages." /></div><div className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><defs><linearGradient id="reportSessions" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#0CA4C3" stopOpacity={0.3}/><stop offset="95%" stopColor="#0CA4C3" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#001A2E18"/><XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={28}/><YAxis tick={{ fontSize: 10 }} width={36}/><Tooltip content={<ReportChartTooltip />} />{mode === "comparison" && <ReferenceLine x={dates.postStart} stroke="#001A2E" strokeWidth={2} label={{ value: "Comparison starts", position: "insideTopRight", fill: "#001A2E", fontSize: 11 }} />}<Area type="monotone" dataKey="sessions" stroke="#0CA4C3" strokeWidth={2} fill="url(#reportSessions)"/></AreaChart></ResponsiveContainer></div></CardContent></Card>}
 
           {(se?.visibilityHistory?.length || 0) > 0 && <Card><CardContent className="pt-5"><div className="flex items-center gap-2 mb-4"><p className="font-headline text-[21px] text-[#001A2E]">SE Ranking visibility history</p><PlainTooltip text="Visibility shows how easy it is to find the site in search results. A higher line is better." /></div><div className="h-[280px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={se!.visibilityHistory}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#001A2E18"/><XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={28}/><YAxis tick={{ fontSize: 10 }} width={40}/><Tooltip/>{mode === "comparison" && <ReferenceLine x={dates.postStart} stroke="#0CA4C3" strokeWidth={2} label={{ value: "Comparison starts", position: "insideTopRight", fill: "#001A2E", fontSize: 11 }} />}<Line type="monotone" dataKey="score" stroke="#001A2E" strokeWidth={2} dot={false}/></LineChart></ResponsiveContainer></div></CardContent></Card>}
 
-          {result.report && <div className="space-y-5"><div><p className="font-headline text-[27px] text-[#001A2E]">Generated report</p><p className="text-[13px] text-muted-foreground">The main findings are grouped into quick, readable cards.</p></div><div className="grid grid-cols-1 lg:grid-cols-2 gap-4">{result.report.sections?.map((section) => <ReportSectionCard key={section.key} section={section} />)}</div>{mode === "comparison" && <BeforeAfter report={result.report} />}{!!result.report.recommendations?.length && <div><p className="mb-3 font-headline text-[22px] text-[#001A2E]">Recommendations</p><div className="grid gap-3 md:grid-cols-2">{result.report.recommendations.map((item) => <Card key={item.title} className="py-0"><CardContent className="p-4"><p className="text-[14px] font-semibold text-[#001A2E]">{item.title}</p><p className="mt-2 text-[13px] text-foreground/75">{item.action}</p><p className="mt-2 text-[12px] text-muted-foreground">Why: {item.why}</p></CardContent></Card>)}</div></div>}<details className="group rounded-xl border border-border bg-white"><summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-[13px] font-medium text-[#001A2E]">Supporting context and data limits<ChevronDown size={15} className="transition-transform group-open:rotate-180" /></summary><div className="border-t border-border px-5 py-4 space-y-2">{[...(result.report.context || []), ...(result.limitations || [])].map((item) => <p key={item} className="text-[12px] leading-relaxed text-muted-foreground">• {item}</p>)}</div></details></div>}
+          {result.report && <div className="space-y-5"><div><p className="font-headline text-[27px] text-[#001A2E]">Generated report</p><p className="text-[13px] text-muted-foreground">The main findings are grouped into quick, readable cards.</p></div><div className="grid grid-cols-1 lg:grid-cols-2 gap-4">{result.report.sections?.map((section) => <ReportSectionCard key={section.key} section={section} />)}</div>{mode === "comparison" && <BeforeAfter report={result.report} />}{!!result.report.recommendations?.length && <div><p className="mb-3 font-headline text-[22px] text-[#001A2E]">Recommendations</p><div className="grid gap-3 md:grid-cols-2">{result.report.recommendations.map((item) => <details key={item.title} className="group rounded-2xl border border-[#001A2E]/[0.08] bg-white shadow-[0_8px_30px_rgba(0,26,46,0.08)]"><summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-[15px] font-semibold text-[#001A2E]">{item.title}<ChevronDown size={14} className="shrink-0 transition-transform group-open:rotate-180" /></summary><div className="border-t border-border px-4 py-3"><p className="text-[13px] text-foreground/75">{item.action}</p><p className="mt-2 text-[12px] text-muted-foreground">Why: {item.why}</p></div></details>)}</div></div>}<details className="group rounded-xl border border-border bg-white"><summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-[13px] font-medium text-[#001A2E]">Supporting context and data limits<ChevronDown size={15} className="transition-transform group-open:rotate-180" /></summary><div className="border-t border-border px-5 py-4 space-y-2">{[...(result.report.context || []), ...(result.limitations || [])].map((item) => <p key={item} className="text-[12px] leading-relaxed text-muted-foreground">• {item}</p>)}</div></details></div>}
 
           {result.prompt && <Card><CardContent className="pt-5"><div className="flex items-center justify-between gap-4 mb-3"><p className="font-headline text-[21px] text-[#001A2E]">Reusable prompt</p><button onClick={copyPrompt} className="inline-flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground/70 hover:bg-muted/80">{copied ? <Check size={12}/> : <Clipboard size={12}/>} {copied ? "Copied" : "Copy"}</button></div><pre className="max-h-[360px] overflow-auto whitespace-pre-wrap rounded-xl bg-[#001A2E] p-4 text-[11px] leading-relaxed text-white/75">{result.prompt}</pre></CardContent></Card>}
         </div>

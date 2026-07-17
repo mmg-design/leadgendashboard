@@ -171,14 +171,6 @@ async function fetchSeRanking(projectId: string, pre: NamedRange, post: NamedRan
   return { summary: { pre: summarize(preSnapshot), post: summarize(postSnapshot) }, visibilityHistory, keywordSnapshots: { pre: preSnapshot, post: postSnapshot } };
 }
 
-async function fetchClarity(projectId: string) {
-  const token = process.env.CLARITY_API_TOKEN;
-  if (!token) throw new Error("Clarity API token is not configured");
-  const response = await fetch("https://www.clarity.ms/export-data/api/v1/project-live-insights?numOfDays=3", { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, cache: "no-store" });
-  if (!response.ok) throw new Error(`Clarity returned ${response.status}`);
-  return { projectId, window: "rolling last 72 hours only", comparable: false, metrics: await response.json() };
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -194,7 +186,7 @@ export async function POST(req: NextRequest) {
     const post = mode === "single" ? range : requestedPost;
     if (!pre || !post || !validDate(pre.start) || !validDate(pre.end) || !validDate(post.start) || !validDate(post.end)) return NextResponse.json({ error: mode === "single" ? "A valid start and end date are required" : "Valid pre/post dates are required" }, { status: 400 });
     if (pre.start > pre.end || post.start > post.end) return NextResponse.json({ error: "Each start date must be on or before its end date" }, { status: 400 });
-    const selected = new Set(sources?.length ? sources : ["ga", "clarity", "seranking"]);
+    const selected = new Set(sources?.length ? sources : ["ga", "seranking"]);
     const today = new Date().toISOString().slice(0, 10);
     const effectivePost = { ...post, end: post.end > today ? today : post.end };
     const limitations: string[] = [];
@@ -211,12 +203,6 @@ export async function POST(req: NextRequest) {
       const integration = config.integrations.seRanking;
       if (integration?.enabled && integration.projectId) jobs.push(fetchSeRanking(integration.projectId, pre, effectivePost).then((value) => { data.seranking = value; availability.seranking = "available"; }).catch((error) => { availability.seranking = error.message; }));
       else availability.seranking = "not configured";
-    }
-    if (selected.has("clarity")) {
-      const integration = config.integrations.clarity;
-      limitations.push("Microsoft Clarity Data Export supplies only the most recent 72 hours, not arbitrary historical pre/post ranges; it is included as current context only.");
-      if (integration?.enabled && integration.projectId) jobs.push(fetchClarity(integration.projectId).then((value) => { data.clarity = value; availability.clarity = "current context only"; }).catch((error) => { availability.clarity = error.message; }));
-      else availability.clarity = "not configured";
     }
     await Promise.all(jobs);
     if (mode === "single") {
@@ -235,7 +221,7 @@ export async function POST(req: NextRequest) {
     if (output === "prompt") return NextResponse.json({ prompt, data, availability, limitations, effectiveRanges });
     if (!process.env.GEMINI_API_KEY) return NextResponse.json({ error: "GEMINI_API_KEY is not configured", prompt, data, availability, limitations }, { status: 503 });
     const model = new GoogleGenerativeAI(process.env.GEMINI_API_KEY).getGenerativeModel({ model: "gemini-2.5-flash" });
-    const result = await model.generateContent(`${prompt}\n\nReturn raw JSON only, with no markdown fences, using this exact shape:\n{"sections":[{"key":"executive|kpi|traffic|engagement|search|clarity","title":"Section title","summary":"One short plain-English takeaway","insights":[{"label":"Short label","value":"Metric or finding","explanation":"One sentence at a sixth-grade reading level"}]}],"beforeAfter":{"before":{"title":"Before","points":["Only the important starting conditions"]},"after":{"title":"After","points":["Only the important ending conditions"]},"differentiators":["Only material differences"]},"recommendations":[{"title":"Action title","action":"Specific next step","why":"Metric-based reason"}],"context":["Detailed supporting fact or limitation"]}. Include exactly six section cards: Executive Summary, KPI Comparison, Traffic and Acquisition, Engagement and Content, Search Visibility and Rankings, and Clarity Context. Keep each summary under 35 words, each section to 2-4 insights, and explanations simple. Do not repeat the same metric across sections.`);
+    const result = await model.generateContent(`${prompt}\n\nReturn raw JSON only, with no markdown fences, using this exact shape:\n{"sections":[{"key":"executive|kpi|traffic|engagement|search","title":"Section title","summary":"One short plain-English takeaway","insights":[{"label":"Short label","value":"Metric or finding","explanation":"One sentence at a sixth-grade reading level"}]}],"beforeAfter":{"before":{"title":"Before","points":["Only the important starting conditions"]},"after":{"title":"After","points":["Only the important ending conditions"]},"differentiators":["Only material differences"]},"recommendations":[{"title":"Action title","action":"Specific next step","why":"Metric-based reason"}],"context":["Detailed supporting fact or limitation"]}. Include exactly five section cards: Executive Summary, KPI Comparison, Traffic and Acquisition, Engagement and Content, and Search Visibility and Rankings. Use only Google Analytics and SE Ranking evidence. Keep each summary under 35 words, each section to 2-4 insights, and explanations simple. Do not repeat the same metric across sections.`);
     const reportText = result.response.text().trim().replace(/^```json?\s*/i, "").replace(/\s*```$/, "");
     const report = JSON.parse(reportText);
     return NextResponse.json({ report, prompt, data, availability, limitations, effectiveRanges });

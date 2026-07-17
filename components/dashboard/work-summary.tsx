@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Activity, Calendar, Clock, RefreshCw } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
@@ -21,6 +22,7 @@ interface WorkSummaryData {
 }
 
 interface WorkSummaryProps {
+  clientSlug: string;
   clientName: string;
   data: WorkSummaryData | null;
   loading: boolean;
@@ -28,6 +30,10 @@ interface WorkSummaryProps {
   error?: string | null;
   onRefresh?: () => void;
 }
+
+const clientHeroImages: Record<string, string> = {
+  "the-translation-team": "/clients/the-translation-team/hero-card.png",
+};
 
 function formatDuration(ms: number): string {
   if (ms <= 0) return "0h";
@@ -39,7 +45,8 @@ function formatDuration(ms: number): string {
   return `${h}h ${m}m`;
 }
 
-export function WorkSummary({ clientName, data, loading, enabled, error, onRefresh }: WorkSummaryProps) {
+export function WorkSummary({ clientSlug, clientName, data, loading, enabled, error, onRefresh }: WorkSummaryProps) {
+  const heroImage = clientHeroImages[clientSlug];
   // Merge activity feed + comments into a single stream, sorted by recency
   const activityStream: { id: string; name: string; phase: string; text?: string; ts: number }[] = [];
 
@@ -58,7 +65,20 @@ export function WorkSummary({ clientName, data, loading, enabled, error, onRefre
   return (
     <div className="space-y-4">
       {/* Engagement card - name + date on right */}
-      <Card>
+      <Card className="overflow-hidden">
+        {heroImage && (
+          <div className="relative aspect-[4/5] overflow-hidden bg-[#001A2E]">
+            <Image
+              src={heroImage}
+              alt={`${clientName} website hero`}
+              fill
+              priority
+              sizes="(min-width: 1280px) 380px, 100vw"
+              className="object-cover"
+            />
+            <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10" />
+          </div>
+        )}
         <CardContent className="pt-5 pb-4">
           <div className="flex items-start justify-between gap-3">
             <div className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5">
