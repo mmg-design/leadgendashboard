@@ -17,6 +17,7 @@ import {
   GripVertical,
   AlertTriangle,
   Sparkles,
+  Video,
 } from "lucide-react";
 
 interface ConversionResult {
@@ -73,9 +74,19 @@ interface AttributionProps {
   loading?: boolean;
   range: string;
   actionItemsState: ActionItemsState;
+  posthog?: { enabled: boolean; projectId: string; host?: string };
   onGoalsSaved: () => void;
   onActionItemsSaved: () => void;
   onRefresh: () => void;
+}
+
+// PostHog is an optional, unrelated integration - GA4 stays the source of truth for
+// every count on this page. This only builds a link to that project's session replay
+// list; it never fires events, reads PostHog data, or touches the tracking snippet.
+function postHogRecordingsUrl(posthog?: { enabled: boolean; projectId: string; host?: string }): string | null {
+  if (!posthog?.enabled || !posthog.projectId) return null;
+  const host = (posthog.host || "https://us.posthog.com").replace(/\/+$/, "");
+  return `${host}/project/${posthog.projectId}/replay`;
 }
 
 interface ActionItem {
@@ -125,22 +136,22 @@ function foundSiteInsight(sessionsChange: number | null | undefined, visited: nu
 
 function stuckAroundInsight(engagementPct: number, engagedSessions: number, visited: number) {
   const pct = Math.round(engagementPct);
-  const left = Math.max(100 - pct, 0);
   const counts = `${engagedSessions.toLocaleString()} of ${visited.toLocaleString()}`;
+  const insight = `${pct}% engaged (${counts} sessions).`;
   if (engagementPct >= 60) {
     return {
-      insight: `${pct}% of visitors (${counts}) engaged meaningfully - well above typical.`,
+      insight,
       action: "See what's resonating in Top Pages on the Overview tab and lean into it.",
     };
   }
   if (engagementPct >= 40) {
     return {
-      insight: `${pct}% of visitors (${counts}) engaged meaningfully; the other ${left}% left quickly.`,
+      insight,
       action: "Check scroll depth and rage clicks below for where people lose interest.",
     };
   }
   return {
-    insight: `Only ${pct}% of visitors (${counts}) stuck around - most leave within seconds.`,
+    insight,
     action: "The message above the fold likely isn't landing - revisit the headline and first section.",
   };
 }
@@ -319,6 +330,7 @@ function MiniGoalCard({
   onRequestDelete,
   onConfirmDelete,
   onCancelDelete,
+  postHogUrl,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -333,6 +345,7 @@ function MiniGoalCard({
   onRequestDelete: () => void;
   onConfirmDelete: () => void;
   onCancelDelete: () => void;
+  postHogUrl?: string | null;
 }) {
   return (
     <Card className="py-3">
@@ -367,6 +380,17 @@ function MiniGoalCard({
               </>
             ) : (
               <>
+                {postHogUrl && (
+                  <a
+                    href={postHogUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="View session recordings in PostHog"
+                    className="p-1 rounded-md text-[#0CA4C3] hover:text-white hover:bg-[#0CA4C3] transition-colors"
+                  >
+                    <Video size={10.5} />
+                  </a>
+                )}
                 <button
                   onClick={onRefresh}
                   disabled={refreshing}
@@ -593,10 +617,12 @@ export function Attribution({
   loading,
   range,
   actionItemsState,
+  posthog,
   onGoalsSaved,
   onActionItemsSaved,
   onRefresh,
 }: AttributionProps) {
+  const postHogUrl = postHogRecordingsUrl(posthog);
   const [wizardMode, setWizardMode] = useState<"closed" | "adding" | string>("closed"); // string = editing goal id
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -882,6 +908,7 @@ export function Attribution({
                     onRequestDelete={() => setPendingDeleteId(conv.id)}
                     onConfirmDelete={() => handleDelete(conv.id)}
                     onCancelDelete={() => setPendingDeleteId(null)}
+                    postHogUrl={postHogUrl}
                   />
                 );
               })}

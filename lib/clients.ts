@@ -48,6 +48,14 @@ export interface ClientConfig {
       teamMemberIds?: string[];
       engagementStartDate?: string;
     };
+    // Optional: links each conversion event to its PostHog session replay list.
+    // Not part of the tracking pipeline - no snippet or GA4 changes depend on
+    // this being set, so it's a no-op everywhere until a client configures it.
+    posthog?: {
+      enabled: boolean;
+      projectId: string;
+      host?: string; // defaults to https://us.posthog.com
+    };
   };
   goals: GoalConfig[];
   actionItemsState: ActionItemsState;

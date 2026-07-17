@@ -118,6 +118,11 @@ interface ClientConfig {
       listIds: string[];
       engagementStartDate?: string;
     };
+    posthog?: {
+      enabled: boolean;
+      projectId: string;
+      host?: string;
+    };
   };
   goals?: GoalConfig[];
   actionItemsState?: { dismissed: string[]; order: string[] };
@@ -128,6 +133,7 @@ type SettingsIntegrations = {
   clarity: { enabled: boolean; projectId: string };
   seRanking: { enabled: boolean; projectId: string };
   clickup: { enabled: boolean; listIds: string[]; engagementStartDate?: string };
+  posthog: { enabled: boolean; projectId: string; host?: string };
 };
 
 type ClientsResponse = {
@@ -181,6 +187,8 @@ export default function ClientDashboard() {
     seRankingProjectId: "",
     clickupListIds: "",
     clickupEngagementStart: "",
+    posthogProjectId: "",
+    posthogHost: "",
   });
 
   async function readUploadResponse(res: Response) {
@@ -204,6 +212,8 @@ export default function ClientDashboard() {
         seRankingProjectId: clientConfig.integrations?.seRanking?.projectId || "",
         clickupListIds: (clientConfig.integrations?.clickup?.listIds || []).join(", "),
         clickupEngagementStart: clientConfig.integrations?.clickup?.engagementStartDate || "",
+        posthogProjectId: clientConfig.integrations?.posthog?.projectId || "",
+        posthogHost: clientConfig.integrations?.posthog?.host || "",
       });
     }
   }, [clientConfig]);
@@ -287,6 +297,9 @@ export default function ClientDashboard() {
                 engagementStartDate: settingsForm.clickupEngagementStart || undefined,
               }
             : { enabled: false, listIds: [] },
+        posthog: settingsForm.posthogProjectId
+          ? { enabled: true, projectId: settingsForm.posthogProjectId, host: settingsForm.posthogHost || undefined }
+          : { enabled: false, projectId: "" },
       };
 
       const res = await fetch("/api/clients", {
@@ -564,6 +577,26 @@ export default function ClientDashboard() {
                     className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                 </div>
+                <div>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">PostHog Project ID</label>
+                  <input
+                    type="text"
+                    value={settingsForm.posthogProjectId}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, posthogProjectId: e.target.value })}
+                    placeholder="Optional - leave blank to skip"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                  />
+                  <p className="text-[12px] text-[#097388]/75 mt-0.5">Adds a link to session recordings on each conversion event. Not required.</p>
+                  {settingsForm.posthogProjectId && (
+                    <input
+                      type="text"
+                      value={settingsForm.posthogHost}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, posthogHost: e.target.value })}
+                      placeholder="https://us.posthog.com (default)"
+                      className="w-full mt-2 px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                    />
+                  )}
+                </div>
               </div>
 
               {/* SEO & Project Work */}
@@ -677,6 +710,7 @@ export default function ClientDashboard() {
                 clarity={clarity}
                 loading={gaLoading}
                 range={range}
+                posthog={clientConfig?.integrations?.posthog}
                 onGoalsSaved={() => { fetchClientConfig(); fetchGa(true); }}
                 onActionItemsSaved={() => { fetchClientConfig(); }}
                 onRefresh={() => fetchGa(true)}
