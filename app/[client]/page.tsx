@@ -13,6 +13,7 @@ import { AIAnalysisCard } from "@/components/dashboard/ai-analysis";
 import { SearchPerformance } from "@/components/dashboard/search-performance";
 import { WorkSummary } from "@/components/dashboard/work-summary";
 import { Attribution } from "@/components/dashboard/attribution";
+import { CustomReportGenerator } from "@/components/dashboard/custom-report-generator";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
 import type { GoalConfig } from "@/lib/clients";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,6 +33,7 @@ import {
   RefreshCw,
   LayoutDashboard,
   Route,
+  FileChartColumn,
 } from "lucide-react";
 
 interface GAData {
@@ -155,7 +157,7 @@ export default function ClientDashboard() {
   const clientSlug = params.client as string;
 
   const [range, setRange] = useState("7d");
-  const [activeSection, setActiveSection] = useState<"overview" | "attribution">("overview");
+  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "report-generator">("overview");
   const [clientName, setClientName] = useState(
     clientSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
   );
@@ -696,12 +698,29 @@ export default function ClientDashboard() {
               >
                 <Route size={15} /> Attribution
               </button>
+              <button
+                onClick={() => setActiveSection("report-generator")}
+                className={`w-full flex items-start gap-2 px-3 py-2 rounded-lg text-left text-[14px] font-medium leading-snug transition-colors ${
+                  activeSection === "report-generator"
+                    ? "bg-[#001A2E]/10 text-[#001A2E]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                }`}
+              >
+                <FileChartColumn size={15} className="mt-0.5 shrink-0" /> Custom Report Generator
+              </button>
+              {activeSection === "report-generator" && (
+                <div className="ml-8 border-l border-[#0CA4C3]/25 pl-3 py-1 text-[12px] font-medium text-[#0394B2]">
+                  Report Generator
+                </div>
+              )}
             </nav>
           </aside>
 
           {/* ── Main content ── */}
           <div className="min-w-0 flex-1">
-            {activeSection === "attribution" ? (
+            {activeSection === "report-generator" ? (
+              <CustomReportGenerator clientSlug={clientSlug} clientName={clientName} />
+            ) : activeSection === "attribution" ? (
               <Attribution
                 clientSlug={clientSlug}
                 goals={clientConfig?.goals || []}

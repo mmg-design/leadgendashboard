@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
 
     const [urlRes, siteRes] = await Promise.all([
       fetch(`https://www.clarity.ms/export-data/api/v1/project-live-insights?numOfDays=3&dimension1=URL`, { headers }),
-      fetch(`https://www.clarity.ms/export-data/api/v1/project-live-insights?numOfDays=30`, { headers }),
+      fetch(`https://www.clarity.ms/export-data/api/v1/project-live-insights?numOfDays=3`, { headers }),
     ]);
 
     if (urlRes.ok) {
