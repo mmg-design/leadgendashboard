@@ -711,42 +711,29 @@ export default function ClientDashboard() {
         <div className="flex gap-8 items-start">
           {/* ── Sidebar ── */}
           <aside className="w-[190px] shrink-0">
-            <nav className="space-y-1 xl:sticky xl:top-8">
-              <button
-                onClick={() => setActiveSection("overview")}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[15px] font-medium transition-colors ${
-                  activeSection === "overview"
-                    ? "bg-[#0CA4C3] text-white shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                }`}
-              >
-                <LayoutDashboard size={15} /> Overview
-              </button>
-              <button
-                onClick={() => setActiveSection("attribution")}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[15px] font-medium transition-colors ${
-                  activeSection === "attribution"
-                    ? "bg-[#0CA4C3] text-white shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                }`}
-              >
-                <Route size={15} /> Lead Funnel
-              </button>
-              <button
-                onClick={() => setActiveSection("report-generator")}
-                className={`w-full flex items-start gap-2 px-3 py-2 rounded-lg text-left text-[14px] font-medium leading-snug transition-colors ${
-                  activeSection === "report-generator"
-                    ? "bg-[#0CA4C3] text-white shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                }`}
-              >
-                <FileChartColumn size={15} className="mt-0.5 shrink-0" /> Custom Reports
-              </button>
-              {activeSection === "report-generator" && (
-                <div className="ml-8 border-l border-[#0CA4C3]/25 pl-3 py-1 text-[12px] font-medium text-[#0394B2]">
-                  Report Generator
-                </div>
-              )}
+            <nav className="space-y-1.5 xl:sticky xl:top-8">
+              {([
+                ["overview", "Overview", LayoutDashboard],
+                ["attribution", "Lead Funnel", Route],
+                ["report-generator", "Custom Reports", FileChartColumn],
+              ] as const).map(([key, label, Icon]) => {
+                const active = activeSection === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setActiveSection(key)}
+                    aria-current={active ? "page" : undefined}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[15px] font-medium transition-colors ${
+                      active
+                        ? "bg-white text-[#001A2E] border border-border shadow-[0_1px_2px_rgba(0,26,46,0.04),0_4px_16px_rgba(0,26,46,0.05)]"
+                        : "border border-transparent text-muted-foreground hover:text-[#001A2E] hover:bg-white/70"
+                    }`}
+                  >
+                    <Icon size={16} className={active ? "text-[#0CA4C3]" : ""} />
+                    {label}
+                  </button>
+                );
+              })}
             </nav>
           </aside>
 
@@ -758,14 +745,11 @@ export default function ClientDashboard() {
               <Attribution
                 clientSlug={clientSlug}
                 goals={clientConfig?.goals || []}
-                actionItemsState={clientConfig?.actionItemsState || { dismissed: [], order: [] }}
                 ga={ga}
-                clarity={clarity}
                 loading={gaLoading}
                 range={range}
                 posthog={clientConfig?.integrations?.posthog}
                 onGoalsSaved={() => { fetchClientConfig(); fetchGa(true); }}
-                onActionItemsSaved={() => { fetchClientConfig(); }}
                 onRefresh={() => fetchGa(true)}
               />
             ) : (

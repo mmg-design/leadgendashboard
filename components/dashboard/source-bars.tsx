@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Globe, Info } from "lucide-react";
-import { groupSources } from "@/lib/source-colors";
+import { groupSources, lighten } from "@/lib/source-colors";
 
 interface SourceBarsProps {
   data: { source: string; sessions: number }[];
@@ -66,7 +66,7 @@ export function SourceBars({ data, totalSessions, title = "Traffic Sources" }: S
                 <div className="h-2 w-full bg-[#001A2E]/[0.05] rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-300"
-                    style={{ width: `${(g.sessions / max) * 100}%`, background: g.color }}
+                    style={{ width: `${(g.sessions / max) * 100}%`, background: `linear-gradient(90deg, ${lighten(g.color)}, ${g.color})` }}
                   />
                 </div>
 

@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp } from "lucide-react";
-import { groupSources, OTHER_COLOR, sourceMeta } from "@/lib/source-colors";
+import { groupSources, lighten, OTHER_COLOR, sourceMeta } from "@/lib/source-colors";
 
 interface DailyPoint {
   date: string;
@@ -161,6 +161,14 @@ export function TrafficChart({ data, dailySources, title = "Traffic Overview" }:
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={bySource ? rows : fallbackRows} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
               <defs>
+                {/* Same treatment as the Lead Funnel: each source runs from a light tint
+                    of its color at the top to the full color at the bottom. */}
+                {series.map((s, i) => (
+                  <linearGradient key={s.key} id={`source-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={lighten(s.color)} />
+                    <stop offset="100%" stopColor={s.color} />
+                  </linearGradient>
+                ))}
                 <linearGradient id="sessions-fallback" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#2a78d6" stopOpacity={0.28} />
                   <stop offset="100%" stopColor="#2a78d6" stopOpacity={0.02} />
@@ -197,8 +205,8 @@ export function TrafficChart({ data, dailySources, title = "Traffic Overview" }:
                     stackId="sources"
                     stroke="#ffffff"
                     strokeWidth={1.5}
-                    fill={s.color}
-                    fillOpacity={0.88}
+                    fill={`url(#source-grad-${series.indexOf(s)})`}
+                    fillOpacity={0.95}
                     activeDot={false}
                     isAnimationActive={false}
                   />

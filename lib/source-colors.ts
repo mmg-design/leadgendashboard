@@ -19,6 +19,15 @@ export const SOURCE_PALETTE = [
 
 export const OTHER_COLOR = "#b4c3c9";
 
+// Lighter tint of a source color (mixed toward white) for gradient tops, so a
+// gradient stays recognizably the same hue as the solid legend dot.
+export function lighten(hex: string, amount = 0.38): string {
+  const n = parseInt(hex.slice(1), 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * amount);
+  const r = mix((n >> 16) & 255), g = mix((n >> 8) & 255), b = mix(n & 255);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
 interface KnownSource {
   match: (s: string) => boolean;
   key: string;
