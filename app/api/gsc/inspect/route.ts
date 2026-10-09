@@ -6,6 +6,7 @@ import { GscError, inspectUrl, resolveProperty, type IndexStatus } from "@/lib/g
 // Index status for a handful of pages. Google allows ~2,000 inspections per
 // property per day, so each URL's result is kept for a day.
 const MAX_URLS = 12;
+const CONCURRENCY = MAX_URLS; // each inspection takes ~8s at Google, so run them together
 
 export async function POST(req: NextRequest) {
   const { client: slug, urls, fresh } = (await req.json()) as { client?: string; urls?: string[]; fresh?: boolean };
@@ -19,7 +20,9 @@ export async function POST(req: NextRequest) {
   const results: Record<string, IndexStatus> = {};
 
   try {
-    for (const url of urls.slice(0, MAX_URLS)) {
+    const wanted = urls.slice(0, MAX_URLS);
+    const toInspect: string[] = [];
+    for (const url of wanted) {
       if (!fresh) {
         const cached = await db.execute({
           sql: `SELECT data FROM analytics_cache WHERE client_slug = ? AND metric_type = 'gsc_inspect' AND date_range = ?
@@ -31,13 +34,22 @@ export async function POST(req: NextRequest) {
           continue;
         }
       }
-      const status = await inspectUrl(property, url);
-      results[url] = status;
-      await db.execute({
-        sql: `INSERT OR REPLACE INTO analytics_cache (client_slug, metric_type, date_range, data, fetched_at)
-              VALUES (?, 'gsc_inspect', ?, ?, datetime('now'))`,
-        args: [slug, url, JSON.stringify(status)],
-      });
+      toInspect.push(url);
+    }
+
+    // In parallel: one-by-one took 30s+ for a first visit in production, and
+    // Google allows 600 inspections a minute per property.
+    for (let i = 0; i < toInspect.length; i += CONCURRENCY) {
+      const batch = toInspect.slice(i, i + CONCURRENCY);
+      const statuses = await Promise.all(batch.map((url) => inspectUrl(property, url)));
+      for (const [j, status] of statuses.entries()) {
+        results[batch[j]] = status;
+        await db.execute({
+          sql: `INSERT OR REPLACE INTO analytics_cache (client_slug, metric_type, date_range, data, fetched_at)
+                VALUES (?, 'gsc_inspect', ?, ?, datetime('now'))`,
+          args: [slug, batch[j], JSON.stringify(status)],
+        });
+      }
     }
     return NextResponse.json({ status: "ok", results });
   } catch (err) {
