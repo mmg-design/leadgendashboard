@@ -21,6 +21,7 @@ import { SearchPerformance } from "@/components/dashboard/search-performance";
 import { WorkSummary } from "@/components/dashboard/work-summary";
 import { Attribution } from "@/components/dashboard/attribution";
 import { CustomReportGenerator } from "@/components/dashboard/custom-report-generator";
+import { AiVisibilityTab } from "@/components/dashboard/ai-visibility";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
 import type { GoalConfig } from "@/lib/clients";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,6 +42,7 @@ import {
   LayoutDashboard,
   Route,
   FileChartColumn,
+  Sparkles,
 } from "lucide-react";
 
 interface GAData {
@@ -163,7 +165,7 @@ export default function ClientDashboard() {
   const clientSlug = params.client as string;
 
   const [range, setRange] = useState("7d");
-  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "report-generator">("overview");
+  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "ai-visibility" | "report-generator">("overview");
   const [clientName, setClientName] = useState(
     clientSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
   );
@@ -191,6 +193,7 @@ export default function ClientDashboard() {
   const iconInputRef = useRef<HTMLInputElement | null>(null);
   const [settingsForm, setSettingsForm] = useState({
     name: "",
+    domain: "",
     iconUrl: "",
     gaPropertyId: "",
     clarityProjectId: "",
@@ -218,6 +221,7 @@ export default function ClientDashboard() {
     if (clientConfig) {
       setSettingsForm({
         name: clientConfig.name || "",
+        domain: clientConfig.domain || "",
         iconUrl: clientConfig.iconUrl || "",
         gaPropertyId: clientConfig.integrations?.googleAnalytics?.propertyId || "",
         clarityProjectId: clientConfig.integrations?.clarity?.projectId || "",
@@ -330,6 +334,7 @@ export default function ClientDashboard() {
         body: JSON.stringify({
           slug: clientSlug,
           name: settingsForm.name,
+          domain: settingsForm.domain.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "") || undefined,
           iconUrl: settingsForm.iconUrl,
           integrations,
         }),
@@ -573,6 +578,17 @@ export default function ClientDashboard() {
                   />
                 </div>
                 <div>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">Website Domain</label>
+                  <input
+                    type="text"
+                    value={settingsForm.domain}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, domain: e.target.value })}
+                    placeholder="example.com"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                  />
+                  <p className="text-[12px] text-[#097388]/75 mt-0.5">The live site&apos;s domain. Used to match Search Console, Clarity, and AI citations.</p>
+                </div>
+                <div>
                   <label className="text-[14px] font-medium text-foreground/70 mb-1 block">Project Icon</label>
                   <label
                     onDragOver={(e) => {
@@ -783,6 +799,7 @@ export default function ClientDashboard() {
               {([
                 ["overview", "Overview", LayoutDashboard],
                 ["attribution", "Lead Funnel", Route],
+                ["ai-visibility", "AI Visibility", Sparkles],
                 ["report-generator", "Custom Reports", FileChartColumn],
               ] as const).map(([key, label, Icon]) => {
                 const active = activeSection === key;
@@ -807,7 +824,9 @@ export default function ClientDashboard() {
 
           {/* ── Main content ── */}
           <div className="min-w-0 flex-1">
-            {activeSection === "report-generator" ? (
+            {activeSection === "ai-visibility" ? (
+              <AiVisibilityTab clientSlug={clientSlug} clientName={clientName} range={range} />
+            ) : activeSection === "report-generator" ? (
               <CustomReportGenerator clientSlug={clientSlug} clientName={clientName} />
             ) : activeSection === "attribution" ? (
               <Attribution
