@@ -13,6 +13,9 @@ import { PageBehavior } from "@/components/dashboard/page-behavior";
 import { DeviceSplit } from "@/components/dashboard/device-split";
 import { labelPages, type ClaritySummary, type GaDevice } from "@/lib/page-behavior";
 import type { RankedKeyword } from "@/lib/keyword-insights";
+import { normalizePath } from "@/lib/page-behavior";
+import type { IndexStatus } from "@/lib/gsc";
+import type { GscData } from "@/components/dashboard/search-console";
 import { AIAnalysisCard } from "@/components/dashboard/ai-analysis";
 import { SearchPerformance } from "@/components/dashboard/search-performance";
 import { WorkSummary } from "@/components/dashboard/work-summary";
@@ -109,6 +112,10 @@ interface ClientConfig {
       projectId: string;
       hasApiToken?: boolean;
     };
+    searchConsole?: {
+      enabled: boolean;
+      property: string;
+    };
     seRanking?: {
       enabled: boolean;
       projectId: string;
@@ -131,6 +138,7 @@ interface ClientConfig {
 type SettingsIntegrations = {
   googleAnalytics: { enabled: boolean; propertyId: string };
   clarity: { enabled: boolean; projectId: string; apiToken?: string };
+  searchConsole: { enabled: boolean; property: string };
   seRanking: { enabled: boolean; projectId: string };
   clickup: { enabled: boolean; listIds: string[]; engagementStartDate?: string };
   posthog: { enabled: boolean; projectId: string; host?: string };
@@ -164,6 +172,8 @@ export default function ClientDashboard() {
   const [gaLoading, setGaLoading] = useState(false);
   const [gaError, setGaError] = useState<string | null>(null);
   const [clarity, setClarity] = useState<ClaritySummary | null>(null);
+  const [gsc, setGsc] = useState<GscData | null>(null);
+  const [indexByPath, setIndexByPath] = useState<Record<string, IndexStatus>>({});
   const [seRanking, setSeRanking] = useState<SERankingData | null>(null);
   const [seRankingLoading, setSeRankingLoading] = useState(false);
   const [seRankingError, setSeRankingError] = useState<string | null>(null);
@@ -185,6 +195,7 @@ export default function ClientDashboard() {
     gaPropertyId: "",
     clarityProjectId: "",
     clarityApiToken: "", // only ever holds a newly pasted token; the saved one never reaches the browser
+    searchConsoleProperty: "",
     seRankingProjectId: "",
     clickupListIds: "",
     clickupEngagementStart: "",
@@ -211,6 +222,7 @@ export default function ClientDashboard() {
         gaPropertyId: clientConfig.integrations?.googleAnalytics?.propertyId || "",
         clarityProjectId: clientConfig.integrations?.clarity?.projectId || "",
         clarityApiToken: "",
+        searchConsoleProperty: clientConfig.integrations?.searchConsole?.property || "",
         seRankingProjectId: clientConfig.integrations?.seRanking?.projectId || "",
         clickupListIds: (clientConfig.integrations?.clickup?.listIds || []).join(", "),
         clickupEngagementStart: clientConfig.integrations?.clickup?.engagementStartDate || "",
@@ -293,6 +305,9 @@ export default function ClientDashboard() {
               ...(settingsForm.clarityApiToken.trim() ? { apiToken: settingsForm.clarityApiToken.trim() } : {}),
             }
           : { enabled: false, projectId: "" },
+        searchConsole: settingsForm.searchConsoleProperty.trim()
+          ? { enabled: true, property: settingsForm.searchConsoleProperty.trim() }
+          : { enabled: false, property: "" },
         seRanking: settingsForm.seRankingProjectId
           ? { enabled: true, projectId: settingsForm.seRankingProjectId }
           : { enabled: false, projectId: "" },
@@ -411,6 +426,46 @@ export default function ClientDashboard() {
       .finally(() => setGaLoading(false));
   }
 
+  // Search Console: real queries per page, then index status for the top pages.
+  useEffect(() => {
+    if (!clientConfig) return;
+    fetch(`/api/gsc?client=${clientSlug}&range=${range}`)
+      .then((r) => r.json())
+      .then((data: GscData) => setGsc(data))
+      .catch(() => setGsc({ status: "error", message: "Couldn't load Search Console data." }));
+  }, [clientSlug, range, clientConfig]);
+
+  function gscOrigin() {
+    return gsc?.origin || `https://${(clientConfig?.domain || "").replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
+  }
+
+  async function inspectPaths(paths: string[], fresh = false) {
+    // Inspect the exact URL Google reports for the page when there is one (a
+    // trailing slash or www difference makes Google call the page "unknown").
+    const origin = gscOrigin();
+    const urlByPath = new Map(
+      paths.map((p) => [p, gsc?.pages?.find((g) => g.path === p)?.url || `${origin}${p}`])
+    );
+    const res = await fetch("/api/gsc/inspect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client: clientSlug, urls: [...urlByPath.values()], fresh }),
+    });
+    const json = (await res.json()) as { results?: Record<string, IndexStatus> };
+    const next: Record<string, IndexStatus> = {};
+    for (const [path, url] of urlByPath) {
+      const status = json.results?.[url];
+      if (status) next[path] = status;
+    }
+    setIndexByPath((current) => ({ ...current, ...next }));
+  }
+
+  const topPagePaths = (ga?.topPages || []).slice(0, 10).map((p) => normalizePath(p.page)).join("|");
+  useEffect(() => {
+    if (gsc?.status !== "ok" || !topPagePaths) return;
+    inspectPaths(topPagePaths.split("|")).catch(() => {});
+  }, [gsc?.status, topPagePaths]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Load SE Ranking (only when enabled)
   useEffect(() => { fetchSeRanking(); }, [clientSlug, clientConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -434,7 +489,7 @@ export default function ClientDashboard() {
       <header
         className="bg-white border-b border-[#001A2E]/[0.08]"
       >
-        <div className="max-w-[1440px] mx-auto px-6 md:px-10 py-6 flex items-center justify-between">
+        <div className="max-w-[1680px] mx-auto px-6 md:px-12 2xl:px-16 py-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link
               href="/"
@@ -489,7 +544,7 @@ export default function ClientDashboard() {
       {/* Settings Panel */}
       {settingsOpen && (
         <div className="bg-white border-b border-[#001A2E]/[0.08] shadow-sm">
-          <div className="max-w-[1400px] mx-auto px-8 py-6">
+          <div className="max-w-[1680px] mx-auto px-6 md:px-12 2xl:px-16 py-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-[17px] font-semibold text-[#001A2E] tracking-tight">
                 Client Settings
@@ -614,6 +669,19 @@ export default function ClientDashboard() {
                   )}
                 </div>
                 <div>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">Search Console Property</label>
+                  <input
+                    type="text"
+                    value={settingsForm.searchConsoleProperty}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, searchConsoleProperty: e.target.value })}
+                    placeholder="sc-domain:example.com"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                  />
+                  <p className="text-[12px] text-[#097388]/75 mt-0.5">
+                    Optional. Found automatically once the service account above is added to the property in Search Console (Full permission). Fill in only to override.
+                  </p>
+                </div>
+                <div>
                   <label className="text-[14px] font-medium text-foreground/70 mb-1 block">PostHog Project ID</label>
                   <input
                     type="text"
@@ -701,7 +769,7 @@ export default function ClientDashboard() {
       )}
 
       {/* Dashboard */}
-      <main className="max-w-[1440px] mx-auto px-6 md:px-10 py-10 md:py-14">
+      <main className="max-w-[1680px] mx-auto px-6 md:px-12 2xl:px-16 py-10 md:py-14">
         {gaError && (
           <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg text-[15px] border border-red-100">
             {gaError}
@@ -837,6 +905,9 @@ export default function ClientDashboard() {
                       keywords={seRanking?.allKeywords}
                       keywordsEnabled={seRankingEnabled}
                       clientSlug={clientSlug}
+                      gsc={gsc}
+                      indexByPath={indexByPath}
+                      onRecheckIndex={(path) => inspectPaths([path], true)}
                     />
                   )}
                 </div>

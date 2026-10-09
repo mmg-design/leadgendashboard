@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { getClient } from "@/lib/clients";
 import { getDb } from "@/lib/db";
 
@@ -60,14 +60,41 @@ Rules:
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    // A response schema makes Gemini return well-formed JSON; one retry covers
+    // the rare reply that still doesn't parse.
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
-      generationConfig: { responseMimeType: "application/json" },
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: SchemaType.OBJECT,
+          properties: {
+            suggestions: {
+              type: SchemaType.ARRAY,
+              items: {
+                type: SchemaType.OBJECT,
+                properties: { keyword: { type: SchemaType.STRING }, why: { type: SchemaType.STRING } },
+                required: ["keyword", "why"],
+              },
+            },
+          },
+          required: ["suggestions"],
+        },
+      },
     });
-    const result = await model.generateContent(prompt);
-    const parsed = JSON.parse(result.response.text()) as { suggestions?: Suggestion[] };
+    let parsed: { suggestions?: Suggestion[] } | null = null;
+    for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
+      const result = await model.generateContent(prompt);
+      try {
+        parsed = JSON.parse(result.response.text());
+      } catch {
+        if (attempt === 1) throw new Error("Gemini returned malformed JSON twice");
+      }
+    }
+    if (!parsed) throw new Error("No suggestions returned");
     const suggestions = (parsed.suggestions || [])
       .filter((s) => s && typeof s.keyword === "string" && typeof s.why === "string")
+      .map((s) => ({ keyword: s.keyword.trim(), why: s.why.trim() }))
       .slice(0, 3);
 
     await db.execute({

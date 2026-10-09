@@ -8,6 +8,8 @@ import { normalizePath, type LabeledPage } from "@/lib/page-behavior";
 import { keywordsForPage, targetsForPage, type RankedKeyword } from "@/lib/keyword-insights";
 import { PageLabelPill } from "./page-label";
 import { PositionPill } from "./keyword-detail";
+import { GscSection, IndexBadge, IndexFixDialog, type GscData } from "./search-console";
+import type { IndexStatus } from "@/lib/gsc";
 
 interface PageRow {
   page: string;
@@ -22,6 +24,9 @@ interface TopPagesProps {
   keywords?: RankedKeyword[]; // SE Ranking tracked keywords, once loaded
   keywordsEnabled?: boolean; // SE Ranking is connected for this client
   clientSlug: string;
+  gsc?: GscData | null; // Search Console performance, when connected
+  indexByPath?: Record<string, IndexStatus>; // Google index status per path
+  onRecheckIndex?: (path: string) => Promise<void>;
 }
 
 function formatDuration(seconds: number): string {
@@ -115,12 +120,15 @@ function AiSuggestions({ clientSlug, path, ranking, tracked }: {
   );
 }
 
-function PageDetail({ page, labeled, keywords, keywordsEnabled, clientSlug }: {
+function PageDetail({ page, labeled, keywords, keywordsEnabled, clientSlug, gsc, index, onFix }: {
   page: PageRow;
   labeled?: LabeledPage;
   keywords?: RankedKeyword[];
   keywordsEnabled?: boolean;
   clientSlug: string;
+  gsc?: GscData | null;
+  index?: IndexStatus;
+  onFix: () => void;
 }) {
   const path = normalizePath(page.page);
   const ranking = keywords ? keywordsForPage(path, keywords) : [];
@@ -142,6 +150,8 @@ function PageDetail({ page, labeled, keywords, keywordsEnabled, clientSlug }: {
         </p>
         {showLabel && <p className="mt-1 text-[13px] text-foreground/75">{labeled!.reason}</p>}
       </div>
+
+      <GscSection gsc={gsc ?? null} page={gsc?.pages?.find((g) => g.path === path)} index={index} onFix={onFix} />
 
       {!keywordsEnabled ? (
         <p className="text-[13px] text-muted-foreground">Connect SE Ranking in Settings to see which keywords this page ranks for.</p>
@@ -207,9 +217,11 @@ function PageDetail({ page, labeled, keywords, keywordsEnabled, clientSlug }: {
   );
 }
 
-export function TopPages({ data, labels = [], keywords, keywordsEnabled, clientSlug }: TopPagesProps) {
+export function TopPages({ data, labels = [], keywords, keywordsEnabled, clientSlug, gsc, indexByPath = {}, onRecheckIndex }: TopPagesProps) {
   const max = Math.max(...data.map((d) => d.views), 1);
   const labelByPath = new Map(labels.map((l) => [l.path, l]));
+  const [fixPath, setFixPath] = useState<string | null>(null);
+  const fixIndex = fixPath ? indexByPath[fixPath] : undefined;
 
   return (
     <Card className="h-full flex flex-col">
@@ -229,7 +241,16 @@ export function TopPages({ data, labels = [], keywords, keywordsEnabled, clientS
                 key={page.page}
                 width={380}
                 content={() => (
-                  <PageDetail page={page} labeled={labeled} keywords={keywords} keywordsEnabled={keywordsEnabled} clientSlug={clientSlug} />
+                  <PageDetail
+                    page={page}
+                    labeled={labeled}
+                    keywords={keywords}
+                    keywordsEnabled={keywordsEnabled}
+                    clientSlug={clientSlug}
+                    gsc={gsc}
+                    index={indexByPath[normalizePath(page.page)]}
+                    onFix={() => setFixPath(normalizePath(page.page))}
+                  />
                 )}
                 className="px-2 py-2 -mx-2 cursor-default"
               >
@@ -237,6 +258,7 @@ export function TopPages({ data, labels = [], keywords, keywordsEnabled, clientS
                   <span className="text-[15px] font-medium text-foreground/85 truncate flex-1" title={page.page}>
                     {page.page === "/" ? "Home" : page.page}
                   </span>
+                  <IndexBadge index={indexByPath[normalizePath(page.page)]} />
                   {labeled && SHOWN_LABELS.has(labeled.label) && <PageLabelPill label={labeled.label} />}
                 </div>
                 <div className="flex items-center gap-2">
@@ -257,6 +279,16 @@ export function TopPages({ data, labels = [], keywords, keywordsEnabled, clientS
           })}
         </div>
       </CardContent>
+      {fixPath && fixIndex && (
+        <IndexFixDialog
+          path={fixPath}
+          index={fixIndex}
+          clientSlug={clientSlug}
+          origin={gsc?.origin || ""}
+          onClose={() => setFixPath(null)}
+          onRecheck={() => onRecheckIndex?.(fixPath) ?? Promise.resolve()}
+        />
+      )}
     </Card>
   );
 }

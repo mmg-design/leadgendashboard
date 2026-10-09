@@ -66,6 +66,16 @@ const integrationMeta = [
     ],
   },
   {
+    key: "searchConsole",
+    label: "Google Search Console",
+    icon: Search,
+    badge: "GSC",
+    tooltip: "Search Console shows the real Google searches each page appears for and whether Google has indexed it. In Search Console, open the property, go to Settings → Users and permissions → Add user, paste the same service account email shown under GA4, and choose Full permission.",
+    fields: [
+      { name: "property", label: "Property", placeholder: "sc-domain:example.com", hint: "Domain property: sc-domain:example.com. URL-prefix property: https://www.example.com/ (exactly as Search Console shows it)" },
+    ],
+  },
+  {
     key: "seRanking",
     label: "SE Ranking",
     icon: Search,
@@ -103,6 +113,7 @@ export default function Home() {
   const [integrations, setIntegrations] = useState<Record<string, IntegrationConfig>>({
     googleAnalytics: { enabled: false, propertyId: "" },
     clarity: { enabled: false, projectId: "", apiToken: "" },
+    searchConsole: { enabled: false, property: "" },
     seRanking: { enabled: false, projectId: "" },
     clickup: { enabled: false, listIds: "", engagementStartDate: "" },
   });
@@ -185,6 +196,7 @@ export default function Home() {
     setIntegrations({
       googleAnalytics: { enabled: false, propertyId: "" },
       clarity: { enabled: false, projectId: "", apiToken: "" },
+      searchConsole: { enabled: false, property: "" },
       seRanking: { enabled: false, projectId: "" },
       clickup: { enabled: false, listIds: "", engagementStartDate: "" },
     });
@@ -396,7 +408,7 @@ export default function Home() {
                                       )}
                                     </div>
                                   ))}
-                                  {int.key === "googleAnalytics" && <GaServiceAccountHint />}
+                                  {(int.key === "googleAnalytics" || int.key === "searchConsole") && <GaServiceAccountHint />}
                                 </div>
                               )}
                             </div>

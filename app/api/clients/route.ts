@@ -76,6 +76,9 @@ export async function POST(req: NextRequest) {
         seRanking: integrations?.seRanking?.enabled
           ? { enabled: true, projectId: integrations.seRanking.projectId || "" }
           : undefined,
+        searchConsole: integrations?.searchConsole?.enabled && integrations.searchConsole.property
+          ? { enabled: true, property: String(integrations.searchConsole.property).trim() }
+          : undefined,
         clickup:
           integrations?.clickup?.enabled && clickupListIds.length > 0
             ? {

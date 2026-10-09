@@ -45,6 +45,12 @@ export interface ClientConfig {
       projectId: string;
       auditHealthScore?: number;
     };
+    // Google Search Console property, e.g. "sc-domain:example.com" or
+    // "https://www.example.com/". Same service account as GA4.
+    searchConsole?: {
+      enabled: boolean;
+      property: string;
+    };
     clickup?: {
       enabled: boolean;
       listIds: string[];
