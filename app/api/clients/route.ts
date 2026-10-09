@@ -8,6 +8,7 @@ import {
   clientExists,
   type ClientConfig,
 } from "@/lib/clients";
+import { tokenSites, WebflowError } from "@/lib/webflow";
 
 function toSlug(name: string): string {
   return name
@@ -22,12 +23,18 @@ export async function GET() {
   return NextResponse.json({ clients: clients.map(withoutSecrets) });
 }
 
-// Replace the Clarity token with a yes/no flag before anything reaches the browser.
+// Replace the Clarity and Webflow tokens with yes/no flags before anything reaches the browser.
 function withoutSecrets(client: ClientConfig): ClientConfig {
-  const clarity = client.integrations.clarity;
-  if (!clarity) return client;
-  const { apiToken, ...rest } = clarity;
-  return { ...client, integrations: { ...client.integrations, clarity: { ...rest, hasApiToken: !!apiToken } } };
+  const integrations = { ...client.integrations };
+  if (integrations.clarity) {
+    const { apiToken, ...rest } = integrations.clarity;
+    integrations.clarity = { ...rest, hasApiToken: !!apiToken };
+  }
+  if (integrations.webflow) {
+    const { apiToken, ...rest } = integrations.webflow;
+    integrations.webflow = { ...rest, hasApiToken: !!apiToken };
+  }
+  return { ...client, integrations };
 }
 
 export async function POST(req: NextRequest) {
@@ -92,7 +99,7 @@ export async function POST(req: NextRequest) {
 
     await createClient(config);
 
-    return NextResponse.json({ client: config }, { status: 201 });
+    return NextResponse.json({ client: withoutSecrets({ ...config, goals: [], actionItemsState: { dismissed: [], order: [] } }) }, { status: 201 });
   } catch (err) {
     console.error("Client creation error:", err);
     return NextResponse.json(
@@ -125,6 +132,26 @@ export async function PATCH(req: NextRequest) {
         clarity.apiToken = current.integrations.clarity.apiToken;
       }
       integrations.clarity = clarity;
+    }
+
+    // Same for Webflow. A newly pasted token is checked against Webflow, and
+    // the site it belongs to is stored with it.
+    if (integrations?.webflow) {
+      const newToken = typeof integrations.webflow.apiToken === "string" ? integrations.webflow.apiToken.trim() : "";
+      if (newToken) {
+        try {
+          const sites = await tokenSites(newToken);
+          if (sites.length === 0) return NextResponse.json({ error: "That Webflow token doesn't have access to any site." }, { status: 400 });
+          integrations.webflow = { enabled: true, siteId: sites[0].id, siteName: sites[0].displayName, apiToken: newToken };
+        } catch (err) {
+          const message = err instanceof WebflowError ? err.message : "Couldn't reach Webflow to check the token.";
+          return NextResponse.json({ error: message }, { status: 400 });
+        }
+      } else if (integrations.webflow.enabled === false) {
+        integrations.webflow = { enabled: false, siteId: "" }; // disconnect
+      } else {
+        integrations.webflow = current.integrations.webflow ?? { enabled: false, siteId: "" };
+      }
     }
 
     await updateClient(slug, { name, domain, iconUrl, integrations, goals, actionItemsState });

@@ -22,6 +22,7 @@ import { WorkSummary } from "@/components/dashboard/work-summary";
 import { Attribution } from "@/components/dashboard/attribution";
 import { CustomReportGenerator } from "@/components/dashboard/custom-report-generator";
 import { AiVisibilityTab } from "@/components/dashboard/ai-visibility";
+import { AgentsTab } from "@/components/dashboard/agents";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
 import type { GoalConfig } from "@/lib/clients";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -43,6 +44,7 @@ import {
   Route,
   FileChartColumn,
   Sparkles,
+  Bot,
 } from "lucide-react";
 
 interface GAData {
@@ -122,6 +124,12 @@ interface ClientConfig {
       enabled: boolean;
       projectId: string;
     };
+    webflow?: {
+      enabled: boolean;
+      siteId: string;
+      siteName?: string;
+      hasApiToken?: boolean;
+    };
     clickup?: {
       enabled: boolean;
       listIds: string[];
@@ -144,6 +152,8 @@ type SettingsIntegrations = {
   seRanking: { enabled: boolean; projectId: string };
   clickup: { enabled: boolean; listIds: string[]; engagementStartDate?: string };
   posthog: { enabled: boolean; projectId: string; host?: string };
+  // Only sent with a newly pasted token or to disconnect; otherwise the saved one is kept.
+  webflow?: { enabled: boolean; siteId: string; apiToken?: string };
 };
 
 type ClientsResponse = {
@@ -165,7 +175,7 @@ export default function ClientDashboard() {
   const clientSlug = params.client as string;
 
   const [range, setRange] = useState("7d");
-  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "ai-visibility" | "report-generator">("overview");
+  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "ai-visibility" | "agents" | "report-generator">("overview");
   const [clientName, setClientName] = useState(
     clientSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
   );
@@ -204,7 +214,9 @@ export default function ClientDashboard() {
     clickupEngagementStart: "",
     posthogProjectId: "",
     posthogHost: "",
+    webflowApiToken: "", // only ever holds a newly pasted token
   });
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   async function readUploadResponse(res: Response) {
     const text = await res.text();
@@ -232,6 +244,7 @@ export default function ClientDashboard() {
         clickupEngagementStart: clientConfig.integrations?.clickup?.engagementStartDate || "",
         posthogProjectId: clientConfig.integrations?.posthog?.projectId || "",
         posthogHost: clientConfig.integrations?.posthog?.host || "",
+        webflowApiToken: "",
       });
     }
   }, [clientConfig]);
@@ -288,9 +301,10 @@ export default function ClientDashboard() {
     uploadIcon(e.dataTransfer.files?.[0]);
   }
 
-  async function handleSaveSettings() {
+  async function handleSaveSettings(webflowDisconnect = false) {
     setSaving(true);
     setSaveSuccess(false);
+    setSaveError(null);
     try {
       const clickupListIds = settingsForm.clickupListIds
         .split(/[\s,]+/)
@@ -326,6 +340,11 @@ export default function ClientDashboard() {
         posthog: settingsForm.posthogProjectId
           ? { enabled: true, projectId: settingsForm.posthogProjectId, host: settingsForm.posthogHost || undefined }
           : { enabled: false, projectId: "" },
+        ...(webflowDisconnect
+          ? { webflow: { enabled: false, siteId: "" } }
+          : settingsForm.webflowApiToken.trim()
+          ? { webflow: { enabled: true, siteId: "", apiToken: settingsForm.webflowApiToken.trim() } }
+          : {}),
       };
 
       const res = await fetch("/api/clients", {
@@ -340,8 +359,13 @@ export default function ClientDashboard() {
         }),
       });
 
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setSaveError(body.error || "Couldn't save settings.");
+      }
       if (res.ok) {
         setSaveSuccess(true);
+        setSettingsForm((f) => ({ ...f, webflowApiToken: "" }));
         setClientName(settingsForm.name);
         const data = await fetch("/api/clients").then((r) => r.json()) as ClientsResponse;
         const match = data.clients?.find((c) => c.slug === clientSlug);
@@ -736,6 +760,30 @@ export default function ClientDashboard() {
                   <p className="text-[12px] text-[#097388]/75 mt-0.5">From the SE Ranking project URL</p>
                 </div>
                 <div>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">Webflow Site API Token</label>
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    value={settingsForm.webflowApiToken}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, webflowApiToken: e.target.value })}
+                    placeholder={
+                      clientConfig?.integrations?.webflow?.hasApiToken
+                        ? `Connected to ${clientConfig.integrations.webflow.siteName || "Webflow"}. Paste a new token to replace it.`
+                        : "Lets agents apply changes to this site"
+                    }
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                  />
+                  <p className="text-[12px] text-[#097388]/75 mt-0.5">
+                    Webflow: Site settings → Apps &amp; integrations → API access → Generate API token, with Sites, Pages, and CMS set to read and write.
+                    {clientConfig?.integrations?.webflow?.hasApiToken && (
+                      <>
+                        {" "}
+                        <button type="button" onClick={() => handleSaveSettings(true)} className="underline hover:text-[#001A2E]">Disconnect</button>
+                      </>
+                    )}
+                  </p>
+                </div>
+                <div>
                   <label className="text-[14px] font-medium text-foreground/70 mb-1 block">ClickUp List IDs</label>
                   <input
                     type="text"
@@ -760,7 +808,7 @@ export default function ClientDashboard() {
 
             <div className="flex items-center gap-3 mt-6 pt-4 border-t border-border/50">
               <button
-                onClick={handleSaveSettings}
+                onClick={() => handleSaveSettings()}
                 disabled={saving}
                 className="inline-flex items-center gap-2 px-4 py-2 text-[15px] font-medium text-white bg-[#0CA4C3] rounded-lg hover:bg-[#0394B2] disabled:opacity-50 transition-colors"
               >
@@ -779,6 +827,7 @@ export default function ClientDashboard() {
               >
                 Cancel
               </button>
+              {saveError && <span className="text-[14px] text-red-600">{saveError}</span>}
             </div>
           </div>
         </div>
@@ -800,6 +849,7 @@ export default function ClientDashboard() {
                 ["overview", "Overview", LayoutDashboard],
                 ["attribution", "Lead Funnel", Route],
                 ["ai-visibility", "AI Visibility", Sparkles],
+                ["agents", "Agents", Bot],
                 ["report-generator", "Custom Reports", FileChartColumn],
               ] as const).map(([key, label, Icon]) => {
                 const active = activeSection === key;
@@ -824,7 +874,9 @@ export default function ClientDashboard() {
 
           {/* ── Main content ── */}
           <div className="min-w-0 flex-1">
-            {activeSection === "ai-visibility" ? (
+            {activeSection === "agents" ? (
+              <AgentsTab clientSlug={clientSlug} clientName={clientName} />
+            ) : activeSection === "ai-visibility" ? (
               <AiVisibilityTab clientSlug={clientSlug} clientName={clientName} range={range} />
             ) : activeSection === "report-generator" ? (
               <CustomReportGenerator clientSlug={clientSlug} clientName={clientName} />

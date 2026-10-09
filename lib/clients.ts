@@ -51,6 +51,16 @@ export interface ClientConfig {
       enabled: boolean;
       property: string;
     };
+    // Webflow site API token for the Agents tab's "Apply to Webflow". Like the
+    // Clarity token, it never reaches the browser (swapped for hasApiToken).
+    // siteId/siteName are looked up from the token when it's saved.
+    webflow?: {
+      enabled: boolean;
+      siteId: string;
+      siteName?: string;
+      apiToken?: string;
+      hasApiToken?: boolean;
+    };
     clickup?: {
       enabled: boolean;
       listIds: string[];

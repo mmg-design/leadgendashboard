@@ -63,6 +63,21 @@ async function initSchema(db: Client) {
       UNIQUE(client_slug, snapshot_date)
     );
 
+    -- Agents tab: one row per detected task per client. The scan rewrites the
+    -- task JSON each time; status, the agent's draft, and apply results persist.
+    CREATE TABLE IF NOT EXISTS agent_tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_slug TEXT NOT NULL,
+      task_key TEXT NOT NULL,
+      task TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open',
+      output TEXT,
+      result TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(client_slug, task_key)
+    );
+
     CREATE TABLE IF NOT EXISTS clients (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       slug TEXT UNIQUE NOT NULL,
