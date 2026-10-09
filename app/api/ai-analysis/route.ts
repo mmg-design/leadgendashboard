@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getClient } from "@/lib/clients";
+import { labelPages, type ClarityDevice } from "@/lib/page-behavior";
 
 type FunnelRecommendation = {
   title: string;
@@ -167,20 +168,32 @@ function buildDataContext(
     ctx += "\n";
   }
 
-  if (clarity) {
-    ctx += `### Microsoft Clarity - User Behavior\n`;
+  const hasClarityData = !!clarity && (clarity.daysCollected ?? 0) > 0;
+  if (hasClarityData) {
+    ctx += `### Microsoft Clarity - User Behavior (${clarity.daysCollected} of ${clarity.rangeDays} days collected)\n`;
     if (clarity.homepageScrollDepth !== null && clarity.homepageScrollDepth !== undefined) {
       ctx += `- Homepage Scroll Depth: ${clarity.homepageScrollDepth}% (avg how far users scroll on homepage)\n`;
     }
-    if (clarity.rageClicks !== undefined) ctx += `- Rage Clicks: ${clarity.rageClicks} (frustrated rapid clicks - signals broken UX)\n`;
-    if (clarity.deadClicks !== undefined) ctx += `- Dead Clicks: ${clarity.deadClicks} (clicks on non-interactive elements - signals confusing UI)\n`;
-    if (clarity.pageEngagement?.length) {
-      ctx += `- Page Engagement Scores:\n`;
-      clarity.pageEngagement.slice(0, 5).forEach((p: any) => {
-        ctx += `  · ${p.page.replace(/^https?:\/\/[^/]+/, "") || "/"}: ${p.engagementScore}/100\n`;
-      });
+    ctx += `- Rage Clicks: ${clarity.rageClicks} (frustrated rapid clicks - signals broken UX)\n`;
+    ctx += `- Dead Clicks: ${clarity.deadClicks} (clicks on non-interactive elements - signals confusing UI)\n`;
+    const mobile = clarity.devices?.find((d: ClarityDevice) => d.device === "Mobile");
+    const desktop = clarity.devices?.find((d: ClarityDevice) => d.device === "Desktop");
+    if (mobile && desktop) {
+      ctx += `- Visits with a frustration signal: mobile ${Math.round(mobile.frustratedPct)}%, desktop ${Math.round(desktop.frustratedPct)}%\n`;
     }
     ctx += "\n";
+  }
+
+  // Same plain-language labels the dashboard shows, so recommendations match the cards.
+  if (ga?.topPages?.length) {
+    const labeled = labelPages(ga.topPages, hasClarityData ? clarity.pages : []).filter((p) => p.label !== "Low data");
+    if (labeled.length) {
+      ctx += `### Page Labels (Strong / Okay / Ignored / Leaking)\n`;
+      labeled.slice(0, 8).forEach((p) => {
+        ctx += `  · ${p.path} (${p.views} views): ${p.label}. ${p.reason}\n`;
+      });
+      ctx += "\n";
+    }
   }
 
   if (seRanking) {

@@ -1,7 +1,9 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Gauge } from "lucide-react";
+import { FileText } from "lucide-react";
+import { normalizePath, type LabeledPage } from "@/lib/page-behavior";
+import { PageLabelPill } from "./page-label";
 
 interface PageRow {
   page: string;
@@ -12,31 +14,7 @@ interface PageRow {
 
 interface TopPagesProps {
   data: PageRow[];
-  clarityEngagement?: any[];
-}
-
-function EngagementMeter({ score }: { score: number }) {
-  const color =
-    score >= 70 ? "bg-emerald-500" : score >= 45 ? "bg-[#001A2E]" : score >= 20 ? "bg-amber-400" : "bg-red-400";
-  const textColor =
-    score >= 70 ? "text-emerald-700 bg-emerald-50 border-emerald-200" :
-    score >= 45 ? "text-[#001A2E] bg-[#001A2E]/8 border-[#001A2E]/20" :
-    score >= 20 ? "text-amber-700 bg-amber-50 border-amber-200" :
-    "text-red-600 bg-red-50 border-red-200";
-
-  return (
-    <div className="flex items-center gap-1.5 shrink-0">
-      <div className="w-14 h-1.5 bg-muted/50 rounded-full overflow-hidden">
-        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${score}%` }} />
-      </div>
-      <span
-        className={`text-[12px] font-semibold px-1.5 py-0.5 rounded border tabular-nums ${textColor}`}
-        title="GA4 Engagement Rate - % of sessions on this page where the user actively engaged (scrolled, clicked, or stayed 10+ seconds)"
-      >
-        {score}
-      </span>
-    </div>
-  );
+  labels?: LabeledPage[];
 }
 
 function formatDuration(seconds: number): string {
@@ -46,38 +24,38 @@ function formatDuration(seconds: number): string {
   return `${m}m ${s}s`;
 }
 
-export function TopPages({ data }: TopPagesProps) {
+export function TopPages({ data, labels = [] }: TopPagesProps) {
   const max = Math.max(...data.map((d) => d.views), 1);
-  const hasEngagement = data.some((d) => d.engagementScore !== undefined && d.engagementScore > 0);
+  const labelByPath = new Map(labels.map((l) => [l.path, l]));
 
   return (
     <Card className="h-full flex flex-col">
       <CardHeader>
         <div className="flex items-center gap-2">
-          <FileText size={15} className="text-[#097388]/75" />
+          <FileText size={16} className="text-[#097388]/75" />
           <CardTitle className="text-[22px] font-headline font-normal text-[#001A2E]">Top Pages</CardTitle>
-          {hasEngagement && (
-            <span className="ml-auto flex items-center gap-1 text-[12px] text-[#097388]/65">
-              <Gauge size={10} />
-              Engagement
-            </span>
+          {labels.length > 0 && (
+            <span className="ml-auto text-[12px] text-[#097388]/65">Hover a label for why</span>
           )}
         </div>
       </CardHeader>
       <CardContent className="flex-1">
-        <div className="space-y-3">
+        <div className="space-y-4">
           {data.map((page) => {
-            const score = page.engagementScore ?? 0;
+            const labeled = labelByPath.get(normalizePath(page.page));
             return (
               <div key={page.page} className="group">
                 <div className="flex items-center gap-2 mb-1">
                   <span
-                    className="text-[14px] font-medium text-foreground/80 truncate flex-1"
+                    className="text-[15px] font-medium text-foreground/85 truncate flex-1"
                     title={page.page}
                   >
                     {page.page === "/" ? "Home" : page.page}
                   </span>
-                  {hasEngagement && <EngagementMeter score={score} />}
+                  {/* "Low data" stays out of this list; on a quiet week it would tag most rows. */}
+                  {labeled && labeled.label !== "Low data" && (
+                    <PageLabelPill label={labeled.label} reason={labeled.reason} />
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
@@ -87,11 +65,14 @@ export function TopPages({ data }: TopPagesProps) {
                     />
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[13px] tabular-nums text-muted-foreground w-10 text-right">
+                    <span className="text-[14px] font-semibold tabular-nums text-[#001A2E] w-12 text-right">
                       {page.views.toLocaleString()}
                     </span>
                     {page.avgDuration !== undefined && page.avgDuration > 0 && (
-                      <span className="text-[12px] text-[#097388]/65 tabular-nums w-10">
+                      <span
+                        className="text-[13px] text-muted-foreground tabular-nums w-14 whitespace-nowrap"
+                        title="Average time on page"
+                      >
                         {formatDuration(page.avgDuration)}
                       </span>
                     )}

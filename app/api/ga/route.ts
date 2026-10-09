@@ -78,8 +78,11 @@ export async function GET(req: NextRequest) {
     });
     if (cached.rows.length > 0) {
       const cachedData = JSON.parse(cached.rows[0].data as string);
-      // Older cached payloads used a non-adjacent 60–31-days-ago baseline.
-      if (cachedData?.comparison?.previous) return NextResponse.json(cachedData);
+      // Older cached payloads used a non-adjacent 60–31-days-ago baseline, or
+      // predate the device/source splits; refetch those instead of serving them.
+      if (cachedData?.comparison?.previous && cachedData?.devices && cachedData?.dailySources) {
+        return NextResponse.json(cachedData);
+      }
     }
   }
 
@@ -100,7 +103,7 @@ export async function GET(req: NextRequest) {
       analyticsClient = getAnalyticsClient();
     }
 
-    const [summaryReport, dailyReport, sourcesReport, dailyPagesReport] = await Promise.all([
+    const [summaryReport, dailyReport, sourcesReport, dailyPagesReport, devicesReport, dailySourcesReport] = await Promise.all([
       analyticsClient.runReport({
         property: `properties/${propertyId}`,
         dateRanges: [currentDateRange, previousDateRange],
@@ -144,6 +147,22 @@ export async function GET(req: NextRequest) {
           { metric: { metricName: "screenPageViews" }, desc: true },
         ],
         limit: 5000,
+      }),
+      // Mobile vs desktop split for the overview's device card.
+      analyticsClient.runReport({
+        property: `properties/${propertyId}`,
+        dateRanges: [currentDateRange],
+        dimensions: [{ name: "deviceCategory" }],
+        metrics: [{ name: "sessions" }, { name: "engagementRate" }],
+        orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+      }),
+      // Sessions per day per source, for the traffic chart's source breakdown.
+      analyticsClient.runReport({
+        property: `properties/${propertyId}`,
+        dateRanges: [currentDateRange],
+        dimensions: [{ name: "date" }, { name: "sessionSource" }],
+        metrics: [{ name: "sessions" }],
+        limit: 10000,
       }),
     ]);
 
@@ -286,9 +305,26 @@ export async function GET(req: NextRequest) {
       avgDuration: Math.round(parseFloat(row.metricValues?.[2]?.value || "0")),
     }));
 
+    const devices = (devicesReport[0]?.rows || []).map((row) => ({
+      device: row.dimensionValues?.[0]?.value || "(not set)",
+      sessions: parseInt(row.metricValues?.[0]?.value || "0"),
+      engagementRate: Math.round(parseFloat(row.metricValues?.[1]?.value || "0") * 100),
+    }));
+
+    const dailySources = (dailySourcesReport[0]?.rows || []).map((row) => {
+      const dateStr = row.dimensionValues?.[0]?.value || "";
+      return {
+        date: `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`,
+        source: row.dimensionValues?.[1]?.value || "(not set)",
+        sessions: parseInt(row.metricValues?.[0]?.value || "0"),
+      };
+    });
+
     const data = {
       propertyId,
       range,
+      devices,
+      dailySources,
       comparison: {
         current: currentDateRange,
         previous: previousDateRange,

@@ -35,6 +35,10 @@ export interface ClientConfig {
     clarity?: {
       enabled: boolean;
       projectId: string;
+      // Clarity export tokens are per project. Never sent to the browser; the
+      // clients API swaps it for `hasApiToken`.
+      apiToken?: string;
+      hasApiToken?: boolean;
     };
     seRanking?: {
       enabled: boolean;
@@ -138,6 +142,7 @@ export async function updateClient(
   slug: string,
   updates: {
     name?: string;
+    domain?: string;
     iconUrl?: string;
     integrations?: ClientConfig["integrations"];
     goals?: GoalConfig[];
@@ -149,6 +154,7 @@ export async function updateClient(
   if (!current) throw new Error("Client not found");
 
   const newName = updates.name !== undefined ? updates.name : current.name;
+  const newDomain = updates.domain !== undefined ? updates.domain : current.domain;
   const newIconUrl = updates.iconUrl !== undefined ? updates.iconUrl : current.iconUrl;
   const newIntegrations = updates.integrations
     ? { ...current.integrations, ...updates.integrations }
@@ -157,9 +163,10 @@ export async function updateClient(
   const newActionItemsState = updates.actionItemsState !== undefined ? updates.actionItemsState : current.actionItemsState;
 
   await db.execute({
-    sql: "UPDATE clients SET name = ?, icon_url = ?, integrations = ?, goals = ?, action_items_state = ? WHERE slug = ?",
+    sql: "UPDATE clients SET name = ?, domain = ?, icon_url = ?, integrations = ?, goals = ?, action_items_state = ? WHERE slug = ?",
     args: [
       newName,
+      newDomain,
       newIconUrl || null,
       JSON.stringify(newIntegrations),
       JSON.stringify(newGoals),

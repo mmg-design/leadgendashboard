@@ -4,7 +4,8 @@ import { DASHBOARD_SESSION_COOKIE, dashboardSessionToken } from "@/lib/dashboard
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "data.mmg.studio";
 const RESERVED_SUBDOMAINS = new Set(["www", "app", "admin", "dashboard"]);
 
-const PUBLIC_PATHS = new Set(["/login", "/api/auth/login", "/api/track-config"]);
+// /api/clarity/snapshot checks CRON_SECRET itself, since Vercel's cron has no session cookie.
+const PUBLIC_PATHS = new Set(["/login", "/api/auth/login", "/api/track-config", "/api/clarity/snapshot"]);
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;

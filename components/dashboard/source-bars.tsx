@@ -3,87 +3,76 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Globe, Info } from "lucide-react";
+import { groupSources } from "@/lib/source-colors";
 
 interface SourceBarsProps {
   data: { source: string; sessions: number }[];
+  // GA only returns the top 10 sources, so shares use the real session total when given.
+  totalSessions?: number;
   title?: string;
 }
 
-const SOURCE_LABELS: Record<string, { label: string; description: string }> = {
-  google: { label: "Google", description: "People who clicked through from a Google search result." },
-  "(direct)": { label: "Direct", description: "People who typed your URL directly into their browser or used a bookmark." },
-  direct: { label: "Direct", description: "People who typed your URL directly into their browser or used a bookmark." },
-  "(none)": { label: "Direct", description: "People who typed your URL directly into their browser or used a bookmark." },
-  bing: { label: "Bing", description: "Visitors from Microsoft Bing search results." },
-  yahoo: { label: "Yahoo", description: "Visitors from Yahoo search results." },
-  facebook: { label: "Facebook", description: "People who clicked a link on Facebook." },
-  instagram: { label: "Instagram", description: "People who came from an Instagram post or bio link." },
-  linkedin: { label: "LinkedIn", description: "People who clicked through from LinkedIn." },
-  twitter: { label: "Twitter / X", description: "Visitors from Twitter or X posts." },
-  youtube: { label: "YouTube", description: "People who clicked a link in a YouTube video description." },
-  email: { label: "Email", description: "People who clicked a link in an email campaign." },
-  "(not set)": { label: "Unknown", description: "Traffic where the source couldn't be determined - often happens with some ad platforms." },
+const DESCRIPTIONS: Record<string, string> = {
+  google: "People who clicked through from a Google search result.",
+  direct: "People who typed your URL, used a bookmark, or came from an app that hides where they came from.",
+  ai: "People who clicked a link in ChatGPT, Perplexity, Claude, Gemini, or Copilot.",
+  linkedin: "People who clicked through from LinkedIn.",
+  social: "People who clicked a link on Facebook, Instagram, YouTube, X, TikTok, Reddit, or Pinterest.",
+  email: "People who clicked a link in an email campaign.",
+  bing: "Visitors from Bing, Yahoo, or DuckDuckGo search results.",
+  unknown: "Traffic where the source couldn't be determined. This often happens with some ad platforms.",
 };
 
-function getSourceMeta(rawSource: string) {
-  const lower = rawSource.toLowerCase();
-  for (const [key, meta] of Object.entries(SOURCE_LABELS)) {
-    if (lower === key || lower.includes(key)) return { ...meta, raw: rawSource };
-  }
-  const label = rawSource.replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  return {
-    label,
-    description: `Visitors who came from ${label}. If you recognise this as a referral partner or ad platform, that's the source.`,
-    raw: rawSource,
-  };
-}
-
-export function SourceBars({ data, title = "Traffic Sources" }: SourceBarsProps) {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const max = Math.max(...data.map((d) => d.sessions), 1);
+export function SourceBars({ data, totalSessions, title = "Traffic Sources" }: SourceBarsProps) {
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const groups = groupSources(data).slice(0, 8);
+  const max = Math.max(...groups.map((g) => g.sessions), 1);
+  const total = totalSessions || data.reduce((sum, d) => sum + d.sessions, 0) || 1;
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Globe size={15} className="text-[#097388]/75" />
+          <Globe size={16} className="text-[#097388]/75" />
           <CardTitle className="text-[22px] font-headline font-normal text-[#001A2E]">{title}</CardTitle>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2.5">
-          {data.slice(0, 8).map((item, i) => {
-            const meta = getSourceMeta(item.source);
-            const pct = Math.round((item.sessions / max) * 100);
-            const isHovered = hoveredIndex === i;
+        <div className="space-y-4">
+          {groups.map((g) => {
+            const description =
+              DESCRIPTIONS[g.key] ||
+              `Visitors who came from ${g.label}. If you recognise it as a referral partner or ad platform, that's the source.`;
             return (
               <div
-                key={i}
-                className="relative group"
-                onMouseEnter={() => setHoveredIndex(i)}
-                onMouseLeave={() => setHoveredIndex(null)}
+                key={g.key}
+                className="relative"
+                onMouseEnter={() => setHoveredKey(g.key)}
+                onMouseLeave={() => setHoveredKey(null)}
               >
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[14px] font-medium text-foreground/80 flex items-center gap-1 min-w-0">
-                    {meta.label}
-                    <Info size={10} className="text-[#097388]/55 shrink-0" />
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="size-2.5 rounded-full shrink-0" style={{ background: g.color }} />
+                  <span className="text-[15px] font-medium text-foreground/85 flex items-center gap-1 min-w-0 truncate">
+                    {g.label}
+                    <Info size={11} className="text-[#097388]/50 shrink-0" />
                   </span>
-                  <span className="text-[13px] text-muted-foreground ml-auto tabular-nums shrink-0">
-                    {item.sessions.toLocaleString()}
+                  <span className="ml-auto flex items-baseline gap-2 shrink-0 tabular-nums">
+                    <span className="text-[15px] font-semibold text-[#001A2E]">{g.sessions.toLocaleString()}</span>
+                    <span className="text-[13px] text-muted-foreground w-9 text-right">
+                      {Math.round((g.sessions / total) * 100)}%
+                    </span>
                   </span>
                 </div>
-                <div className="h-1.5 w-full bg-muted/40 rounded-full overflow-hidden">
+                <div className="h-2 w-full bg-[#001A2E]/[0.05] rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#001A2E] rounded-full transition-all duration-300"
-                    style={{ width: `${pct}%` }}
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{ width: `${(g.sessions / max) * 100}%`, background: g.color }}
                   />
                 </div>
 
-                {/* Tooltip */}
-                {isHovered && (
-                  <div className="absolute z-20 left-0 top-full mt-1.5 w-64 bg-white border border-border/60 rounded-lg shadow-lg px-3 py-2.5 text-[13px] leading-relaxed text-foreground/70 pointer-events-none">
-                    <span className="font-semibold text-foreground/90">{meta.label}:</span>{" "}
-                    {meta.description}
+                {hoveredKey === g.key && (
+                  <div className="absolute z-20 left-0 top-full mt-2 w-72 bg-white border border-border rounded-xl shadow-[0_8px_24px_rgba(0,26,46,0.12)] px-3.5 py-3 text-[13px] leading-relaxed text-foreground/75 pointer-events-none">
+                    <span className="font-semibold text-[#001A2E]">{g.label}:</span> {description}
                   </div>
                 )}
               </div>

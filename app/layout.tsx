@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 
-const neueMontreal = localFont({
-  src: "../public/fonts/PPNeueMontreal-Regular.otf",
-  variable: "--font-neue-montreal",
+// Inter for everything that's read or scanned (body, labels, numbers);
+// Tiempos stays on headings. Variable font, so in-between weights like 450 work.
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
   display: "swap",
 });
 
@@ -46,7 +49,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${neueMontreal.variable} ${tiemposHeadline.variable} antialiased`}
+        className={`${inter.variable} ${tiemposHeadline.variable} antialiased`}
       >
         {children}
       </body>

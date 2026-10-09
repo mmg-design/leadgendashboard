@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -9,6 +9,9 @@ import { getHealth } from "@/lib/health";
 import { TrafficChart } from "@/components/dashboard/traffic-chart";
 import { SourceBars } from "@/components/dashboard/source-bars";
 import { TopPages } from "@/components/dashboard/top-pages";
+import { PageBehavior } from "@/components/dashboard/page-behavior";
+import { DeviceSplit } from "@/components/dashboard/device-split";
+import { labelPages, type ClaritySummary, type GaDevice } from "@/lib/page-behavior";
 import { AIAnalysisCard } from "@/components/dashboard/ai-analysis";
 import { SearchPerformance } from "@/components/dashboard/search-performance";
 import { WorkSummary } from "@/components/dashboard/work-summary";
@@ -53,15 +56,8 @@ interface GAData {
   dailySessions: { date: string; sessions: number; pageviews: number; topPages?: { page: string; views: number }[] }[];
   topSources: { source: string; sessions: number }[];
   topPages: { page: string; views: number; engagementScore?: number; avgDuration?: number }[];
-}
-
-interface ClarityData {
-  topSessionUrl: string;
-  pageEngagement: { page: string; engagementScore: number; totalSessions: number; scrollDepth?: number }[];
-  projectId: string;
-  rageClicks?: number;
-  deadClicks?: number;
-  homepageScrollDepth?: number | null;
+  devices?: GaDevice[];
+  dailySources?: { date: string; source: string; sessions: number }[];
 }
 
 interface SERankingData {
@@ -110,6 +106,7 @@ interface ClientConfig {
     clarity?: {
       enabled: boolean;
       projectId: string;
+      hasApiToken?: boolean;
     };
     seRanking?: {
       enabled: boolean;
@@ -132,7 +129,7 @@ interface ClientConfig {
 
 type SettingsIntegrations = {
   googleAnalytics: { enabled: boolean; propertyId: string };
-  clarity: { enabled: boolean; projectId: string };
+  clarity: { enabled: boolean; projectId: string; apiToken?: string };
   seRanking: { enabled: boolean; projectId: string };
   clickup: { enabled: boolean; listIds: string[]; engagementStartDate?: string };
   posthog: { enabled: boolean; projectId: string; host?: string };
@@ -165,7 +162,7 @@ export default function ClientDashboard() {
   const [ga, setGa] = useState<GAData | null>(null);
   const [gaLoading, setGaLoading] = useState(false);
   const [gaError, setGaError] = useState<string | null>(null);
-  const [clarity, setClarity] = useState<ClarityData | null>(null);
+  const [clarity, setClarity] = useState<ClaritySummary | null>(null);
   const [seRanking, setSeRanking] = useState<SERankingData | null>(null);
   const [seRankingLoading, setSeRankingLoading] = useState(false);
   const [seRankingError, setSeRankingError] = useState<string | null>(null);
@@ -186,6 +183,7 @@ export default function ClientDashboard() {
     iconUrl: "",
     gaPropertyId: "",
     clarityProjectId: "",
+    clarityApiToken: "", // only ever holds a newly pasted token; the saved one never reaches the browser
     seRankingProjectId: "",
     clickupListIds: "",
     clickupEngagementStart: "",
@@ -211,6 +209,7 @@ export default function ClientDashboard() {
         iconUrl: clientConfig.iconUrl || "",
         gaPropertyId: clientConfig.integrations?.googleAnalytics?.propertyId || "",
         clarityProjectId: clientConfig.integrations?.clarity?.projectId || "",
+        clarityApiToken: "",
         seRankingProjectId: clientConfig.integrations?.seRanking?.projectId || "",
         clickupListIds: (clientConfig.integrations?.clickup?.listIds || []).join(", "),
         clickupEngagementStart: clientConfig.integrations?.clickup?.engagementStartDate || "",
@@ -285,8 +284,13 @@ export default function ClientDashboard() {
         googleAnalytics: settingsForm.gaPropertyId
           ? { enabled: true, propertyId: settingsForm.gaPropertyId }
           : { enabled: false, propertyId: "" },
+        // Leaving the token blank keeps the saved one (the API carries it over).
         clarity: settingsForm.clarityProjectId
-          ? { enabled: true, projectId: settingsForm.clarityProjectId }
+          ? {
+              enabled: true,
+              projectId: settingsForm.clarityProjectId,
+              ...(settingsForm.clarityApiToken.trim() ? { apiToken: settingsForm.clarityApiToken.trim() } : {}),
+            }
           : { enabled: false, projectId: "" },
         seRanking: settingsForm.seRankingProjectId
           ? { enabled: true, projectId: settingsForm.seRankingProjectId }
@@ -321,6 +325,7 @@ export default function ClientDashboard() {
         const data = await fetch("/api/clients").then((r) => r.json()) as ClientsResponse;
         const match = data.clients?.find((c) => c.slug === clientSlug);
         if (match) setClientConfig(match);
+        if (settingsForm.clarityApiToken.trim()) fetchClarity();
         setTimeout(() => setSaveSuccess(false), 2000);
       }
     } catch (err) {
@@ -343,15 +348,19 @@ export default function ClientDashboard() {
       .catch(() => {});
   }
 
-  // Load client config + clarity
+  // Load client config
   useEffect(() => {
     fetchClientConfig();
-
-    fetch(`/api/clarity?client=${clientSlug}`)
-      .then((r) => r.json())
-      .then((data) => { if (!data.error) setClarity(data); })
-      .catch(() => {});
   }, [clientSlug]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clarity follows the same 7d/30d/90d window as GA
+  function fetchClarity() {
+    fetch(`/api/clarity?client=${clientSlug}&range=${range}`)
+      .then((r) => r.json())
+      .then((data) => setClarity(data.error ? null : data))
+      .catch(() => setClarity(null));
+  }
+  useEffect(() => { fetchClarity(); }, [clientSlug, range]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function fetchSeRanking(refresh = false) {
     if (!clientConfig?.integrations?.seRanking?.enabled) return;
@@ -412,6 +421,11 @@ export default function ClientDashboard() {
 
   const seRankingEnabled = !!clientConfig?.integrations?.seRanking?.enabled;
   const clickupEnabled = !!clientConfig?.integrations?.clickup?.enabled;
+  const clarityEnabled = !!clientConfig?.integrations?.clarity?.enabled;
+  const labeledPages = useMemo(
+    () => labelPages(ga?.topPages || [], clarity?.pages),
+    [ga, clarity]
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -578,6 +592,25 @@ export default function ClientDashboard() {
                     placeholder="abc123xyz"
                     className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
+                  {settingsForm.clarityProjectId && (
+                    <>
+                      <input
+                        type="password"
+                        autoComplete="off"
+                        value={settingsForm.clarityApiToken}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, clarityApiToken: e.target.value })}
+                        placeholder={
+                          clientConfig?.integrations?.clarity?.hasApiToken
+                            ? "Token saved. Paste a new one to replace it."
+                            : "Clarity API token for this project"
+                        }
+                        className="w-full mt-2 px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                      />
+                      <p className="text-[12px] text-[#097388]/75 mt-0.5">
+                        Clarity → Settings → Data Export → Generate new API token. Each project needs its own.
+                      </p>
+                    </>
+                  )}
                 </div>
                 <div>
                   <label className="text-[14px] font-medium text-foreground/70 mb-1 block">PostHog Project ID</label>
@@ -748,7 +781,7 @@ export default function ClientDashboard() {
             />
 
             {/* Website Performance */}
-            <div className="space-y-5">
+            <div className="space-y-6">
               <div className="flex items-center justify-between px-1">
                 <div>
                   <div className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#0394B2] mb-1.5">Analytics overview</div>
@@ -765,7 +798,7 @@ export default function ClientDashboard() {
               </div>
 
               {/* Stat cards */}
-              <div className="grid gap-4 grid-cols-2 md:grid-cols-4 auto-rows-fr items-stretch">
+              <div className="grid gap-5 grid-cols-2 md:grid-cols-4 auto-rows-fr items-stretch">
                 <StatCard
                   title="Sessions"
                   value={ga?.summary.sessions?.toLocaleString() || "-"}
@@ -803,14 +836,27 @@ export default function ClientDashboard() {
               </div>
 
               {/* Traffic chart */}
-              {ga?.dailySessions && <TrafficChart data={ga.dailySessions} />}
+              {ga?.dailySessions && <TrafficChart data={ga.dailySessions} dailySources={ga.dailySources} />}
 
-              {/* Sources + Top Pages */}
+              {/* Sources (+ device split) + Top Pages */}
               {(ga?.topSources || ga?.topPages) && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {ga?.topSources && <SourceBars data={ga.topSources} />}
-                  {ga?.topPages && <TopPages data={ga.topPages} />}
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-6">
+                    {ga?.topSources && <SourceBars data={ga.topSources} totalSessions={ga.summary.sessions} />}
+                    {ga?.devices && <DeviceSplit devices={ga.devices} clarityDevices={clarity?.devices} />}
+                  </div>
+                  {ga?.topPages && <TopPages data={ga.topPages} labels={labeledPages} />}
                 </div>
+              )}
+
+              {/* What to fix / promote: GA traffic × page behavior */}
+              {ga?.topPages && (
+                <PageBehavior
+                  labeled={labeledPages}
+                  clarity={clarity}
+                  clarityEnabled={clarityEnabled}
+                  range={range}
+                />
               )}
 
               {/* AI Insights */}

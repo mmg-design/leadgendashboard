@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getAllClients,
+  getClient,
   createClient,
   updateClient,
   deleteClient,
@@ -18,7 +19,15 @@ function toSlug(name: string): string {
 
 export async function GET() {
   const clients = await getAllClients();
-  return NextResponse.json({ clients });
+  return NextResponse.json({ clients: clients.map(withoutSecrets) });
+}
+
+// Replace the Clarity token with a yes/no flag before anything reaches the browser.
+function withoutSecrets(client: ClientConfig): ClientConfig {
+  const clarity = client.integrations.clarity;
+  if (!clarity) return client;
+  const { apiToken, ...rest } = clarity;
+  return { ...client, integrations: { ...client.integrations, clarity: { ...rest, hasApiToken: !!apiToken } } };
 }
 
 export async function POST(req: NextRequest) {
@@ -58,7 +67,11 @@ export async function POST(req: NextRequest) {
           ? { enabled: true, propertyId: integrations.googleAnalytics.propertyId || "" }
           : undefined,
         clarity: integrations?.clarity?.enabled
-          ? { enabled: true, projectId: integrations.clarity.projectId || "" }
+          ? {
+              enabled: true,
+              projectId: integrations.clarity.projectId || "",
+              apiToken: integrations.clarity.apiToken || undefined,
+            }
           : undefined,
         seRanking: integrations?.seRanking?.enabled
           ? { enabled: true, projectId: integrations.seRanking.projectId || "" }
@@ -89,17 +102,29 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { slug, name, iconUrl, integrations, goals, actionItemsState } = body;
+    const { slug, name, domain, iconUrl, integrations, goals, actionItemsState } = body;
 
     if (!slug) {
       return NextResponse.json({ error: "Missing slug" }, { status: 400 });
     }
 
-    if (!(await clientExists(slug))) {
+    const current = await getClient(slug);
+    if (!current) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    await updateClient(slug, { name, iconUrl, integrations, goals, actionItemsState });
+    // The browser never sees the stored Clarity token, so a settings save
+    // without a new one keeps the old one instead of wiping it.
+    if (integrations?.clarity) {
+      const { hasApiToken: _ignored, ...clarity } = integrations.clarity;
+      void _ignored;
+      if (!clarity.apiToken && current.integrations.clarity?.apiToken) {
+        clarity.apiToken = current.integrations.clarity.apiToken;
+      }
+      integrations.clarity = clarity;
+    }
+
+    await updateClient(slug, { name, domain, iconUrl, integrations, goals, actionItemsState });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("Client update error:", err);

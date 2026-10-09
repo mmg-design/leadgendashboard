@@ -32,6 +32,7 @@ interface IntegrationField {
   label: string;
   placeholder: string;
   hint: string;
+  secret?: boolean;
 }
 
 interface ClientConfig {
@@ -58,9 +59,10 @@ const integrationMeta = [
     label: "Microsoft Clarity",
     icon: Video,
     badge: "Clarity",
-    tooltip: "Clarity shows which pages people engage with most - scroll depth, time spent, clicks. Open clarity.microsoft.com, pick the project, and the Project ID is the short code in the URL (like vsqtrrcn93).",
+    tooltip: "Clarity shows how people use each page: how far they scroll, and where they rage-click or click things that don't work. Open clarity.microsoft.com, pick the project, and the Project ID is the short code in the URL (like vsqtrrcn93). Each project needs its own API token.",
     fields: [
       { name: "projectId", label: "Project ID", placeholder: "e.g. vsqtrrcn93", hint: "The code in the URL: clarity.microsoft.com/projects/view/{this-part}" },
+      { name: "apiToken", label: "API token", placeholder: "Paste this project's token", hint: "In Clarity: Settings → Data Export → Generate new API token. Tokens only work for their own project.", secret: true },
     ],
   },
   {
@@ -100,7 +102,7 @@ export default function Home() {
   const [iconUrl, setIconUrl] = useState("");
   const [integrations, setIntegrations] = useState<Record<string, IntegrationConfig>>({
     googleAnalytics: { enabled: false, propertyId: "" },
-    clarity: { enabled: false, projectId: "" },
+    clarity: { enabled: false, projectId: "", apiToken: "" },
     seRanking: { enabled: false, projectId: "" },
     clickup: { enabled: false, listIds: "", engagementStartDate: "" },
   });
@@ -182,7 +184,7 @@ export default function Home() {
     setIconUrl("");
     setIntegrations({
       googleAnalytics: { enabled: false, propertyId: "" },
-      clarity: { enabled: false, projectId: "" },
+      clarity: { enabled: false, projectId: "", apiToken: "" },
       seRanking: { enabled: false, projectId: "" },
       clickup: { enabled: false, listIds: "", engagementStartDate: "" },
     });
@@ -382,7 +384,8 @@ export default function Home() {
                                         {field.label}
                                       </label>
                                       <input
-                                        type="text"
+                                        type={field.secret ? "password" : "text"}
+                                        autoComplete={field.secret ? "off" : undefined}
                                         value={String(integrations[int.key]?.[field.name] || "")}
                                         onChange={(e) => setField(int.key, field.name, e.target.value)}
                                         placeholder={field.placeholder}

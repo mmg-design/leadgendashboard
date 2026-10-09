@@ -51,6 +51,18 @@ async function initSchema(db: Client) {
       UNIQUE(client_slug, metric_type, date_range)
     );
 
+    -- One Clarity pull per client per day. Clarity's API only returns the last
+    -- 1-3 days, so the 7d/30d/90d views are built by adding these up.
+    CREATE TABLE IF NOT EXISTS clarity_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_slug TEXT NOT NULL,
+      snapshot_date TEXT NOT NULL,
+      days_covered INTEGER NOT NULL,
+      data TEXT NOT NULL,
+      fetched_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(client_slug, snapshot_date)
+    );
+
     CREATE TABLE IF NOT EXISTS clients (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       slug TEXT UNIQUE NOT NULL,

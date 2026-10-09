@@ -17,13 +17,16 @@ const healthColors = {
   warning: "border-amber-400",
 };
 
-export function StatCard({ title, value, subtitle, icon, tooltip, health }: StatCardProps) {
+// `icon` is accepted for existing callers but not drawn: the label already names
+// the metric, and the icon was crowding the title on narrow cards.
+export function StatCard({ title, value, subtitle, tooltip, health }: StatCardProps) {
   return (
     <Card className={`h-full min-w-0 overflow-visible relative hover:z-50 ${health ? `border-[2px] ${healthColors[health]}` : ""}`}>
-      <CardContent className="h-full pt-1 flex flex-col">
-        <div className="flex items-center justify-between gap-2 mb-3 min-w-0">
-          <div className="flex items-center gap-1 min-w-0">
-            <span className="whitespace-nowrap text-[clamp(12px,1vw,15px)] font-medium text-muted-foreground tracking-tight">
+      <CardContent className="h-full flex flex-col">
+        {/* Room for a two-line label on every card, so the numbers line up across the row */}
+        <div className="flex items-start justify-between gap-2 mb-3 min-w-0 min-h-[30px]">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[12px] font-semibold uppercase tracking-[0.06em] leading-tight text-muted-foreground">
               {title}
             </span>
             {tooltip && (
@@ -38,15 +41,12 @@ export function StatCard({ title, value, subtitle, icon, tooltip, health }: Stat
               </div>
             )}
           </div>
-          {icon && (
-            <div className="text-[#001A2E]/30 shrink-0">{icon}</div>
-          )}
         </div>
-        <div className="text-[44px] font-headline font-normal tracking-tight leading-none text-[#001A2E]">
+        <div className="text-[36px] font-semibold tracking-[-0.02em] leading-none tabular-nums text-[#001A2E]">
           {value}
         </div>
         {subtitle && (
-          <p className="text-[13px] text-muted-foreground mt-auto pt-2 tracking-wide uppercase">
+          <p className="text-[13px] text-muted-foreground mt-auto pt-3">
             {subtitle}
           </p>
         )}
