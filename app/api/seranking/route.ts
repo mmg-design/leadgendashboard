@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClient } from "@/lib/clients";
+import { brandTerms, classifyKeyword, type RankedKeyword } from "@/lib/keyword-insights";
 
 const SE_RANKING_BASE = "https://api.seranking.com";
 
@@ -52,6 +53,8 @@ export async function GET(req: NextRequest) {
         site_id: projectId,
         date_from: monthStartStr,
         date_to: todayStr,
+        // Adds which URL ranks for each keyword, for the keyword and Top Pages hovers.
+        with_landing_pages: "1",
       }, fresh),
       serankingFetch("/v1/project-management/sites/positions/history", apiKey, {
         site_id: projectId,
@@ -75,9 +78,20 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Positions: array of {site_engine_id, keywords[{id, positions[{date,pos,change}]}]}
+    // Positions: array of {site_engine_id, keywords[{id, volume, landing_pages, positions[{date,pos,change}]}]}
     // Use first (primary) search engine
-    const positionsByKw = new Map<string, { latest: number; weekAgo: number | null; monthStart: number }>();
+    const clientHost = (clientConfig?.domain || "").toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "");
+    const positionsByKw = new Map<string, {
+      latest: number;
+      weekAgo: number | null;
+      monthStart: number;
+      best: number | null;
+      volume: number | null;
+      competition: number | null;
+      cpc: number | null;
+      landingUrl: string | null;
+      landingPath: string | null;
+    }>();
     if (Array.isArray(positions) && positions.length > 0) {
       const engineData = positions[0];
       if (Array.isArray(engineData.keywords)) {
@@ -91,14 +105,45 @@ export async function GET(req: NextRequest) {
             : Number(posArr[0]?.pos ?? 0);
           // Month-start position for "new rankings this month"
           const monthStartPos = Number(posArr[0]?.pos ?? 0);
+          const ranked = posArr.map((p) => Number(p.pos ?? 0)).filter((p) => p > 0);
+
+          // Newest landing page. Only pages on the client's own site get a path,
+          // so a staff portal like backoffice.example.com/ isn't read as the homepage.
+          const landing = [...((kwPos.landing_pages as { url: string; date: string }[]) || [])]
+            .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
+            .pop();
+          let landingPath: string | null = null;
+          if (landing?.url) {
+            try {
+              const u = new URL(landing.url);
+              if (u.hostname.toLowerCase().replace(/^www\./, "") === clientHost) landingPath = u.pathname || "/";
+            } catch { /* ignore malformed URLs */ }
+          }
+
           positionsByKw.set(String(kwPos.id), {
             latest: latestPos,
             weekAgo: weekAgoPos > 0 ? weekAgoPos : null,
             monthStart: monthStartPos,
+            best: ranked.length ? Math.min(...ranked) : null,
+            volume: kwPos.volume != null ? Number(kwPos.volume) : null,
+            competition: kwPos.competition != null ? Number(kwPos.competition) : null,
+            cpc: kwPos.cpc != null ? Number(kwPos.cpc) : null,
+            landingUrl: landing?.url || null,
+            landingPath,
           });
         }
       }
     }
+
+    // Which keywords currently show this site in a Google AI Overview
+    const inAiOverview = new Set<string>();
+    if (Array.isArray(aiPositions) && aiPositions.length > 0 && Array.isArray(aiPositions[0].keywords)) {
+      for (const kwPos of aiPositions[0].keywords) {
+        const p = kwPos.positions ?? [];
+        if (Number(p[p.length - 1]?.pos ?? 0) > 0) inAiOverview.add(String(kwPos.id));
+      }
+    }
+    const brands = brandTerms(clientConfig?.name || "", clientConfig?.domain || "");
 
     let movedUp = 0;
     let movedDown = 0;
@@ -106,7 +151,7 @@ export async function GET(req: NextRequest) {
     let avgPosSum = 0;
     let avgPosCount = 0;
     let newRankingsThisMonth = 0;
-    const kwDetails: { id: string; keyword: string; position: number; delta: number | null }[] = [];
+    const kwDetails: RankedKeyword[] = [];
 
     for (const [kwId, kwText] of kwMap) {
       const posData = positionsByKw.get(kwId);
@@ -121,7 +166,20 @@ export async function GET(req: NextRequest) {
       if (latest > 0 && latest <= 10) top10Count++;
       if (latest > 0) { avgPosSum += latest; avgPosCount++; }
       if (monthStart === 0 && latest > 0) newRankingsThisMonth++;
-      kwDetails.push({ id: kwId, keyword: kwText, position: latest, delta });
+      kwDetails.push({
+        id: kwId,
+        keyword: kwText,
+        position: latest,
+        delta,
+        bestThisMonth: posData?.best ?? null,
+        volume: posData?.volume ?? null,
+        competition: posData?.competition ?? null,
+        cpc: posData?.cpc ?? null,
+        landingUrl: posData?.landingUrl ?? null,
+        landingPath: posData?.landingPath ?? null,
+        inAiOverview: inAiOverview.has(kwId),
+        type: classifyKeyword(kwText, brands),
+      });
     }
 
     const averagePosition = avgPosCount > 0

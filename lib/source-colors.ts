@@ -63,7 +63,7 @@ export function sourceMeta(raw: string): SourceMeta {
   const s = raw.toLowerCase().trim();
   const known = KNOWN.find((k) => k.match(s));
   if (known) return { key: known.key, label: known.label, color: SOURCE_PALETTE[known.slot] };
-  if (s === "(not set)" || !s) return { key: "unknown", label: "Unknown", color: OTHER_COLOR };
+  if (s === "(not set)" || s === "(data not available)" || !s) return { key: "unknown", label: "Unknown", color: OTHER_COLOR };
   const label = raw
     .replace(/^www\./, "")
     .replace(/\.(com|org|net|io|co)$/, "")

@@ -12,6 +12,7 @@ import { TopPages } from "@/components/dashboard/top-pages";
 import { PageBehavior } from "@/components/dashboard/page-behavior";
 import { DeviceSplit } from "@/components/dashboard/device-split";
 import { labelPages, type ClaritySummary, type GaDevice } from "@/lib/page-behavior";
+import type { RankedKeyword } from "@/lib/keyword-insights";
 import { AIAnalysisCard } from "@/components/dashboard/ai-analysis";
 import { SearchPerformance } from "@/components/dashboard/search-performance";
 import { WorkSummary } from "@/components/dashboard/work-summary";
@@ -64,8 +65,8 @@ interface SERankingData {
   totalKeywords: number;
   movedUp: number;
   movedDown: number;
-  top5: { id: string; keyword: string; position: number; delta: number | null }[];
-  allKeywords?: { id: string; keyword: string; position: number; delta: number | null }[];
+  top5: RankedKeyword[];
+  allKeywords?: RankedKeyword[];
   currentVisibility: number | null;
   visibilityHistory: { date: string; score: number }[];
   aiVisibilityScore: number | null;
@@ -845,7 +846,15 @@ export default function ClientDashboard() {
                     {ga?.topSources && <SourceBars data={ga.topSources} totalSessions={ga.summary.sessions} />}
                     {ga?.devices && <DeviceSplit devices={ga.devices} clarityDevices={clarity?.devices} />}
                   </div>
-                  {ga?.topPages && <TopPages data={ga.topPages} labels={labeledPages} />}
+                  {ga?.topPages && (
+                    <TopPages
+                      data={ga.topPages}
+                      labels={labeledPages}
+                      keywords={seRanking?.allKeywords}
+                      keywordsEnabled={seRankingEnabled}
+                      clientSlug={clientSlug}
+                    />
+                  )}
                 </div>
               )}
 

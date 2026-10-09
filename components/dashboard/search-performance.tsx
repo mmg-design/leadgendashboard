@@ -2,21 +2,17 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown, ChevronDown, ChevronUp, Bot, Star, BarChart2, Sparkles, RefreshCw } from "lucide-react";
-
-interface KeywordRow {
-  id: string;
-  keyword: string;
-  position: number;
-  delta: number | null;
-}
+import { HoverPanel } from "@/components/ui/hover-panel";
+import { Search, ArrowUp, ArrowDown, ChevronDown, ChevronUp, RefreshCw, Sparkles } from "lucide-react";
+import type { RankedKeyword } from "@/lib/keyword-insights";
+import { DeltaText, KeywordDetail, PositionPill } from "./keyword-detail";
 
 interface SearchPerformanceData {
   totalKeywords: number;
   movedUp: number;
   movedDown: number;
-  top5: KeywordRow[];
-  allKeywords?: KeywordRow[];
+  top5: RankedKeyword[];
+  allKeywords?: RankedKeyword[];
   currentVisibility: number | null;
   visibilityHistory: { date: string; score: number }[];
   aiVisibilityScore: number | null;
@@ -34,125 +30,71 @@ interface SearchPerformanceProps {
   onRefresh?: () => void;
 }
 
-function DeltaBadge({ delta }: { delta: number | null }) {
-  if (delta === null) return <Minus size={12} className="text-[#097388]/45" />;
-  if (delta > 0)
-    return (
-      <span className="flex items-center gap-0.5 text-emerald-600 text-[13px] font-semibold">
-        <ArrowUp size={10} />+{delta}
-      </span>
-    );
-  if (delta < 0)
-    return (
-      <span className="flex items-center gap-0.5 text-amber-600 text-[13px] font-semibold">
-        <ArrowDown size={10} />{delta}
-      </span>
-    );
-  return <Minus size={12} className="text-[#097388]/45" />;
-}
+const VISIBLE_ROWS = 8;
 
-function PositionBadge({ position }: { position: number }) {
-  if (position === 0)
-    return (
-      <span className="text-[13px] font-medium px-1.5 py-0.5 rounded border tabular-nums bg-muted/30 text-[#097388]/55 border-border">
-        -
-      </span>
-    );
-  const color =
-    position <= 3
-      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-      : position <= 10
-      ? "bg-[#001A2E]/8 text-[#001A2E] border-[#001A2E]/20"
-      : position <= 30
-      ? "bg-muted/60 text-foreground/70 border-border"
-      : "bg-muted/30 text-muted-foreground border-border";
+function Header({ onRefresh, loading, badge }: { onRefresh?: () => void; loading?: boolean; badge?: React.ReactNode }) {
   return (
-    <span className={`text-[13px] font-semibold px-1.5 py-0.5 rounded border tabular-nums ${color}`}>
-      #{position}
-    </span>
+    <CardHeader>
+      <div className="flex items-center gap-2">
+        <Search size={16} className="text-[#097388]/75" />
+        <CardTitle className="text-[22px] font-headline font-normal text-[#001A2E]">Search Performance</CardTitle>
+        {badge}
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            disabled={loading}
+            title="Refresh search performance data"
+            className="ml-auto p-1.5 rounded-md text-[#097388]/55 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+          </button>
+        )}
+      </div>
+    </CardHeader>
   );
 }
 
-function aiVisibilityColor(score: number | null) {
-  if (score === null) return "text-muted-foreground";
-  if (score >= 50) return "text-emerald-600";
-  if (score >= 20) return "text-amber-600";
-  return "text-red-500";
-}
-
-function MetricTile({
-  icon,
-  label,
-  value,
-  valueClass,
-  sub,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  valueClass?: string;
-  sub?: string;
-}) {
+function Metric({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="flex flex-col gap-1 rounded-xl bg-muted/30 border border-border/50 px-3 py-3">
-      <div className="flex items-center gap-1.5 text-[#097388]/75">
-        {icon}
-        <span className="text-[11px] font-semibold uppercase tracking-wider">{label}</span>
-      </div>
-      <div className={`text-[30px] font-headline font-normal tabular-nums tracking-[-0.02em] leading-none ${valueClass ?? "text-foreground"}`}>
-        {value}
-      </div>
-      {sub && <div className="text-[12px] text-[#097388]/65">{sub}</div>}
+    <div className="min-w-0">
+      <div className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">{label}</div>
+      <div className="mt-1.5 text-[30px] font-semibold leading-none tracking-[-0.02em] tabular-nums text-[#001A2E]">{value}</div>
+      <div className="mt-1.5 text-[13px] text-muted-foreground">{sub}</div>
     </div>
   );
 }
 
 export function SearchPerformance({ data, loading, error, enabled, onRefresh }: SearchPerformanceProps) {
-  const [expanded, setExpanded] = useState(false);
-  const [keywordsOpen, setKeywordsOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const [showUnranked, setShowUnranked] = useState(false);
 
   if (!enabled) {
     return (
       <Card className="opacity-60">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Search size={15} className="text-[#097388]/75" />
-            <CardTitle className="text-[22px] font-headline font-normal text-[#001A2E]">
-              Search Performance
-            </CardTitle>
-            <span className="ml-auto text-[12px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground tracking-wide uppercase">
+        <Header
+          badge={
+            <span className="ml-auto text-[12px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground tracking-wide uppercase">
               Not configured
             </span>
-          </div>
-        </CardHeader>
+          }
+        />
         <CardContent>
-          <p className="text-[15px] text-muted-foreground">
-            Add an SE Ranking project ID in settings to enable keyword tracking.
-          </p>
+          <p className="text-[15px] text-muted-foreground">Add an SE Ranking project ID in settings to enable keyword tracking.</p>
         </CardContent>
       </Card>
     );
   }
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Search size={15} className="text-[#097388]/75" />
-            <CardTitle className="text-[22px] font-headline font-normal text-[#001A2E]">
-              Search Performance
-            </CardTitle>
-          </div>
-        </CardHeader>
+        <Header />
         <CardContent>
-          <div className="space-y-2 animate-pulse">
-            <div className="grid grid-cols-2 gap-2">
-              {[1,2,3,4].map(i => <div key={i} className="h-20 rounded-xl bg-muted/60" />)}
+          <div className="space-y-3 animate-pulse">
+            <div className="grid grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map((i) => <div key={i} className="h-16 rounded-xl bg-muted/60" />)}
             </div>
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-8 rounded-lg bg-muted/60" />
-            ))}
+            {[1, 2, 3].map((i) => <div key={i} className="h-9 rounded-lg bg-muted/60" />)}
           </div>
         </CardContent>
       </Card>
@@ -162,16 +104,9 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
   if (error || !data) {
     return (
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Search size={15} className="text-[#097388]/75" />
-            <CardTitle className="text-[22px] font-headline font-normal text-[#001A2E]">
-              Search Performance
-            </CardTitle>
-          </div>
-        </CardHeader>
+        <Header onRefresh={onRefresh} loading={loading} />
         <CardContent>
-          <p className="text-[15px] text-red-500">{error || "No data available"}</p>
+          <p className="text-[15px] text-red-600">{error || "No data available"}</p>
         </CardContent>
       </Card>
     );
@@ -180,160 +115,104 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
   const keywords = data.allKeywords ?? data.top5;
   const ranked = keywords.filter((k) => k.position > 0);
   const unranked = keywords.filter((k) => k.position === 0);
-  const unchanged = keywords.filter((k) => k.delta === 0).length;
-
-  const aiScore = data.aiVisibilityScore;
-  const aiLabel = aiScore === null ? "-" : `${aiScore}%`;
+  const list = showUnranked ? keywords : ranked;
+  const rows = showAll ? list : list.slice(0, VISIBLE_ROWS);
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Search size={15} className="text-[#097388]/75" />
-          <CardTitle className="text-[22px] font-headline font-normal text-[#001A2E]">
-            Search Performance
-          </CardTitle>
-          <span className="text-[13px] text-muted-foreground">SE Ranking</span>
-          <button
-            onClick={onRefresh}
-            disabled={loading || !onRefresh}
-            title="Refresh search performance data"
-            className="ml-auto p-1 rounded-md text-[#097388]/55 hover:text-muted-foreground hover:bg-muted/40 transition-colors disabled:opacity-30"
-          >
-            <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          </button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-5">
-
-        {/* 4 metric tiles */}
-        <div className="grid grid-cols-2 gap-2">
-          <MetricTile
-            icon={<Bot size={11} />}
-            label="AI Visibility"
-            value={aiLabel}
-            valueClass={aiVisibilityColor(aiScore)}
-            sub={aiScore !== null ? `${data.aiOverviewCount} of ${data.totalKeywords} keywords` : "Google AI Overviews"}
+      <Header
+        onRefresh={onRefresh}
+        loading={loading}
+        badge={<span className="text-[13px] text-muted-foreground">via SE Ranking</span>}
+      />
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-5">
+          <Metric label="Ranking" value={`${ranked.length}`} sub={`of ${data.totalKeywords} tracked keywords`} />
+          <Metric label="On page 1" value={String(data.top10Count)} sub="Keywords in the top 10" />
+          <Metric
+            label="Avg position"
+            value={data.averagePosition !== null ? String(data.averagePosition) : "—"}
+            sub="Across ranking keywords"
           />
-          <MetricTile
-            icon={<Star size={11} />}
-            label="Top 10 Keywords"
-            value={String(data.top10Count)}
-            valueClass="text-[#001A2E]"
-            sub="Ranking in top 10"
-          />
-          <MetricTile
-            icon={<BarChart2 size={11} />}
-            label="Avg Position"
-            value={data.averagePosition !== null ? String(data.averagePosition) : "-"}
-            sub="Across ranked keywords"
-          />
-          <MetricTile
-            icon={<Sparkles size={11} />}
-            label="New This Month"
-            value={String(data.newRankingsThisMonth)}
-            valueClass={data.newRankingsThisMonth > 0 ? "text-emerald-600" : "text-foreground"}
-            sub="Keywords newly ranked"
+          <Metric
+            label="AI Overviews"
+            value={String(data.aiOverviewCount)}
+            sub={data.aiVisibilityScore !== null ? `${data.aiVisibilityScore}% of tracked keywords` : "Google AI Overviews"}
           />
         </div>
 
-        {/* Summary row - keep as-is */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg bg-muted/30 px-3 py-2.5 text-center">
-            <div className="text-[27px] font-headline font-normal tracking-[-0.02em] text-foreground tabular-nums">{data.totalKeywords}</div>
-            <div className="text-[12px] text-muted-foreground mt-0.5">Keywords tracked</div>
-          </div>
-          <div className="rounded-lg bg-emerald-50 px-3 py-2.5 text-center">
-            <div className="flex items-center justify-center gap-1">
-              <TrendingUp size={13} className="text-emerald-600" />
-              <span className="text-[27px] font-headline font-normal tracking-[-0.02em] text-emerald-700 tabular-nums">{data.movedUp}</span>
-            </div>
-            <div className="text-[12px] text-emerald-600 mt-0.5">Moved up</div>
-          </div>
-          <div className="rounded-lg bg-amber-50 px-3 py-2.5 text-center">
-            <div className="flex items-center justify-center gap-1">
-              <TrendingDown size={13} className="text-amber-600" />
-              <span className="text-[27px] font-headline font-normal tracking-[-0.02em] text-amber-700 tabular-nums">{data.movedDown}</span>
-            </div>
-            <div className="text-[12px] text-amber-600 mt-0.5">Moved down</div>
-          </div>
+        <div className="flex flex-wrap items-center gap-2 text-[13px]">
+          <span className="text-muted-foreground mr-1">Last 7 days</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">
+            <ArrowUp size={12} /> {data.movedUp} moved up
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-700">
+            <ArrowDown size={12} /> {data.movedDown} moved down
+          </span>
+          {data.newRankingsThisMonth > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#2a78d6]/[0.08] px-2.5 py-1 font-semibold text-[#1c5cab]">
+              <Sparkles size={12} /> {data.newRankingsThisMonth} newly ranking this month
+            </span>
+          )}
         </div>
 
-        {/* Keyword list - collapsed by default, toggle to reveal */}
         {keywords.length > 0 ? (
           <div>
-            <button
-              onClick={() => setKeywordsOpen((o) => !o)}
-              className="w-full flex items-center justify-between py-2 px-2 rounded-lg hover:bg-muted/30 transition-colors group"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  All keywords ({keywords.length})
-                </span>
-                {unranked.length > 0 && (
-                  <span className="text-[12px] text-[#097388]/55">{unranked.length} not yet ranked</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {unchanged > 0 && keywordsOpen && (
-                  <span className="text-[12px] text-[#097388]/65">{unchanged} unchanged</span>
-                )}
-                {keywordsOpen
-                  ? <ChevronUp size={13} className="text-[#097388]/65 group-hover:text-muted-foreground transition-colors" />
-                  : <ChevronDown size={13} className="text-[#097388]/65 group-hover:text-muted-foreground transition-colors" />
-                }
-              </div>
-            </button>
-
-            {keywordsOpen && (
-              <>
-                <div className="flex items-center gap-3 px-2 pb-1 border-b border-border/40 mb-1 mt-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#097388]/75 w-5">#</span>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#097388]/75 flex-1">Keyword</span>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#097388]/75 w-12 text-center">Rank</span>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#097388]/75 w-12 text-right">7d change</span>
-                </div>
-
-                <div
-                  className={`overflow-y-auto transition-all duration-200 ${expanded ? "max-h-[500px]" : "max-h-[220px]"}`}
-                  style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(0,0,0,0.1) transparent" }}
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                Keywords · hover for details
+              </span>
+              {unranked.length > 0 && (
+                <button
+                  onClick={() => setShowUnranked((v) => !v)}
+                  className="text-[13px] font-medium text-[#0394B2] hover:text-[#001A2E] transition-colors"
                 >
-                  <div className="space-y-0.5">
-                    {keywords.map((kw, i) => (
-                      <div
-                        key={kw.id}
-                        className={`flex items-center gap-3 py-2 px-2 rounded-md hover:bg-muted/30 transition-colors ${kw.position === 0 ? "opacity-50" : ""}`}
-                      >
-                        <span className="text-[13px] font-medium text-[#097388]/55 w-5 text-right shrink-0">{i + 1}</span>
-                        <span className="text-[14px] text-foreground/80 flex-1 truncate" title={kw.keyword}>{kw.keyword}</span>
-                        <div className="w-12 flex justify-center shrink-0">
-                          <PositionBadge position={kw.position} />
-                        </div>
-                        <div className="w-12 flex justify-end shrink-0">
-                          <DeltaBadge delta={kw.position === 0 ? null : kw.delta} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                  {showUnranked ? "Hide" : "Show"} {unranked.length} not ranking yet
+                </button>
+              )}
+            </div>
 
-                {keywords.length > 7 && (
-                  <button
-                    onClick={() => setExpanded((e) => !e)}
-                    className="mt-1 w-full flex items-center justify-center gap-1 py-1.5 text-[12px] text-[#097388]/65 hover:text-muted-foreground rounded-md hover:bg-muted/30 transition-colors"
-                  >
-                    {expanded ? <><ChevronUp size={11} /> Show less</> : <><ChevronDown size={11} /> Show all {keywords.length}</>}
-                  </button>
-                )}
-              </>
+            <div className="grid grid-cols-[1fr_88px_64px_52px] items-center gap-3 px-2 pb-2 border-b border-border text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              <span>Keyword</span>
+              <span className="text-right">Searches/mo</span>
+              <span className="text-center">Rank</span>
+              <span className="text-right">7d</span>
+            </div>
+            <div className="divide-y divide-border/60">
+              {rows.map((kw) => (
+                <HoverPanel key={kw.id} content={() => <KeywordDetail kw={kw} />}>
+                  <div className={`grid grid-cols-[1fr_88px_64px_52px] items-center gap-3 px-2 py-2.5 cursor-default ${kw.position === 0 ? "opacity-55" : ""}`}>
+                    <span className="min-w-0 flex items-center gap-2">
+                      <span className="truncate text-[15px] text-foreground/90">{kw.keyword}</span>
+                      {kw.type?.branded && (
+                        <span className="shrink-0 rounded bg-[#001A2E]/[0.06] px-1.5 py-0.5 text-[11px] font-semibold text-[#001A2E]/70">Brand</span>
+                      )}
+                    </span>
+                    <span className="text-right text-[14px] tabular-nums text-muted-foreground">
+                      {kw.volume != null ? kw.volume.toLocaleString() : "—"}
+                    </span>
+                    <span className="flex justify-center"><PositionPill position={kw.position} /></span>
+                    <span className="flex justify-end">
+                      <DeltaText delta={kw.position === 0 ? null : kw.delta} />
+                    </span>
+                  </div>
+                </HoverPanel>
+              ))}
+            </div>
+
+            {list.length > VISIBLE_ROWS && (
+              <button
+                onClick={() => setShowAll((v) => !v)}
+                className="mt-2 w-full flex items-center justify-center gap-1 py-2 text-[13px] font-medium text-muted-foreground hover:text-[#001A2E] rounded-lg hover:bg-muted/40 transition-colors"
+              >
+                {showAll ? <><ChevronUp size={13} /> Show fewer</> : <><ChevronDown size={13} /> Show all {list.length}</>}
+              </button>
             )}
           </div>
         ) : (
           <div className="py-6 text-center">
-            <p className="text-[14px] text-[#097388]/75">No keywords tracked yet.</p>
-            <p className="text-[13px] text-[#097388]/55 mt-1">
-              Rankings typically appear within 1-3 days of project setup.
-            </p>
+            <p className="text-[15px] text-muted-foreground">No keywords tracked yet.</p>
+            <p className="text-[13px] text-muted-foreground/80 mt-1">Rankings typically appear within 1-3 days of project setup.</p>
           </div>
         )}
       </CardContent>

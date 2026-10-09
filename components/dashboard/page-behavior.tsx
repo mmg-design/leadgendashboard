@@ -52,7 +52,8 @@ function Row({ page }: { page: LabeledPage }) {
           <span className="text-[15px] font-medium text-foreground/85 truncate" title={page.path}>
             {page.path === "/" ? "Home" : page.path}
           </span>
-          <PageLabelPill label={page.label} />
+          {/* The Ignored tag stays hidden; the reason line below already says what's wrong. */}
+          {page.label !== "Ignored" && <PageLabelPill label={page.label} />}
         </div>
         <p className="text-[14px] text-muted-foreground mt-1">{page.reason}</p>
       </div>
@@ -93,7 +94,7 @@ export function PageBehavior({ labeled, clarity, clarityEnabled, range }: PageBe
 
         {showLegend && (
           <div className="mb-3 rounded-lg bg-muted/30 p-3 space-y-1.5">
-            {(Object.keys(LABEL_DEFINITIONS) as PageLabel[]).map((label) => (
+            {(["Strong", "Okay", "Leaking"] as PageLabel[]).map((label) => (
               <div key={label} className="flex items-start gap-2 text-[13px] text-foreground/75">
                 <PageLabelPill label={label} />
                 <span>{LABEL_DEFINITIONS[label]}</span>
