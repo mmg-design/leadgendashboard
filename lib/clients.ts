@@ -79,6 +79,25 @@ export interface ClientConfig {
   };
   goals: GoalConfig[];
   actionItemsState: ActionItemsState;
+  displayPrefs: DisplayPrefs;
+}
+
+// Traffic sources (grouped source keys, e.g. "linkedin") and pages (normalized
+// paths) hidden from the Overview lists. Saved per client, so they're hidden
+// for everyone; totals still include them.
+export interface DisplayPrefs {
+  hiddenSources: string[];
+  hiddenPages: string[];
+}
+
+function normalizeDisplayPrefs(raw: string | null): DisplayPrefs {
+  const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+  try {
+    const parsed = raw ? JSON.parse(raw) : {};
+    return { hiddenSources: strings(parsed?.hiddenSources), hiddenPages: strings(parsed?.hiddenPages) };
+  } catch {
+    return { hiddenSources: [], hiddenPages: [] };
+  }
 }
 
 export interface ActionItemsState {
@@ -127,6 +146,7 @@ function rowToConfig(row: Record<string, unknown>): ClientConfig {
     integrations: JSON.parse(row.integrations as string),
     goals: normalizeGoals(row.goals as string | null),
     actionItemsState: normalizeActionItemsState(row.action_items_state as string | null),
+    displayPrefs: normalizeDisplayPrefs(row.display_prefs as string | null),
   };
 }
 
@@ -146,7 +166,7 @@ export async function getClient(slug: string): Promise<ClientConfig | null> {
   return rowToConfig(result.rows[0] as Record<string, unknown>);
 }
 
-export async function createClient(config: Omit<ClientConfig, "goals" | "actionItemsState">): Promise<void> {
+export async function createClient(config: Omit<ClientConfig, "goals" | "actionItemsState" | "displayPrefs">): Promise<void> {
   const db = await getDb();
   await db.execute({
     sql: "INSERT INTO clients (slug, name, domain, icon_url, integrations) VALUES (?, ?, ?, ?, ?)",
@@ -163,6 +183,7 @@ export async function updateClient(
     integrations?: ClientConfig["integrations"];
     goals?: GoalConfig[];
     actionItemsState?: ActionItemsState;
+    displayPrefs?: DisplayPrefs;
   }
 ): Promise<void> {
   const db = await getDb();
@@ -177,9 +198,10 @@ export async function updateClient(
     : current.integrations;
   const newGoals = updates.goals !== undefined ? updates.goals : current.goals;
   const newActionItemsState = updates.actionItemsState !== undefined ? updates.actionItemsState : current.actionItemsState;
+  const newDisplayPrefs = updates.displayPrefs !== undefined ? normalizeDisplayPrefs(JSON.stringify(updates.displayPrefs)) : current.displayPrefs;
 
   await db.execute({
-    sql: "UPDATE clients SET name = ?, domain = ?, icon_url = ?, integrations = ?, goals = ?, action_items_state = ? WHERE slug = ?",
+    sql: "UPDATE clients SET name = ?, domain = ?, icon_url = ?, integrations = ?, goals = ?, action_items_state = ?, display_prefs = ? WHERE slug = ?",
     args: [
       newName,
       newDomain,
@@ -187,6 +209,7 @@ export async function updateClient(
       JSON.stringify(newIntegrations),
       JSON.stringify(newGoals),
       JSON.stringify(newActionItemsState),
+      JSON.stringify(newDisplayPrefs),
       slug,
     ],
   });

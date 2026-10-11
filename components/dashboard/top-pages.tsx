@@ -10,6 +10,7 @@ import { PageLabelPill } from "./page-label";
 import { PositionPill } from "./keyword-detail";
 import { GscSection, IndexBadge, IndexFixDialog, type GscData } from "./search-console";
 import type { IndexStatus } from "@/lib/gsc";
+import { HiddenFooter, HideButton } from "./hide-controls";
 
 interface PageRow {
   page: string;
@@ -27,6 +28,8 @@ interface TopPagesProps {
   gsc?: GscData | null; // Search Console performance, when connected
   indexByPath?: Record<string, IndexStatus>; // Google index status per path
   onRecheckIndex?: (path: string) => Promise<void>;
+  hidden?: string[]; // normalized paths hidden for this client
+  onToggleHidden?: (path: string) => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -217,7 +220,12 @@ function PageDetail({ page, labeled, keywords, keywordsEnabled, clientSlug, gsc,
   );
 }
 
-export function TopPages({ data, labels = [], keywords, keywordsEnabled, clientSlug, gsc, indexByPath = {}, onRecheckIndex }: TopPagesProps) {
+export function TopPages({ data: allPages, labels = [], keywords, keywordsEnabled, clientSlug, gsc, indexByPath = {}, onRecheckIndex, hidden = [], onToggleHidden }: TopPagesProps) {
+  const [showHidden, setShowHidden] = useState(false);
+  const hiddenSet = new Set(hidden);
+  const isHidden = (p: PageRow) => hiddenSet.has(normalizePath(p.page));
+  const hiddenCount = allPages.filter(isHidden).length;
+  const data = allPages.filter((p) => showHidden || !isHidden(p));
   const max = Math.max(...data.map((d) => d.views), 1);
   const labelByPath = new Map(labels.map((l) => [l.path, l]));
   const [fixPath, setFixPath] = useState<string | null>(null);
@@ -252,7 +260,7 @@ export function TopPages({ data, labels = [], keywords, keywordsEnabled, clientS
                     onFix={() => setFixPath(normalizePath(page.page))}
                   />
                 )}
-                className="px-2 py-2 -mx-2 cursor-default"
+                className={`group/row px-2 py-2 -mx-2 cursor-default ${isHidden(page) ? "opacity-45" : ""}`}
               >
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-[15px] font-medium text-foreground/85 truncate flex-1" title={page.page}>
@@ -260,6 +268,9 @@ export function TopPages({ data, labels = [], keywords, keywordsEnabled, clientS
                   </span>
                   <IndexBadge index={indexByPath[normalizePath(page.page)]} />
                   {labeled && SHOWN_LABELS.has(labeled.label) && <PageLabelPill label={labeled.label} />}
+                  {onToggleHidden && (
+                    <HideButton hidden={isHidden(page)} label={page.page === "/" ? "Home" : page.page} onClick={() => onToggleHidden(normalizePath(page.page))} />
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
@@ -278,6 +289,7 @@ export function TopPages({ data, labels = [], keywords, keywordsEnabled, clientS
             );
           })}
         </div>
+        <HiddenFooter count={hiddenCount} noun="page" showing={showHidden} onToggle={() => setShowHidden(!showHidden)} />
       </CardContent>
       {fixPath && fixIndex && (
         <IndexFixDialog

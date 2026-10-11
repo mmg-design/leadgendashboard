@@ -110,6 +110,13 @@ async function initSchema(db: Client) {
     await db.execute("ALTER TABLE clients ADD COLUMN sort_order INTEGER");
   }
 
+  // Migration: add display_prefs column if missing (hidden sources/pages)
+  try {
+    await db.execute("SELECT display_prefs FROM clients LIMIT 1");
+  } catch {
+    await db.execute("ALTER TABLE clients ADD COLUMN display_prefs TEXT");
+  }
+
   // Migration: add action_items_state column if missing (existing DBs)
   try {
     await db.execute("SELECT action_items_state FROM clients LIMIT 1");

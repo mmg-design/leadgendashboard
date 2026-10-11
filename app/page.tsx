@@ -482,16 +482,16 @@ export default function Home() {
                 onClick={() => !isPendingDelete && router.push(`/${client.slug}`)}
                 className={`transition-opacity ${dragSlug === client.slug ? "opacity-40" : ""}`}
               >
-                <Card className="relative group bg-white hover:-translate-y-1 hover:shadow-[0_22px_55px_rgba(0,0,0,0.22)] hover:border-[#0CA4C3]/30 transition-all duration-300 cursor-pointer">
+                <Card className="relative group bg-white pt-0 hover:-translate-y-1 hover:shadow-[0_22px_55px_rgba(0,0,0,0.22)] hover:border-[#0CA4C3]/30 transition-all duration-300 cursor-pointer">
                   <div
-                    className="absolute left-2 top-2 p-1 text-[#097388]/45 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute left-2 top-2 z-10 rounded-md bg-white/90 p-1 text-[#097388]/60 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Drag to reorder"
                   >
                     <GripVertical size={14} />
                   </div>
 
                   <div
-                    className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute right-2 top-2 z-10 rounded-md bg-white/90 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {isPendingDelete ? (
@@ -521,6 +521,19 @@ export default function Home() {
                         <Trash2 size={14} />
                       </button>
                     )}
+                  </div>
+
+                  {/* Homepage screenshot, refreshed daily on the server */}
+                  <div className="relative aspect-[16/9] overflow-hidden border-b border-border bg-[#001A2E]/[0.04]">
+                    <Image
+                      src={`/api/clients/preview?slug=${client.slug}`}
+                      alt={`${client.domain} homepage`}
+                      fill
+                      sizes="(min-width: 768px) 50vw, 100vw"
+                      unoptimized
+                      className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.02]"
+                      onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                    />
                   </div>
 
                   <CardHeader>

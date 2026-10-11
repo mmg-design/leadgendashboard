@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       ? integrations.clickup.listIds
       : [];
 
-    const config: Omit<ClientConfig, "goals" | "actionItemsState"> = {
+    const config: Omit<ClientConfig, "goals" | "actionItemsState" | "displayPrefs"> = {
       name,
       slug,
       domain,
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
 
     await createClient(config);
 
-    return NextResponse.json({ client: withoutSecrets({ ...config, goals: [], actionItemsState: { dismissed: [], order: [] } }) }, { status: 201 });
+    return NextResponse.json({ client: withoutSecrets({ ...config, goals: [], actionItemsState: { dismissed: [], order: [] }, displayPrefs: { hiddenSources: [], hiddenPages: [] } }) }, { status: 201 });
   } catch (err) {
     console.error("Client creation error:", err);
     return NextResponse.json(
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { slug, name, domain, iconUrl, integrations, goals, actionItemsState } = body;
+    const { slug, name, domain, iconUrl, integrations, goals, actionItemsState, displayPrefs } = body;
 
     if (!slug) {
       return NextResponse.json({ error: "Missing slug" }, { status: 400 });
@@ -154,7 +154,7 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    await updateClient(slug, { name, domain, iconUrl, integrations, goals, actionItemsState });
+    await updateClient(slug, { name, domain, iconUrl, integrations, goals, actionItemsState, displayPrefs });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("Client update error:", err);

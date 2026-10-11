@@ -143,6 +143,7 @@ interface ClientConfig {
   };
   goals?: GoalConfig[];
   actionItemsState?: { dismissed: string[]; order: string[] };
+  displayPrefs?: { hiddenSources: string[]; hiddenPages: string[] };
 }
 
 type SettingsIntegrations = {
@@ -161,6 +162,7 @@ type ClientsResponse = {
 };
 
 const MAX_ICON_BYTES = 15 * 1024 * 1024;
+const NONE_HIDDEN: string[] = [];
 const ICON_FILE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif", "svg"];
 
 function isSupportedIconFile(file: File) {
@@ -455,6 +457,10 @@ export default function ClientDashboard() {
       .finally(() => setGaLoading(false));
   }
 
+  // Data loaders re-run when the client's domain or integrations change, not
+  // on every config save (hiding a page shouldn't refetch Search Console).
+  const integrationsKey = clientConfig ? JSON.stringify([clientConfig.domain, clientConfig.integrations]) : null;
+
   // Search Console: real queries per page, then index status for the top pages.
   useEffect(() => {
     if (!clientConfig) return;
@@ -462,7 +468,7 @@ export default function ClientDashboard() {
       .then((r) => r.json())
       .then((data: GscData) => setGsc(data))
       .catch(() => setGsc({ status: "error", message: "Couldn't load Search Console data." }));
-  }, [clientSlug, range, clientConfig]);
+  }, [clientSlug, range, integrationsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function gscOrigin() {
     return gsc?.origin || `https://${(clientConfig?.domain || "").replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
@@ -496,10 +502,10 @@ export default function ClientDashboard() {
   }, [gsc?.status, topPagePaths]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load SE Ranking (only when enabled)
-  useEffect(() => { fetchSeRanking(); }, [clientSlug, clientConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchSeRanking(); }, [clientSlug, integrationsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load ClickUp (only when enabled)
-  useEffect(() => { fetchClickUp(); }, [clientSlug, clientConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchClickUp(); }, [clientSlug, integrationsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load GA4
   useEffect(() => { fetchGa(); }, [clientSlug, range]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -511,6 +517,33 @@ export default function ClientDashboard() {
     () => labelPages(ga?.topPages || [], clarity?.pages),
     [ga, clarity]
   );
+
+  // Sources and pages hidden from the Overview lists, saved on the client so
+  // they're hidden for everyone. Totals still count them.
+  const hiddenSources = clientConfig?.displayPrefs?.hiddenSources ?? NONE_HIDDEN;
+  const hiddenPages = clientConfig?.displayPrefs?.hiddenPages ?? NONE_HIDDEN;
+  const visibleLabeledPages = useMemo(
+    () => labeledPages.filter((p) => !hiddenPages.includes(p.path)),
+    [labeledPages, hiddenPages]
+  );
+
+  // Kept in a ref so two quick clicks build on each other instead of the
+  // second save overwriting the first.
+  const prefsRef = useRef({ hiddenSources, hiddenPages });
+  useEffect(() => { prefsRef.current = { hiddenSources, hiddenPages }; }, [hiddenSources, hiddenPages]);
+
+  function toggleHidden(kind: "hiddenSources" | "hiddenPages", key: string) {
+    if (!clientConfig) return;
+    const list = prefsRef.current[kind];
+    const next = { ...prefsRef.current, [kind]: list.includes(key) ? list.filter((k) => k !== key) : [...list, key] };
+    prefsRef.current = next;
+    setClientConfig((c) => (c ? { ...c, displayPrefs: next } : c));
+    fetch("/api/clients", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: clientSlug, displayPrefs: next }),
+    }).catch(() => {});
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -966,7 +999,14 @@ export default function ClientDashboard() {
               {(ga?.topSources || ga?.topPages) && (
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-6">
-                    {ga?.topSources && <SourceBars data={ga.topSources} totalSessions={ga.summary.sessions} />}
+                    {ga?.topSources && (
+                      <SourceBars
+                        data={ga.topSources}
+                        totalSessions={ga.summary.sessions}
+                        hidden={hiddenSources}
+                        onToggleHidden={(key) => toggleHidden("hiddenSources", key)}
+                      />
+                    )}
                     {ga?.devices && <DeviceSplit devices={ga.devices} clarityDevices={clarity?.devices} />}
                   </div>
                   {ga?.topPages && (
@@ -979,6 +1019,8 @@ export default function ClientDashboard() {
                       gsc={gsc}
                       indexByPath={indexByPath}
                       onRecheckIndex={(path) => inspectPaths([path], true)}
+                      hidden={hiddenPages}
+                      onToggleHidden={(path) => toggleHidden("hiddenPages", path)}
                     />
                   )}
                 </div>
@@ -987,7 +1029,7 @@ export default function ClientDashboard() {
               {/* What to fix / promote: GA traffic × page behavior */}
               {ga?.topPages && (
                 <PageBehavior
-                  labeled={labeledPages}
+                  labeled={visibleLabeledPages}
                   clarity={clarity}
                   clarityEnabled={clarityEnabled}
                   range={range}

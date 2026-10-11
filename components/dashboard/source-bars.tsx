@@ -4,12 +4,15 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Globe, Info } from "lucide-react";
 import { groupSources, lighten } from "@/lib/source-colors";
+import { HiddenFooter, HideButton } from "./hide-controls";
 
 interface SourceBarsProps {
   data: { source: string; sessions: number }[];
   // GA only returns the top 10 sources, so shares use the real session total when given.
   totalSessions?: number;
   title?: string;
+  hidden?: string[]; // grouped source keys hidden for this client
+  onToggleHidden?: (key: string) => void;
 }
 
 const DESCRIPTIONS: Record<string, string> = {
@@ -23,9 +26,15 @@ const DESCRIPTIONS: Record<string, string> = {
   unknown: "Traffic where the source couldn't be determined. This often happens with some ad platforms.",
 };
 
-export function SourceBars({ data, totalSessions, title = "Traffic Sources" }: SourceBarsProps) {
+export function SourceBars({ data, totalSessions, title = "Traffic Sources", hidden = [], onToggleHidden }: SourceBarsProps) {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
-  const groups = groupSources(data).slice(0, 8);
+  const [showHidden, setShowHidden] = useState(false);
+  const hiddenSet = new Set(hidden);
+  const all = groupSources(data);
+  const hiddenCount = all.filter((g) => hiddenSet.has(g.key)).length;
+  // Hidden sources leave the list (the next one moves up) but stay in the
+  // share math: percentages are of all sessions.
+  const groups = all.filter((g) => showHidden || !hiddenSet.has(g.key)).slice(0, 8 + (showHidden ? hiddenCount : 0));
   const max = Math.max(...groups.map((g) => g.sessions), 1);
   const total = totalSessions || data.reduce((sum, d) => sum + d.sessions, 0) || 1;
 
@@ -46,7 +55,7 @@ export function SourceBars({ data, totalSessions, title = "Traffic Sources" }: S
             return (
               <div
                 key={g.key}
-                className="relative"
+                className={`relative group/row ${hiddenSet.has(g.key) ? "opacity-45" : ""}`}
                 onMouseEnter={() => setHoveredKey(g.key)}
                 onMouseLeave={() => setHoveredKey(null)}
               >
@@ -56,7 +65,10 @@ export function SourceBars({ data, totalSessions, title = "Traffic Sources" }: S
                     {g.label}
                     <Info size={11} className="text-[#097388]/50 shrink-0" />
                   </span>
-                  <span className="ml-auto flex items-baseline gap-2 shrink-0 tabular-nums">
+                  {onToggleHidden && (
+                    <span className="ml-auto"><HideButton hidden={hiddenSet.has(g.key)} label={g.label} onClick={() => onToggleHidden(g.key)} /></span>
+                  )}
+                  <span className={`${onToggleHidden ? "" : "ml-auto "}flex items-baseline gap-2 shrink-0 tabular-nums`}>
                     <span className="text-[15px] font-semibold text-[#001A2E]">{g.sessions.toLocaleString()}</span>
                     <span className="text-[13px] text-muted-foreground w-9 text-right">
                       {Math.round((g.sessions / total) * 100)}%
@@ -79,6 +91,7 @@ export function SourceBars({ data, totalSessions, title = "Traffic Sources" }: S
             );
           })}
         </div>
+        <HiddenFooter count={hiddenCount} noun="source" showing={showHidden} onToggle={() => setShowHidden(!showHidden)} />
       </CardContent>
     </Card>
   );
