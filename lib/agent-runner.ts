@@ -19,6 +19,8 @@ export interface AgentOutput {
   internalLinks?: { fromPage: string; anchorText: string }[];
   outreach?: { target: string; approach: string; pitchSubject: string; pitchBody: string }[];
   findings?: { issue: string; likelyCause: string; fix: string }[];
+  proposedChange?: string;
+  clientReply?: string;
   steps: { title: string; detail: string }[];
   model: string;
   generatedAt: string;
@@ -74,6 +76,12 @@ const SCHEMAS: Record<string, JsonSchema> = {
       pitchSubject: str("Email subject or post title; empty if not an email"),
       pitchBody: str("Ready-to-send message, under 150 words, with [placeholders] for anything you don't know"),
     })),
+    steps: STEPS,
+  }),
+  client_feedback: obj({
+    summary: SUMMARY,
+    proposedChange: str("The exact change: new copy word-for-word, or the precise design/layout change. Ready to paste or hand to the designer."),
+    clientReply: str("A short, friendly reply to the client (2-3 sentences) confirming what will change. Plain text, no sign-off."),
     steps: STEPS,
   }),
   ux_leak: obj({
@@ -244,6 +252,21 @@ Prompts the client tracks, where this site shows up as a source:
 ${list(prompts)}
 
 Plan how ${config.name} gets mentioned on ${task.domain}. Work out what kind of site it is (directory, review platform, publication, association, forum, competitor, government) and give the realistic route for that kind of site: claim or create a listing, request inclusion in a roundup, contribute an expert quote or guest post, answer a thread, earn a review, or pitch an editor. Write 1-3 outreach items with ready-to-send messages. If ${task.domain} is a competitor or a site that would never mention another business, say so in the summary and instead give the closest alternative route. Steps should be specific to this site.`;
+      break;
+    }
+    case "client_feedback": {
+      const d = (task.data || {}) as { selector?: string | null; device?: string };
+      prompt = `A client left this comment on their live website using MMG's review tool. Turn it into the exact change.
+
+Client's comment (on ${task.path}, viewed on ${d.device || "desktop"}):
+"${task.why}"
+
+${list(task.evidence)}
+${d.selector ? `Element they clicked (CSS path): ${d.selector}` : ""}
+
+${pageBlock("The page", target)}
+
+Work out precisely what they want changed. If it's copy, write the replacement word-for-word in proposedChange (match the page's tone and length). If it's design or layout, describe the exact change (which element, what to change, on which breakpoints). If the request is unclear, say what you'd assume and put a clarifying question in clientReply. Steps should say where to make the change in Webflow (page, section, element, breakpoint) and to resolve the comment after publishing.`;
       break;
     }
     case "ux_leak": {

@@ -14,8 +14,8 @@ import { brandTerms, classifyKeyword, type RankedKeyword } from "./keyword-insig
 // behind it and an estimated payoff. Rules are plain thresholds on purpose:
 // every task can say exactly why it exists.
 
-export type TaskCategory = "ai" | "indexing" | "search" | "upkeep";
-export type TaskType = "indexing" | "ctr" | "striking" | "missing_page" | "ai_prompt" | "ai_source" | "ux_leak" | "onpage";
+export type TaskCategory = "feedback" | "ai" | "indexing" | "search" | "upkeep";
+export type TaskType = "client_feedback" | "indexing" | "ctr" | "striking" | "missing_page" | "ai_prompt" | "ai_source" | "ux_leak" | "onpage";
 export type TaskStatus = "open" | "drafted" | "applied" | "done" | "dismissed" | "resolved";
 export type Impact = "high" | "medium" | "low";
 
@@ -53,6 +53,7 @@ const SCAN_TTL_HOURS = 12;
 // Which scan source produces each task type. A task is only auto-resolved
 // when its source loaded fine, so an SE Ranking timeout doesn't clear the list.
 const TYPE_SOURCE: Record<TaskType, string> = {
+  client_feedback: "Client feedback", // synced from the review tool, never auto-resolved by a scan
   ctr: "Search Console",
   indexing: "Index check",
   striking: "SE Ranking",

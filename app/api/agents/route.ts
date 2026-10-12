@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getClient } from "@/lib/clients";
 import { lastScan, listTasks, saveScan, scanClient, scanIsStale, updateTask, type TaskStatus } from "@/lib/agent-tasks";
 import { agentModelName } from "@/lib/agent-llm";
+import { feedbackIdFromKey, syncFeedbackTasks } from "@/lib/feedback-tasks";
+import { getFeedback, getReviewLink, setFeedbackStatus, slackTsFor } from "@/lib/feedback";
+import { notifyStatus } from "@/lib/slack";
 
 export const maxDuration = 120;
 
@@ -25,6 +28,9 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Unresolved client feedback joins the queue (resolved comments leave it).
+  await syncFeedbackTasks(slug, req.nextUrl.origin).catch((err) => console.error("Feedback sync error:", err));
+
   const webflow = config.integrations.webflow;
   return NextResponse.json({
     tasks: await listTasks(slug),
@@ -42,5 +48,18 @@ export async function PATCH(req: NextRequest) {
   const { client: slug, key, status } = (await req.json()) as { client?: string; key?: string; status?: TaskStatus };
   if (!slug || !key || !status || !STATUSES.includes(status)) return NextResponse.json({ error: "Missing client, key, or status" }, { status: 400 });
   await updateTask(slug, key, { status });
+
+  // Done on a client-feedback task resolves the comment itself (and tells Slack);
+  // reopening the task reopens the comment.
+  const feedbackId = feedbackIdFromKey(key);
+  if (feedbackId && (status === "done" || status === "open")) {
+    const item = await getFeedback(slug, feedbackId);
+    const next = status === "done" ? "resolved" : "open";
+    const client = await getClient(slug);
+    if (item && item.status !== next && client && (await getReviewLink(slug, false))) {
+      await setFeedbackStatus(feedbackId, next);
+      await notifyStatus(await slackTsFor(feedbackId), item, client.name, next, "MMG Studio");
+    }
+  }
   return NextResponse.json({ ok: true });
 }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Bot, Check, ChevronDown, ClipboardCopy, ExternalLink, FileSearch, Globe, Loader2, RefreshCw,
+  Bot, Check, ChevronDown, MessageSquare, ClipboardCopy, ExternalLink, FileSearch, Globe, Loader2, RefreshCw,
   RotateCcw, Search, Send, Sparkles, Wrench, X,
 } from "lucide-react";
 import type { ScanSummary, StoredTask, TaskCategory } from "@/lib/agent-tasks";
@@ -11,7 +11,6 @@ import type { AgentOutput } from "@/lib/agent-runner";
 import type { WfCollection } from "@/lib/webflow";
 import { safeHtml } from "@/lib/safe-html";
 import { lighten } from "@/lib/source-colors";
-import { ClientUpdates } from "./client-updates";
 
 interface AgentsResponse {
   tasks: StoredTask[];
@@ -25,12 +24,13 @@ interface AgentsResponse {
 // Category colors come from the dashboard's colorblind-checked palette and are
 // always shown with an icon and a name.
 const CATEGORIES: Record<TaskCategory, { label: string; color: string; Icon: typeof Bot; blurb: string }> = {
+  feedback: { label: "Client feedback", color: "#e87ba4", Icon: MessageSquare, blurb: "Open comments from the client's review link" },
   ai: { label: "AI visibility", color: "#4a3aa7", Icon: Sparkles, blurb: "Get named by ChatGPT, Google AI and Perplexity" },
   indexing: { label: "Indexing", color: "#eb6834", Icon: FileSearch, blurb: "Pages Google can't show yet" },
   search: { label: "Search growth", color: "#2a78d6", Icon: Search, blurb: "Rankings and clicks within reach" },
   upkeep: { label: "Site upkeep", color: "#1baf7a", Icon: Wrench, blurb: "On-page basics and visitor friction" },
 };
-const CATEGORY_ORDER: TaskCategory[] = ["ai", "indexing", "search", "upkeep"];
+const CATEGORY_ORDER: TaskCategory[] = ["feedback", "ai", "indexing", "search", "upkeep"];
 const IMPACT_RANK = { high: 0, medium: 1, low: 2 };
 
 const eyebrow = "text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground";
@@ -247,6 +247,39 @@ function DraftCreator({ task, out, post, webflowConnected, onResult }: {
   );
 }
 
+// Sends the agent's drafted reply into the client's comment thread (and Slack).
+function ClientReply({ task, text }: { task: StoredTask; text: string }) {
+  const [body, setBody] = useState(text);
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const reviewUrl = (task.data?.reviewUrl as string | undefined) || "";
+  const m = reviewUrl.match(/\/review\/([^/?]+)\?c=(\d+)/);
+  async function send() {
+    if (!m) return;
+    setState("sending");
+    const res = await fetch(`/api/review/${m[1]}/${m[2]}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reply", body, authorName: "MMG Studio" }),
+    });
+    setState(res.ok ? "sent" : "error");
+  }
+  return (
+    <Block title="Reply to the client" copy={body}>
+      <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} className={`${input} min-h-[72px]`} />
+      <div className="mt-2 flex items-center gap-2">
+        {m && (
+          <button className={btnPrimary} disabled={state === "sending" || state === "sent" || !body.trim()} onClick={send}>
+            {state === "sending" ? <Loader2 size={14} className="animate-spin" /> : state === "sent" ? <Check size={14} /> : <Send size={14} />}
+            {state === "sent" ? "Sent to client" : "Send reply"}
+          </button>
+        )}
+        {state === "error" && <span className="text-[13px] text-red-600">Couldn&apos;t send. Try again.</span>}
+        <span className="text-[12px] text-muted-foreground">Posts in the comment thread on their review link and in Slack.</span>
+      </div>
+    </Block>
+  );
+}
+
 const proseHtml = "text-[14px] leading-relaxed text-[#001A2E] [&_h2]:mt-4 [&_h2]:mb-1.5 [&_h2]:text-[17px] [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:font-semibold [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[#0394B2] [&_a]:underline";
 
 function OutputView({ task, out, post, webflowConnected, onResult }: {
@@ -340,6 +373,14 @@ function OutputView({ task, out, post, webflowConnected, onResult }: {
           </div>
         </Block>
       )}
+
+      {!!out.proposedChange?.trim() && (
+        <Block title="Proposed change" copy={out.proposedChange}>
+          <p className="whitespace-pre-line text-[14px] leading-relaxed text-[#001A2E]">{out.proposedChange}</p>
+        </Block>
+      )}
+
+      {!!out.clientReply?.trim() && <ClientReply task={task} text={out.clientReply} />}
 
       {!!out.findings?.length && (
         <Block title="What's going wrong">
@@ -452,7 +493,7 @@ function TaskCard({ task, clientSlug, webflowConnected, clickupConnected, onChan
             {!closed && !out && (
               <button className={btnPrimary} disabled={running} onClick={run}>
                 {running ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
-                {running ? "Working…" : isIndexing ? "Diagnose" : "Run agent"}
+                {running ? "Working…" : isIndexing ? "Diagnose" : task.type === "client_feedback" ? "Draft fix" : "Run agent"}
               </button>
             )}
             <button className={btnGhost} onClick={() => setOpen(!open)} aria-label={open ? "Collapse" : "Expand"}>
@@ -468,7 +509,11 @@ function TaskCard({ task, clientSlug, webflowConnected, clickupConnected, onChan
               <ul className="space-y-1 text-[14px] text-[#001A2E]/80">
                 {task.evidence.map((e, i) => <li key={i} className="flex gap-2"><span className="mt-2 size-1 shrink-0 rounded-full bg-[#001A2E]/40" />{e}</li>)}
               </ul>
-              {task.url && (
+              {typeof task.data?.reviewUrl === "string" ? (
+                <a href={task.data.reviewUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[13px] text-[#0394B2] hover:underline">
+                  Open the comment in review <ExternalLink size={12} />
+                </a>
+              ) : task.url && (
                 <a href={task.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[13px] text-[#0394B2] hover:underline">
                   Open the page <ExternalLink size={12} />
                 </a>
@@ -566,7 +611,8 @@ export function AgentsTab({ clientSlug, clientName }: { clientSlug: string; clie
   const shown = tasks
     .filter((t) => (view === "active" ? isActive(t) : !isActive(t)))
     .filter((t) => category === "all" || t.category === category)
-    .sort((a, b) => IMPACT_RANK[a.impact] - IMPACT_RANK[b.impact] || b.score - a.score);
+    // Client requests come first, then by impact and payoff.
+    .sort((a, b) => Number(b.category === "feedback") - Number(a.category === "feedback") || IMPACT_RANK[a.impact] - IMPACT_RANK[b.impact] || b.score - a.score);
   const closedCount = tasks.filter((t) => !isActive(t)).length;
 
   function replace(updated: StoredTask) {
@@ -592,9 +638,6 @@ export function AgentsTab({ clientSlug, clientName }: { clientSlug: string; clie
         </div>
       </div>
 
-      {/* Feedback clients leave through their review link */}
-      <ClientUpdates clientSlug={clientSlug} />
-
       {loading ? (
         <Card><CardContent className="py-14 flex items-center justify-center gap-2 text-[15px] text-muted-foreground"><Loader2 size={17} className="animate-spin" /> Scanning the site and its data. The first scan takes up to a minute…</CardContent></Card>
       ) : error && !data ? (
@@ -619,7 +662,7 @@ export function AgentsTab({ clientSlug, clientName }: { clientSlug: string; clie
           </div>
 
           {/* Category summary */}
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
             {CATEGORY_ORDER.map((key) => {
               const c = CATEGORIES[key];
               const active = category === key;

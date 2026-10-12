@@ -23,6 +23,7 @@ import { Attribution } from "@/components/dashboard/attribution";
 import { CustomReportGenerator } from "@/components/dashboard/custom-report-generator";
 import { AiVisibilityTab } from "@/components/dashboard/ai-visibility";
 import { AgentsTab } from "@/components/dashboard/agents";
+import { ClientFeedback } from "@/components/dashboard/client-feedback";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
 import type { GoalConfig } from "@/lib/clients";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -45,6 +46,7 @@ import {
   FileChartColumn,
   Sparkles,
   Bot,
+  MessageSquare,
 } from "lucide-react";
 
 interface GAData {
@@ -177,7 +179,7 @@ export default function ClientDashboard() {
   const clientSlug = params.client as string;
 
   const [range, setRange] = useState("7d");
-  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "ai-visibility" | "agents" | "report-generator">("overview");
+  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "ai-visibility" | "agents" | "report-generator" | "feedback">("overview");
   const [clientName, setClientName] = useState(
     clientSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
   );
@@ -884,6 +886,7 @@ export default function ClientDashboard() {
                 ["ai-visibility", "AI Visibility", Sparkles],
                 ["agents", "Agents", Bot],
                 ["report-generator", "Custom Reports", FileChartColumn],
+                ["feedback", "Client Feedback", MessageSquare],
               ] as const).map(([key, label, Icon]) => {
                 const active = activeSection === key;
                 return (
@@ -907,7 +910,9 @@ export default function ClientDashboard() {
 
           {/* ── Main content ── */}
           <div className="min-w-0 flex-1">
-            {activeSection === "agents" ? (
+            {activeSection === "feedback" ? (
+              <ClientFeedback clientSlug={clientSlug} clientName={clientName} />
+            ) : activeSection === "agents" ? (
               <AgentsTab clientSlug={clientSlug} clientName={clientName} />
             ) : activeSection === "ai-visibility" ? (
               <AiVisibilityTab clientSlug={clientSlug} clientName={clientName} range={range} />
