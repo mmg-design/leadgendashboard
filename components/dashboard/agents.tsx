@@ -11,6 +11,7 @@ import type { AgentOutput } from "@/lib/agent-runner";
 import type { WfCollection } from "@/lib/webflow";
 import { safeHtml } from "@/lib/safe-html";
 import { lighten } from "@/lib/source-colors";
+import { ClientUpdates } from "./client-updates";
 
 interface AgentsResponse {
   tasks: StoredTask[];
@@ -590,6 +591,9 @@ export function AgentsTab({ clientSlug, clientName }: { clientSlug: string; clie
           </button>
         </div>
       </div>
+
+      {/* Feedback clients leave through their review link */}
+      <ClientUpdates clientSlug={clientSlug} />
 
       {loading ? (
         <Card><CardContent className="py-14 flex items-center justify-center gap-2 text-[15px] text-muted-foreground"><Loader2 size={17} className="animate-spin" /> Scanning the site and its data. The first scan takes up to a minute…</CardContent></Card>

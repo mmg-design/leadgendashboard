@@ -7,8 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
 import {
   Plus,
-  ChevronDown,
-  ChevronUp,
+  MessageSquare,
   BarChart3,
   Search,
   Video,
@@ -102,6 +101,9 @@ export default function Home() {
   const router = useRouter();
   const [clients, setClients] = useState<ClientConfig[]>([]);
   const [formOpen, setFormOpen] = useState(false);
+  // Open client-feedback comments per client (from the review tool)
+  const [feedbackCounts, setFeedbackCounts] = useState<Record<string, number>>({});
+  const openFeedback = Object.values(feedbackCounts).reduce((a, b) => a + b, 0);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,6 +129,10 @@ export default function Home() {
 
   useEffect(() => {
     fetchClients();
+    fetch("/api/feedback/summary")
+      .then((r) => r.json())
+      .then((data: { open?: Record<string, number> }) => setFeedbackCounts(data.open || {}))
+      .catch(() => {});
   }, []);
 
   // Drag-to-reorder
@@ -237,27 +243,46 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#001A2E] text-white relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_5%,rgba(12,164,195,0.24),transparent_34%),radial-gradient(circle_at_92%_30%,rgba(3,148,178,0.18),transparent_30%),linear-gradient(145deg,#001A2E_0%,#01384C_55%,#072732_100%)]" />
-      <div className="relative max-w-6xl mx-auto py-20 md:py-28 px-5 md:px-10">
-        {/* Header */}
-        <div className="mb-14 md:mb-20">
-          <div className="flex items-center gap-4 mb-5">
-            <h1 className="whitespace-nowrap text-[clamp(2.75rem,6.25vw,4.75rem)] leading-none font-headline font-normal tracking-[-0.03em] text-white">
-              Website LeadGen
-            </h1>
+      {/* Site nav */}
+      <nav className="relative z-10 border-b border-white/[0.08]">
+        <div className="max-w-[1320px] mx-auto px-5 md:px-10 h-[72px] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Image src="/mmg-icon.png" alt="MMG" width={34} height={34} className="rounded-lg" />
+            <span className="font-headline text-[22px] tracking-tight text-white">MMG Pulse</span>
           </div>
-          <p className="max-w-2xl text-[18px] md:text-[20px] leading-relaxed text-white/70">
-            Manage clients and view their website visibility and lead data.
+          <div className="flex items-center gap-2">
+            {openFeedback > 0 && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[13px] text-white/80">
+                <MessageSquare size={13} className="text-[#45D7DF]" /> {openFeedback} open client {openFeedback === 1 ? "update" : "updates"}
+              </span>
+            )}
+            <button
+              onClick={() => { setFormOpen(true); setSuccess(false); }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#0CA4C3] px-4 py-2 text-[14px] font-semibold text-white hover:bg-[#0394B2] transition-colors"
+            >
+              <Plus size={15} /> New client
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <div className="relative max-w-[1320px] mx-auto pt-16 md:pt-24 pb-24 px-5 md:px-10">
+        {/* Hero */}
+        <div className="mb-14 md:mb-20 max-w-3xl">
+          <div className="text-[14px] font-medium uppercase tracking-[0.14em] text-[#45D7DF] mb-5">MMG Studio</div>
+          <h1 className="text-[clamp(2.75rem,6vw,4.75rem)] leading-[1.02] font-headline font-normal tracking-[-0.03em] text-white">
+            Every client&apos;s growth, in one place.
+          </h1>
+          <p className="mt-6 max-w-2xl text-[18px] md:text-[20px] leading-relaxed text-white/70">
+            Live performance, search and AI visibility, agent tasks, and client feedback for every site MMG builds and grows.
           </p>
         </div>
 
-        {/* Add Client Card */}
-        <div className="mb-12">
-          <Card className="overflow-hidden bg-white border-white/10 shadow-[0_22px_70px_rgba(0,0,0,0.22)]">
-            {/* Toggle header */}
-            <button
-              onClick={() => { setFormOpen(!formOpen); if (success) setSuccess(false); }}
-              className="w-full px-7 py-6 flex items-center justify-between text-left hover:bg-[#001A2E]/[0.025] transition-colors"
-            >
+        {/* Add client (modal) */}
+        {formOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#001A2E]/70 backdrop-blur-sm px-4 py-10" onClick={() => setFormOpen(false)}>
+          <Card className="w-full max-w-3xl overflow-hidden bg-white border-white/10 shadow-[0_22px_70px_rgba(0,0,0,0.3)]" onClick={(e) => e.stopPropagation()}>
+            <div className="w-full px-7 py-6 flex items-center justify-between text-left">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-xl bg-[#0CA4C3]/10 flex items-center justify-center">
                   <Plus size={20} className="text-[#0394B2]" />
@@ -271,15 +296,12 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-              {formOpen ? (
-                <ChevronUp size={16} className="text-muted-foreground" />
-              ) : (
-                <ChevronDown size={16} className="text-muted-foreground" />
-              )}
-            </button>
+              <button type="button" onClick={() => setFormOpen(false)} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted/60" aria-label="Close">
+                <X size={16} />
+              </button>
+            </div>
 
             {/* Form */}
-            {formOpen && (
               <form onSubmit={handleSubmit}>
                 <div className="px-6 pb-6 border-t border-border/50">
                   <div className="pt-5 space-y-5">
@@ -452,19 +474,19 @@ export default function Home() {
                   </div>
                 </div>
               </form>
-            )}
           </Card>
         </div>
+        )}
 
         {/* Client cards */}
         <div className="mb-7 flex items-end justify-between gap-6">
           <div>
             <div className="text-[14px] font-medium uppercase tracking-[0.12em] text-[#45D7DF] mb-2">Client portfolio</div>
-            <h2 className="font-headline text-[clamp(2rem,4vw,3.25rem)] text-white">Your active dashboards</h2>
+            <h2 className="font-headline text-[clamp(1.75rem,3vw,2.5rem)] text-white">Active dashboards</h2>
           </div>
           <p className="hidden md:block max-w-sm text-[15px] leading-relaxed text-white/60">Open a workspace to review performance, attribution, search visibility, and active marketing work.</p>
         </div>
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {clients.map((client) => {
             const enabledSources = integrationMeta.filter(
               (integration) => client.integrations[integration.key]?.enabled
@@ -558,9 +580,14 @@ export default function Home() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pb-6">
-                    <p className="text-[15px] text-muted-foreground mb-4">
-                      {client.domain}
-                    </p>
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <p className="text-[15px] text-muted-foreground truncate">{client.domain}</p>
+                      {(feedbackCounts[client.slug] || 0) > 0 && (
+                        <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[#E87BA4]/12 px-2.5 py-1 text-[12px] font-semibold text-[#9C2F5A]">
+                          <MessageSquare size={12} /> {feedbackCounts[client.slug]} open
+                        </span>
+                      )}
+                    </div>
                     {enabledSources.length > 0 && (
                       <div className="flex gap-2 flex-wrap">
                         {enabledSources.map((source) => {

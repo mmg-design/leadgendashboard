@@ -9,7 +9,9 @@ const PUBLIC_PATHS = new Set(["/login", "/api/auth/login", "/api/track-config", 
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
-  const isPublic = PUBLIC_PATHS.has(pathname);
+  // Client review links: the page, its API, and the proxied site are reachable
+  // without the dashboard password; each checks its own link token.
+  const isPublic = PUBLIC_PATHS.has(pathname) || /^\/(review|proxy|api\/review)\//.test(pathname);
   const configuredPassword = process.env.DASHBOARD_PASSWORD;
 
   if (!configuredPassword && process.env.NODE_ENV === "production") {

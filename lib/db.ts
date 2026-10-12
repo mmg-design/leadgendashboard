@@ -78,6 +78,47 @@ async function initSchema(db: Client) {
       UNIQUE(client_slug, task_key)
     );
 
+    -- Website review tool: one private share link per client, the comments
+    -- clients pin on their live site, and the replies on each comment.
+    CREATE TABLE IF NOT EXISTS review_links (
+      client_slug TEXT PRIMARY KEY,
+      token TEXT UNIQUE NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_slug TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'comment',
+      page_url TEXT NOT NULL,
+      page_path TEXT NOT NULL,
+      page_title TEXT,
+      device TEXT NOT NULL,
+      viewport_width INTEGER,
+      anchor TEXT,
+      body TEXT NOT NULL,
+      author_name TEXT NOT NULL,
+      author_email TEXT,
+      is_team INTEGER NOT NULL DEFAULT 0,
+      browser TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      slack_ts TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_feedback_client ON feedback(client_slug, status);
+
+    CREATE TABLE IF NOT EXISTS feedback_replies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      feedback_id INTEGER NOT NULL,
+      body TEXT NOT NULL,
+      author_name TEXT NOT NULL,
+      author_email TEXT,
+      is_team INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_feedback_replies ON feedback_replies(feedback_id);
+
     CREATE TABLE IF NOT EXISTS clients (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       slug TEXT UNIQUE NOT NULL,

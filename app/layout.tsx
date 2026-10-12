@@ -18,8 +18,8 @@ const tiemposHeadline = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Lead Gen Dashboard",
-  description: "Website visibility & lead intelligence",
+  title: "MMG Pulse",
+  description: "Client performance, visibility, and feedback by MMG Studio",
   icons: {
     icon: [
       {
