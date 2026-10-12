@@ -83,10 +83,15 @@ export async function GET(req: NextRequest, { params }: Params) {
   }
 
   const finalUrl = new URL(res.url || target.href);
-  // Anything that isn't a page on the client's site (PDFs, other domains) opens
-  // directly rather than through the proxy.
-  if (!isClientHost(finalUrl.hostname, client.domain)) return Response.redirect(finalUrl.href, 302);
   const type = res.headers.get("content-type") || "";
+  // The saved domain now redirects to a different site (a domain change, like
+  // 2spsportsperformance.com -> 2spsports.com). Sending the frame there fails,
+  // since most sites refuse to load inside another page, so say what happened.
+  if (!isClientHost(finalUrl.hostname, client.domain) && type.includes("text/html")) {
+    const moved = finalUrl.hostname.replace(/^www\./, "");
+    return page(`${client.name}'s site now lives at <b>${moved}</b>. MMG Studio needs to update the website domain for this review link (Settings → Website Domain → ${moved}).`, 409);
+  }
+  // Anything that isn't a page (PDFs, images) opens directly rather than through the proxy.
   if (!type.includes("text/html")) return Response.redirect(finalUrl.href, 302);
 
   const html = rewrite(await res.text(), finalUrl, req.nextUrl.origin, token);
