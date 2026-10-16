@@ -479,13 +479,6 @@ export default function Home() {
         )}
 
         {/* Client cards */}
-        <div className="mb-7 flex items-end justify-between gap-6">
-          <div>
-            <div className="text-[14px] font-medium uppercase tracking-[0.12em] text-[#45D7DF] mb-2">Client portfolio</div>
-            <h2 className="font-headline text-[clamp(1.75rem,3vw,2.5rem)] text-white">Active dashboards</h2>
-          </div>
-          <p className="hidden md:block max-w-sm text-[15px] leading-relaxed text-white/60">Open a workspace to review performance, attribution, search visibility, and active marketing work.</p>
-        </div>
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {clients.map((client) => {
             const enabledSources = integrationMeta.filter(
