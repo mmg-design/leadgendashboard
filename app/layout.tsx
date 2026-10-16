@@ -19,7 +19,7 @@ const tiemposHeadline = localFont({
 
 export const metadata: Metadata = {
   title: "MMG Pulse",
-  description: "Client performance, visibility, and feedback by MMG Studio",
+  description: "The growth platform for healthcare websites: search and AI visibility, patient-journey analytics, and compliant review.",
   icons: {
     icon: [
       {
