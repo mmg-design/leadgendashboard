@@ -239,8 +239,12 @@ interface InspectionResponse {
   };
 }
 
-export function searchConsoleInspectLink(property: string, url: string) {
-  return `https://search.google.com/search-console/inspect?resource_id=${enc(property)}&id=${enc(url)}`;
+// Search Console's URL Inspection page identifies a page by an inspection
+// result ID, not by its URL (a URL in `id=` lands on a 404). The inspection API
+// returns the right link; without one, open the property in Search Console.
+export function searchConsoleInspectLink(property: string, resultLink?: string | null) {
+  if (resultLink && resultLink.startsWith("https://search.google.com/")) return resultLink;
+  return `https://search.google.com/search-console?resource_id=${enc(property)}`;
 }
 
 export async function inspectUrl(property: string, url: string): Promise<IndexStatus> {
@@ -307,7 +311,7 @@ export async function inspectUrl(property: string, url: string): Promise<IndexSt
     lastCrawl: r.lastCrawlTime || null,
     inSitemap,
     hasInternalLinks,
-    inspectUrl: searchConsoleInspectLink(property, url),
+    inspectUrl: searchConsoleInspectLink(property, data.inspectionResult?.inspectionResultLink),
   };
 }
 
