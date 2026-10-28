@@ -23,6 +23,7 @@ import { CustomReportGenerator } from "@/components/dashboard/custom-report-gene
 import { AiVisibilityTab } from "@/components/dashboard/ai-visibility";
 import { AgentsTab } from "@/components/dashboard/agents";
 import { ClientFeedback } from "@/components/dashboard/client-feedback";
+import { ClientPortal } from "@/components/dashboard/client-portal";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
 import type { GoalConfig } from "@/lib/clients";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,6 +47,7 @@ import {
   Sparkles,
   Bot,
   MessageSquare,
+  Presentation,
 } from "lucide-react";
 
 interface GAData {
@@ -178,7 +180,7 @@ export default function ClientDashboard() {
   const clientSlug = params.client as string;
 
   const [range, setRange] = useState("7d");
-  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "ai-visibility" | "agents" | "report-generator" | "feedback">("overview");
+  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "ai-visibility" | "agents" | "report-generator" | "feedback" | "portal">("overview");
   const [clientName, setClientName] = useState(
     clientSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
   );
@@ -881,6 +883,7 @@ export default function ClientDashboard() {
                 ["agents", "Agents", Bot],
                 ["report-generator", "Custom Reports", FileChartColumn],
                 ["feedback", "Client Feedback", MessageSquare],
+                ["portal", "Client Page", Presentation],
               ] as const).map(([key, label, Icon]) => {
                 const active = activeSection === key;
                 return (
@@ -904,7 +907,9 @@ export default function ClientDashboard() {
 
           {/* ── Main content ── */}
           <div className="min-w-0 flex-1">
-            {activeSection === "feedback" ? (
+            {activeSection === "portal" ? (
+              <ClientPortal clientSlug={clientSlug} clientName={clientName} />
+            ) : activeSection === "feedback" ? (
               <ClientFeedback clientSlug={clientSlug} clientName={clientName} />
             ) : activeSection === "agents" ? (
               <AgentsTab clientSlug={clientSlug} clientName={clientName} />

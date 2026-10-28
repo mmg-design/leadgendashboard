@@ -1,55 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { BetaAnalyticsDataClient } from "@google-analytics/data";
-import { getClient, syntheticEventName, SNIPPET_TRIGGER_TYPES, type GoalConfig } from "@/lib/clients";
+import { getClient } from "@/lib/clients";
 import { getDb } from "@/lib/db";
-import fs from "fs";
-import path from "path";
-
-function getAnalyticsClient(): BetaAnalyticsDataClient {
-  // Try env var first (production / Vercel)
-  if (process.env.GOOGLE_CREDENTIALS_BASE64) {
-    const json = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, "base64").toString();
-    const credentials = JSON.parse(json);
-    return new BetaAnalyticsDataClient({ credentials });
-  }
-
-  // Fall back to local credentials file (development)
-  const credPath = path.join(process.cwd(), "web-lead-gen-mvp-97217b4d6543.json");
-  if (fs.existsSync(credPath)) {
-    return new BetaAnalyticsDataClient({ keyFilename: credPath });
-  }
-
-  throw new Error("No Google credentials configured. Set GOOGLE_CREDENTIALS_BASE64 env var or place credentials file.");
-}
-
-let analyticsClient: BetaAnalyticsDataClient | null = null;
-
-function conversionFilterFor(goal: GoalConfig) {
-  if (goal.conversionType === "event") {
-    return {
-      filter: {
-        fieldName: "eventName",
-        stringFilter: { matchType: "EXACT" as const, value: goal.conversionValue },
-      },
-    };
-  }
-  if (SNIPPET_TRIGGER_TYPES.includes(goal.conversionType)) {
-    return {
-      filter: {
-        fieldName: "eventName",
-        stringFilter: { matchType: "EXACT" as const, value: syntheticEventName(goal.id) },
-      },
-    };
-  }
-  return {
-    andGroup: {
-      expressions: [
-        { filter: { fieldName: "eventName", stringFilter: { matchType: "EXACT" as const, value: "page_view" } } },
-        { filter: { fieldName: "pagePath", stringFilter: { matchType: "EXACT" as const, value: goal.conversionValue } } },
-      ],
-    },
-  };
-}
+import { getAnalyticsClient, conversionFilterFor } from "@/lib/ga-client";
 
 export async function GET(req: NextRequest) {
   const client = req.nextUrl.searchParams.get("client");
@@ -99,9 +51,7 @@ export async function GET(req: NextRequest) {
   const goals = config.goals;
 
   try {
-    if (!analyticsClient) {
-      analyticsClient = getAnalyticsClient();
-    }
+    const analyticsClient = getAnalyticsClient();
 
     const [summaryReport, dailyReport, sourcesReport, dailyPagesReport, devicesReport, dailySourcesReport] = await Promise.all([
       analyticsClient.runReport({
@@ -169,13 +119,13 @@ export async function GET(req: NextRequest) {
     const goalResults = await Promise.all(
       goals.map(async (goal) => {
         const [summary, daily, sourceBreakdown] = await Promise.all([
-          analyticsClient!.runReport({
+          analyticsClient.runReport({
             property: `properties/${propertyId}`,
             dateRanges: [currentDateRange, previousDateRange],
             metrics: [{ name: "eventCount" }],
             dimensionFilter: conversionFilterFor(goal),
           }),
-          analyticsClient!.runReport({
+          analyticsClient.runReport({
             property: `properties/${propertyId}`,
             dateRanges: [currentDateRange],
             dimensions: [{ name: "date" }],
@@ -186,7 +136,7 @@ export async function GET(req: NextRequest) {
           // Aggregate traffic-source breakdown scoped to this conversion - not
           // individual visitors (GA4 doesn't expose per-user IP/identity), just
           // "what channel started sessions that included this conversion event."
-          analyticsClient!.runReport({
+          analyticsClient.runReport({
             property: `properties/${propertyId}`,
             dateRanges: [currentDateRange],
             dimensions: [{ name: "sessionSourceMedium" }],

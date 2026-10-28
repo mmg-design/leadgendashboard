@@ -137,6 +137,18 @@ async function initSchema(db: Client) {
     );
     CREATE INDEX IF NOT EXISTS idx_site_events_client ON site_events(client_slug, occurred_at);
 
+    -- Client progress page: one private link per client, off until the team
+    -- shares it. settings holds the lead value, start date, and which items
+    -- are hidden or reworded for the client.
+    CREATE TABLE IF NOT EXISTS client_portals (
+      client_slug TEXT PRIMARY KEY,
+      token TEXT UNIQUE NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      settings TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS clients (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       slug TEXT UNIQUE NOT NULL,

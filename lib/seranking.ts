@@ -7,7 +7,7 @@ import { brandTerms, classifyKeyword, type RankedKeyword } from "./keyword-insig
 
 const SE_RANKING_BASE = "https://api.seranking.com";
 
-async function serankingFetch(path: string, apiKey: string, params?: Record<string, string>, fresh = false) {
+export async function serankingFetch(path: string, apiKey: string, params?: Record<string, string>, fresh = false) {
   let url = `${SE_RANKING_BASE}${path}`;
   if (params) {
     url += "?" + new URLSearchParams(params).toString();
