@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HoverPanel } from "@/components/ui/hover-panel";
 import { Search, ArrowUp, ArrowDown, ChevronDown, ChevronUp, RefreshCw, Sparkles } from "lucide-react";
 import type { RankedKeyword } from "@/lib/keyword-insights";
 import { DeltaText, KeywordDetail, PositionPill } from "./keyword-detail";
+import { changeMarkerLines, MarkerCard, useSiteEvents, type ActiveMarker } from "./change-markers";
 
 interface SearchPerformanceData {
   totalKeywords: number;
@@ -28,9 +30,42 @@ interface SearchPerformanceProps {
   error: string | null;
   enabled: boolean;
   onRefresh?: () => void;
+  clientSlug?: string; // shows the change timeline on the visibility trend
 }
 
 const VISIBLE_ROWS = 8;
+
+const dayLabel = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+// SE Ranking's visibility score over the last 30 days, with the same change
+// markers as the traffic chart, so ranking moves can be read against changes.
+function VisibilityTrend({ history, clientSlug }: { history: { date: string; score: number }[]; clientSlug?: string }) {
+  const { events } = useSiteEvents(clientSlug || "");
+  const [active, setActive] = useState<ActiveMarker>(null);
+  const days = new Set(history.map((h) => h.date));
+  const shown = clientSlug ? events.filter((e) => days.has(e.day)) : [];
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline justify-between">
+        <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Search visibility, 30 days</span>
+        {shown.length > 0 && <span className="text-[12px] text-muted-foreground">Lines mark site changes</span>}
+      </div>
+      <div className="relative h-[150px]">
+        {clientSlug && <MarkerCard clientSlug={clientSlug} active={active} events={shown} onClose={() => setActive(null)} />}
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={history} margin={{ top: shown.length ? 22 : 6, right: shown.length ? 14 : 4, left: -18, bottom: 0 }}>
+            <CartesianGrid vertical={false} stroke="rgba(0,26,46,0.06)" />
+            <XAxis dataKey="date" tickFormatter={dayLabel} tick={{ fill: "#365f6d", fontSize: 11 }} axisLine={{ stroke: "rgba(0,26,46,0.1)" }} tickLine={false} minTickGap={32} />
+            <YAxis tick={{ fill: "#365f6d", fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
+            <Tooltip labelFormatter={(d) => dayLabel(String(d))} formatter={(v) => [v, "Visibility"]} contentStyle={{ borderRadius: 12, border: "1px solid #d9e9ed", fontSize: 13 }} />
+            <Line type="monotone" dataKey="score" stroke="#2a78d6" strokeWidth={2} dot={false} />
+            {changeMarkerLines(shown, (day) => (days.has(day) ? day : null), setActive)}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
 
 function Header({ onRefresh, loading, badge }: { onRefresh?: () => void; loading?: boolean; badge?: React.ReactNode }) {
   return (
@@ -64,7 +99,7 @@ function Metric({ label, value, sub }: { label: string; value: string; sub: stri
   );
 }
 
-export function SearchPerformance({ data, loading, error, enabled, onRefresh }: SearchPerformanceProps) {
+export function SearchPerformance({ data, loading, error, enabled, onRefresh, clientSlug }: SearchPerformanceProps) {
   const [showAll, setShowAll] = useState(false);
   const [showUnranked, setShowUnranked] = useState(false);
 
@@ -155,6 +190,8 @@ export function SearchPerformance({ data, loading, error, enabled, onRefresh }: 
             </span>
           )}
         </div>
+
+        {data.visibilityHistory.length >= 5 && <VisibilityTrend history={data.visibilityHistory} clientSlug={clientSlug} />}
 
         {keywords.length > 0 ? (
           <div>

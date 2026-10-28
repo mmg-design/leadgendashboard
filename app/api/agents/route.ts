@@ -5,6 +5,8 @@ import { agentModelName } from "@/lib/agent-llm";
 import { feedbackIdFromKey, syncFeedbackTasks } from "@/lib/feedback-tasks";
 import { getFeedback, getReviewLink, setFeedbackStatus, slackTsFor } from "@/lib/feedback";
 import { notifyStatus } from "@/lib/slack";
+import { recordEvent } from "@/lib/site-events";
+import { getTask } from "@/lib/agent-tasks";
 
 export const maxDuration = 120;
 
@@ -49,6 +51,13 @@ export async function PATCH(req: NextRequest) {
   if (!slug || !key || !status || !STATUSES.includes(status)) return NextResponse.json({ error: "Missing client, key, or status" }, { status: 400 });
   await updateTask(slug, key, { status });
 
+  // Finished work goes on the change timeline (client feedback is logged as
+  // "feedback resolved" below instead).
+  if (status === "done" && !key.startsWith("feedback:")) {
+    const task = await getTask(slug, key);
+    if (task) await recordEvent(slug, { kind: "agent_task", title: task.title, pages: task.path ? [task.path] : [], source: "Agents", ref: `task:${key}` });
+  }
+
   // Done on a client-feedback task resolves the comment itself (and tells Slack);
   // reopening the task reopens the comment.
   const feedbackId = feedbackIdFromKey(key);
@@ -59,6 +68,9 @@ export async function PATCH(req: NextRequest) {
     if (item && item.status !== next && client && (await getReviewLink(slug, false))) {
       await setFeedbackStatus(feedbackId, next);
       await notifyStatus(await slackTsFor(feedbackId), item, client.name, next, "MMG Studio");
+      if (next === "resolved") {
+        await recordEvent(slug, { kind: "feedback_resolved", title: `Client feedback resolved: “${item.body.slice(0, 80)}”`, pages: [item.pagePath], source: "Client feedback", ref: `feedback:${item.id}` });
+      }
     }
   }
   return NextResponse.json({ ok: true });

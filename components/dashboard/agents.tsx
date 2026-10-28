@@ -11,6 +11,7 @@ import type { AgentOutput } from "@/lib/agent-runner";
 import type { WfCollection } from "@/lib/webflow";
 import { safeHtml } from "@/lib/safe-html";
 import { lighten } from "@/lib/source-colors";
+import { ImpactChip as ChangeImpact, reloadSiteEvents, useSiteEvents } from "./change-markers";
 
 interface AgentsResponse {
   tasks: StoredTask[];
@@ -419,6 +420,9 @@ function TaskCard({ task, clientSlug, webflowConnected, clickupConnected, onChan
 }) {
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
+  // The change this task put on the timeline (when it went live), for its impact.
+  const { events: timeline } = useSiteEvents(clientSlug);
+  const liveEvent = timeline.find((e) => e.ref.startsWith(`publish:${task.key}:`)) || timeline.find((e) => e.ref === `task:${task.key}` || e.ref === `feedback:${task.key.replace("feedback:", "")}`);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const out = task.output as AgentOutput | null;
@@ -438,6 +442,7 @@ function TaskCard({ task, clientSlug, webflowConnected, clickupConnected, onChan
 
   function onResult(result: Record<string, unknown>, status?: StoredTask["status"]) {
     onChange({ ...task, result, ...(status ? { status } : {}) });
+    if (status === "done") reloadSiteEvents(clientSlug); // published: new marker on the charts
   }
 
   async function run() {
@@ -463,6 +468,7 @@ function TaskCard({ task, clientSlug, webflowConnected, clickupConnected, onChan
     await fetch("/api/agents", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client: clientSlug, key: task.key, status }) });
     setBusy(null);
     onChange({ ...task, status });
+    if (status === "done") reloadSiteEvents(clientSlug); // new marker on the charts
   }
 
   async function action(name: "clickup" | "resubmit_sitemap") {
@@ -488,6 +494,12 @@ function TaskCard({ task, clientSlug, webflowConnected, clickupConnected, onChan
             </div>
             <p className="text-[17px] font-semibold leading-snug text-[#001A2E]">{task.title}</p>
             <p className="mt-1 text-[14px] text-[#001A2E]/70">{task.why}</p>
+            {liveEvent && (
+              <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[12.5px]">
+                <span className="font-medium text-[#001A2E]">{liveEvent.kind === "published" ? "Live" : "Done"} since {new Date(`${liveEvent.day}T12:00:00`).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+                <ChangeImpact clientSlug={clientSlug} event={liveEvent} />
+              </p>
+            )}
           </button>
           <div className="flex shrink-0 items-center gap-1.5">
             {!closed && !out && (

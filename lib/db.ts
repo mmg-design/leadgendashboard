@@ -119,6 +119,24 @@ async function initSchema(db: Client) {
     );
     CREATE INDEX IF NOT EXISTS idx_feedback_replies ON feedback_replies(feedback_id);
 
+    -- Change timeline: everything done to a client's site (agent work going
+    -- live, new or removed pages, Webflow publishes, resolved feedback, notes),
+    -- shown as markers on the charts. ref makes automatic events idempotent.
+    CREATE TABLE IF NOT EXISTS site_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_slug TEXT NOT NULL,
+      occurred_at TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      detail TEXT,
+      pages TEXT,
+      source TEXT NOT NULL,
+      ref TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(client_slug, ref)
+    );
+    CREATE INDEX IF NOT EXISTS idx_site_events_client ON site_events(client_slug, occurred_at);
+
     CREATE TABLE IF NOT EXISTS clients (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       slug TEXT UNIQUE NOT NULL,

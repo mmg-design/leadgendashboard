@@ -14,6 +14,7 @@ import {
   updateItemFields,
   updatePageSeo,
 } from "@/lib/webflow";
+import { recordEvent } from "@/lib/site-events";
 
 // Every way an agent's draft leaves the dashboard. Each action runs only when
 // the user presses its button; Webflow changes are staged until "publish".
@@ -115,8 +116,10 @@ export async function POST(req: NextRequest) {
         if (!auth || !applied) return NextResponse.json({ error: "Nothing staged to publish." }, { status: 400 });
         if (applied.kind === "page" && applied.pageId) await publishPage(auth.token, auth.siteId, applied.pageId);
         else if (applied.collectionId && applied.itemId) await publishItems(auth.token, applied.collectionId, [applied.itemId]);
-        result.webflow = { ...applied, published: true, publishedAt: new Date().toISOString() };
+        const publishedAt = new Date().toISOString();
+        result.webflow = { ...applied, published: true, publishedAt };
         await updateTask(slug, key, { status: "done", result });
+        await recordEvent(slug, { kind: "published", title: `Published: ${task.title}`, detail: "Applied by an agent and published to the live site from MMG Pulse.", pages: task.path ? [task.path] : [], source: "Agents", ref: `publish:${key}:${publishedAt}`, occurredAt: publishedAt });
         return NextResponse.json({ ok: true, result });
       }
 
@@ -147,6 +150,7 @@ export async function POST(req: NextRequest) {
         const submitted = await resubmitSitemaps(property, `https://${config.domain.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`);
         result.sitemap = { submitted, at: new Date().toISOString() };
         await updateTask(slug, key, { result });
+        await recordEvent(slug, { kind: "sitemap", title: "Sitemap resubmitted to Google", detail: submitted.join(", "), pages: task.path ? [task.path] : [], source: "Agents", ref: `sitemap:${new Date().toISOString().slice(0, 10)}` });
         return NextResponse.json({ ok: true, result });
       }
     }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HoverPanel } from "@/components/ui/hover-panel";
-import { FileText, Loader2, Sparkles, Target } from "lucide-react";
+import { FileText, History, Loader2, Sparkles, Target } from "lucide-react";
 import { normalizePath, type LabeledPage } from "@/lib/page-behavior";
 import { keywordsForPage, targetsForPage, type RankedKeyword } from "@/lib/keyword-insights";
 import { PageLabelPill } from "./page-label";
@@ -11,6 +11,7 @@ import { PositionPill } from "./keyword-detail";
 import { GscSection, IndexBadge, IndexFixDialog, type GscData } from "./search-console";
 import type { IndexStatus } from "@/lib/gsc";
 import { HiddenFooter, HideButton } from "./hide-controls";
+import { ImpactChip, useSiteEvents } from "./change-markers";
 
 interface PageRow {
   page: string;
@@ -137,6 +138,8 @@ function PageDetail({ page, labeled, keywords, keywordsEnabled, clientSlug, gsc,
   const ranking = keywords ? keywordsForPage(path, keywords) : [];
   const targets = keywords ? targetsForPage(path, keywords) : [];
   const showLabel = labeled && SHOWN_LABELS.has(labeled.label);
+  const { events } = useSiteEvents(clientSlug);
+  const pageEvents = events.filter((e) => e.pages.includes(path)).slice(0, 4);
 
   return (
     <div className="space-y-4">
@@ -155,6 +158,21 @@ function PageDetail({ page, labeled, keywords, keywordsEnabled, clientSlug, gsc,
       </div>
 
       <GscSection gsc={gsc ?? null} page={gsc?.pages?.find((g) => g.path === path)} index={index} onFix={onFix} />
+
+      {pageEvents.length > 0 && (
+        <div>
+          <SectionTitle icon={<History size={11} />}>Changes to this page</SectionTitle>
+          <div className="space-y-2">
+            {pageEvents.map((e) => (
+              <div key={String(e.id)} className="text-[13px]">
+                <span className="font-medium text-[#001A2E]">{new Date(`${e.day}T12:00:00`).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+                <span className="text-foreground/85"> · {e.title}</span>
+                <div><ImpactChip clientSlug={clientSlug} event={e} compact /></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!keywordsEnabled ? (
         <p className="text-[13px] text-muted-foreground">Connect SE Ranking in Settings to see which keywords this page ranks for.</p>

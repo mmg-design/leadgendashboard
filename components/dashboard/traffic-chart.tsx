@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -13,6 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp } from "lucide-react";
 import { groupSources, lighten, OTHER_COLOR, sourceMeta } from "@/lib/source-colors";
+import { changeMarkerLines, MarkerCard, useSiteEvents, type ActiveMarker } from "./change-markers";
 
 interface DailyPoint {
   date: string;
@@ -38,6 +39,7 @@ interface TrafficChartProps {
   data: DailyPoint[];
   dailySources?: DailySource[];
   title?: string;
+  clientSlug?: string; // shows the change timeline as markers when set
 }
 
 // Five named sources plus "Other" keeps the stack readable; more bands than
@@ -121,7 +123,12 @@ function ChartTooltip({
   );
 }
 
-export function TrafficChart({ data, dailySources, title = "Traffic Overview" }: TrafficChartProps) {
+export function TrafficChart({ data, dailySources, title = "Traffic Overview", clientSlug }: TrafficChartProps) {
+  const { events } = useSiteEvents(clientSlug || "");
+  const [active, setActive] = useState<ActiveMarker>(null);
+  const labelByDay = useMemo(() => new Map(data.map((d) => [d.date, shortDate(d.date)])), [data]);
+  const shownEvents = clientSlug ? events.filter((e) => labelByDay.has(e.day)) : [];
+
   const { series, rows } = useMemo(
     () => (dailySources?.length ? buildSeries(data, dailySources) : { series: [], rows: [] }),
     [data, dailySources]
@@ -143,6 +150,7 @@ export function TrafficChart({ data, dailySources, title = "Traffic Overview" }:
         </div>
         <p className="text-[14px] text-muted-foreground">
           {bySource ? "Sessions per day, split by where visitors came from." : "Sessions per day."}
+          {shownEvents.length > 0 && " Vertical lines mark site changes; hover one to see what changed."}
         </p>
       </CardHeader>
       <CardContent>
@@ -157,9 +165,10 @@ export function TrafficChart({ data, dailySources, title = "Traffic Overview" }:
             ))}
           </div>
         )}
-        <div className="h-[300px]">
+        <div className="relative h-[300px]">
+          {clientSlug && <MarkerCard clientSlug={clientSlug} active={active} events={shownEvents} onClose={() => setActive(null)} />}
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={bySource ? rows : fallbackRows} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
+            <AreaChart data={bySource ? rows : fallbackRows} margin={{ top: shownEvents.length ? 22 : 4, right: shownEvents.length ? 14 : 4, left: -12, bottom: 0 }}>
               <defs>
                 {/* Same treatment as the Lead Funnel: each source runs from a light tint
                     of its color at the top to the full color at the bottom. */}
@@ -220,6 +229,7 @@ export function TrafficChart({ data, dailySources, title = "Traffic Overview" }:
                   fill="url(#sessions-fallback)"
                 />
               )}
+              {changeMarkerLines(shownEvents, (day) => labelByDay.get(day) || null, setActive)}
             </AreaChart>
           </ResponsiveContainer>
         </div>

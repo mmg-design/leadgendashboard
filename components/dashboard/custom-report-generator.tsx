@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { changeMarkerLines, MarkerCard, useSiteEvents, type ActiveMarker } from "./change-markers";
 import { Card, CardContent } from "@/components/ui/card";
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
@@ -311,6 +312,9 @@ function BeforeAfter({ report }: { report: GeneratedReport }) {
 }
 
 export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: string; clientName: string }) {
+  // Change markers on the report charts (same timeline as the Overview).
+  const { events: siteEvents } = useSiteEvents(clientSlug);
+  const [marker, setMarker] = useState<{ chart: "traffic" | "visibility"; m: ActiveMarker } | null>(null);
   const defaults = useMemo(defaultDates, []);
   const [mode, setMode] = useState<ReportMode>("comparison");
   const [dates, setDates] = useState(defaults);
@@ -359,6 +363,10 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
     after: point.range === "pre" ? null : point.sessions,
     topPages: point.topPages,
   }));
+  const trafficDays = new Set(chartData.map((r) => r.date));
+  const trafficEvents = siteEvents.filter((e) => trafficDays.has(e.day));
+  const visibilityDays = new Set((se?.visibilityHistory || []).map((p) => p.date));
+  const visibilityEvents = siteEvents.filter((e) => visibilityDays.has(e.day));
   const visibilityData = (se?.visibilityHistory || []).map((p) => ({
     date: p.date,
     before: p.range === "pre" ? p.score : null,
@@ -520,9 +528,10 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
 
           {chartData.length > 0 && (
             <ChartCard icon={<TrendingUp size={16} />} title="Traffic by day" subtitle="Sessions per day. Hover a day for its most-viewed pages." legend={comparing}>
-              <div className="h-[300px]">
+              <div className="relative h-[300px]">
+                {marker?.chart === "traffic" && <MarkerCard clientSlug={clientSlug} active={marker.m} events={trafficEvents} onClose={() => setMarker(null)} />}
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
+                  <AreaChart data={chartData} margin={{ top: trafficEvents.length ? 22 : 4, right: trafficEvents.length ? 14 : 4, left: -12, bottom: 0 }}>
                     <defs>
                       <linearGradient id="reportBefore" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={BEFORE} stopOpacity={0.3} /><stop offset="100%" stopColor={BEFORE} stopOpacity={0.02} /></linearGradient>
                       <linearGradient id="reportAfter" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={AFTER} stopOpacity={0.32} /><stop offset="100%" stopColor={AFTER} stopOpacity={0.02} /></linearGradient>
@@ -534,6 +543,7 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
                     {comparing && <ReferenceLine x={dates.postStart} stroke="#001A2E" strokeOpacity={0.4} strokeDasharray="4 4" label={{ value: "After starts", position: "insideTopLeft", fill: "#365f6d", fontSize: 12 }} />}
                     <Area type="monotone" dataKey="before" stroke={BEFORE} strokeWidth={2} fill="url(#reportBefore)" connectNulls={false} />
                     <Area type="monotone" dataKey="after" stroke={AFTER} strokeWidth={2} fill="url(#reportAfter)" connectNulls={false} />
+                    {changeMarkerLines(trafficEvents, (day) => (trafficDays.has(day) ? day : null), (m) => setMarker({ chart: "traffic", m }))}
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -542,9 +552,10 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
 
           {visibilityData.length > 0 && (
             <ChartCard icon={<Search size={16} />} title="Search visibility" subtitle="SE Ranking's visibility score. Higher means the site is easier to find." legend={comparing}>
-              <div className="h-[260px]">
+              <div className="relative h-[260px]">
+                {marker?.chart === "visibility" && <MarkerCard clientSlug={clientSlug} active={marker.m} events={visibilityEvents} onClose={() => setMarker(null)} />}
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={visibilityData} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
+                  <LineChart data={visibilityData} margin={{ top: visibilityEvents.length ? 22 : 4, right: visibilityEvents.length ? 14 : 4, left: -12, bottom: 0 }}>
                     <CartesianGrid vertical={false} stroke="rgba(0,26,46,0.06)" />
                     <XAxis dataKey="date" tickFormatter={shortDate} tick={axisTick} axisLine={{ stroke: "rgba(0,26,46,0.1)" }} tickLine={false} minTickGap={32} dy={6} />
                     <YAxis tick={axisTick} axisLine={false} tickLine={false} width={44} />
@@ -555,6 +566,7 @@ export function CustomReportGenerator({ clientSlug, clientName }: { clientSlug: 
                     {comparing && <ReferenceLine x={dates.postStart} stroke="#001A2E" strokeOpacity={0.4} strokeDasharray="4 4" />}
                     <Line type="monotone" dataKey="before" name="Before" stroke={BEFORE} strokeWidth={2} dot={false} connectNulls={false} />
                     <Line type="monotone" dataKey="after" name={comparing ? "After" : "Visibility"} stroke={AFTER} strokeWidth={2} dot={false} connectNulls={false} />
+                    {changeMarkerLines(visibilityEvents, (day) => (visibilityDays.has(day) ? day : null), (m) => setMarker({ chart: "visibility", m }))}
                   </LineChart>
                 </ResponsiveContainer>
               </div>

@@ -326,3 +326,23 @@ export async function resubmitSitemaps(property: string, origin: string): Promis
   }
   return paths;
 }
+
+// ── Daily totals (for before/after impact) ──────────────────────────────────
+
+export interface DayTotals { date: string; clicks: number; impressions: number; position: number }
+
+// Clicks, impressions, and average position per day, optionally only for pages
+// whose full URL matches `pageRegex` (RE2, as Search Console expects).
+export async function dailyTotals(property: string, startDate: string, endDate: string, pageRegex?: string): Promise<DayTotals[]> {
+  const body = await gscRequest<{ rows?: SaRow[] }>(`${WM}/sites/${enc(property)}/searchAnalytics/query`, {
+    method: "POST",
+    data: {
+      startDate,
+      endDate,
+      dimensions: ["date"],
+      rowLimit: 1000,
+      ...(pageRegex ? { dimensionFilterGroups: [{ filters: [{ dimension: "page", operator: "includingRegex", expression: pageRegex }] }] } : {}),
+    },
+  });
+  return (body.rows || []).map((r) => ({ date: r.keys[0], clicks: r.clicks, impressions: r.impressions, position: r.position }));
+}

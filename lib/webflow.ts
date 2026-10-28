@@ -175,3 +175,7 @@ export async function publishPage(token: string, siteId: string, pageId: string)
 export async function publishItems(token: string, collectionId: string, itemIds: string[]) {
   await wf(token, `/collections/${collectionId}/items/publish`, { method: "POST", body: { itemIds } });
 }
+
+export async function siteInfo(token: string, siteId: string) {
+  return wf<{ id: string; displayName: string; lastPublished?: string | null }>(token, `/sites/${siteId}`);
+}

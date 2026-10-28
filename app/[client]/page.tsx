@@ -7,6 +7,7 @@ import Image from "next/image";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { getHealth } from "@/lib/health";
 import { TrafficChart } from "@/components/dashboard/traffic-chart";
+import { ChangeLog } from "@/components/dashboard/change-log";
 import { SourceBars } from "@/components/dashboard/source-bars";
 import { TopPages } from "@/components/dashboard/top-pages";
 import { PageBehavior } from "@/components/dashboard/page-behavior";
@@ -940,6 +941,7 @@ export default function ClientDashboard() {
               error={seRankingError}
               enabled={seRankingEnabled}
               onRefresh={() => fetchSeRanking(true)}
+              clientSlug={clientSlug}
             />
 
             {/* Website Performance */}
@@ -998,7 +1000,10 @@ export default function ClientDashboard() {
               </div>
 
               {/* Traffic chart */}
-              {ga?.dailySessions && <TrafficChart data={ga.dailySessions} dailySources={ga.dailySources} />}
+              {ga?.dailySessions && <TrafficChart data={ga.dailySessions} dailySources={ga.dailySources} clientSlug={clientSlug} />}
+
+              {/* What changed on the site, and what moved after */}
+              <ChangeLog clientSlug={clientSlug} range={range} />
 
               {/* Sources (+ device split) + Top Pages */}
               {(ga?.topSources || ga?.topPages) && (
