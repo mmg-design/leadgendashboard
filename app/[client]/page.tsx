@@ -10,14 +10,12 @@ import { TrafficChart } from "@/components/dashboard/traffic-chart";
 import { ChangeLog } from "@/components/dashboard/change-log";
 import { SourceBars } from "@/components/dashboard/source-bars";
 import { TopPages } from "@/components/dashboard/top-pages";
-import { PageBehavior } from "@/components/dashboard/page-behavior";
 import { DeviceSplit } from "@/components/dashboard/device-split";
 import { labelPages, type ClaritySummary, type GaDevice } from "@/lib/page-behavior";
 import type { RankedKeyword } from "@/lib/keyword-insights";
 import { normalizePath } from "@/lib/page-behavior";
 import type { IndexStatus } from "@/lib/gsc";
 import type { GscData } from "@/components/dashboard/search-console";
-import { AIAnalysisCard } from "@/components/dashboard/ai-analysis";
 import { SearchPerformance } from "@/components/dashboard/search-performance";
 import { WorkSummary } from "@/components/dashboard/work-summary";
 import { Attribution } from "@/components/dashboard/attribution";
@@ -515,7 +513,6 @@ export default function ClientDashboard() {
 
   const seRankingEnabled = !!clientConfig?.integrations?.seRanking?.enabled;
   const clickupEnabled = !!clientConfig?.integrations?.clickup?.enabled;
-  const clarityEnabled = !!clientConfig?.integrations?.clarity?.enabled;
   const labeledPages = useMemo(
     () => labelPages(ga?.topPages || [], clarity?.pages),
     [ga, clarity]
@@ -525,10 +522,6 @@ export default function ClientDashboard() {
   // they're hidden for everyone. Totals still count them.
   const hiddenSources = clientConfig?.displayPrefs?.hiddenSources ?? NONE_HIDDEN;
   const hiddenPages = clientConfig?.displayPrefs?.hiddenPages ?? NONE_HIDDEN;
-  const visibleLabeledPages = useMemo(
-    () => labeledPages.filter((p) => !hiddenPages.includes(p.path)),
-    [labeledPages, hiddenPages]
-  );
 
   // Kept in a ref so two quick clicks build on each other instead of the
   // second save overwriting the first.
@@ -1035,26 +1028,6 @@ export default function ClientDashboard() {
                   )}
                 </div>
               )}
-
-              {/* What to fix / promote: GA traffic × page behavior */}
-              {ga?.topPages && (
-                <PageBehavior
-                  labeled={visibleLabeledPages}
-                  clarity={clarity}
-                  clarityEnabled={clarityEnabled}
-                  range={range}
-                />
-              )}
-
-              {/* AI Insights */}
-              <AIAnalysisCard
-                clientName={clientName}
-                range={range}
-                ga={ga}
-                clarity={clarity}
-                seRanking={seRanking}
-                clickUp={clickUp}
-              />
             </div>
           </div>
 
