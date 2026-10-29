@@ -24,7 +24,7 @@ type Body = {
   client?: string;
   enabled?: boolean;
   rotate?: boolean;
-  settings?: Partial<Pick<PortalSettings, "startedAt" | "leadValue">>;
+  settings?: Partial<Pick<PortalSettings, "startedAt" | "leadValue" | "contactName" | "contactEmail">>;
   hide?: { key: string; hidden: boolean };
   override?: { key: string; title?: string; why?: string };
 };
@@ -44,6 +44,8 @@ export async function PATCH(req: NextRequest) {
   if (body.settings) {
     if ("startedAt" in body.settings) next.startedAt = body.settings.startedAt || null;
     if ("leadValue" in body.settings) next.leadValue = body.settings.leadValue ? Number(body.settings.leadValue) : null;
+    if ("contactName" in body.settings) next.contactName = body.settings.contactName || null;
+    if ("contactEmail" in body.settings) next.contactEmail = body.settings.contactEmail || null;
   }
   if (body.hide?.key) {
     const set = new Set(current.hidden);

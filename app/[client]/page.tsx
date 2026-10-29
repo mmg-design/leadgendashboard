@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -180,7 +180,11 @@ export default function ClientDashboard() {
   const clientSlug = params.client as string;
 
   const [range, setRange] = useState("7d");
-  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "ai-visibility" | "agents" | "report-generator" | "feedback" | "portal">("overview");
+  // ?section=portal lands back on the Client Page tab (e.g. after Connect Gmail).
+  const searchParams = useSearchParams();
+  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "ai-visibility" | "agents" | "report-generator" | "feedback" | "portal">(
+    searchParams.get("section") === "portal" ? "portal" : "overview"
+  );
   const [clientName, setClientName] = useState(
     clientSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
   );

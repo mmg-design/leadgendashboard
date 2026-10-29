@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle, Check, Eye, EyeOff, ExternalLink, Link2, Loader2, Pencil, RefreshCw, Save,
+  AlertTriangle, Check, Copy, Eye, EyeOff, ExternalLink, Link2, Loader2, Mail, Pencil, RefreshCw, Save,
 } from "lucide-react";
 import type { PortalChange, PortalReport, PortalSettings, PortalWin } from "@/lib/portal";
 
@@ -191,6 +191,14 @@ export function ClientPortal({ clientSlug, clientName }: { clientSlug: string; c
               </div>
             )}
           </div>
+
+          <MonthlyEmail
+            clientSlug={clientSlug}
+            clientName={clientName}
+            shared={data.enabled}
+            version={`${report?.generatedAt}:${JSON.stringify(data.settings)}:${data.enabled}`}
+            onContactSaved={(settings) => setData((d) => (d ? { ...d, settings } : d))}
+          />
         </div>
 
         {/* Settings column */}
@@ -309,6 +317,182 @@ function ChangeRow({ c, busy, editing, draft, setDraft, onEdit, onCancel, onSave
       </div>
       <button onClick={onEdit} className="shrink-0 p-2 rounded-lg text-muted-foreground hover:bg-muted/50" title="Reword for the client"><Pencil size={14} /></button>
       <HideButton hidden={!!c.hidden} busy={busy} onClick={onToggle} />
+    </div>
+  );
+}
+
+interface EmailData {
+  to: string | null;
+  contactName: string | null;
+  subject: string;
+  body: string;
+  linkAvailable: boolean;
+  gmail: { configured: boolean; connection: { email: string; name: string | null } | null };
+}
+
+// The monthly update, for the team only: drafted from the client page's
+// data, edited here, then copied or saved to the team member's own Gmail
+// drafts. Nothing is ever sent from MMG Pulse.
+function MonthlyEmail({ clientSlug, clientName, shared, version, onContactSaved }: {
+  clientSlug: string; clientName: string; shared: boolean; version: string; onContactSaved: (s: PortalSettings) => void;
+}) {
+  const [email, setEmail] = useState<EmailData | null>(null);
+  const [to, setTo] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [includeLink, setIncludeLink] = useState(true);
+  const [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ tone: "good" | "bad"; text: string; href?: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  function draft(link = includeLink) {
+    return fetch(`/api/portal/email?client=${clientSlug}&link=${link ? 1 : 0}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((json: EmailData) => {
+        if (!json.subject) return;
+        setEmail(json);
+        setTo(json.to || "");
+        setContactName(json.contactName || "");
+        setSubject(json.subject);
+        setBody(json.body);
+        setDirty(false);
+      })
+      .catch(() => {});
+  }
+  // Redraft when the report or its settings change, unless the text was edited by hand.
+  useEffect(() => { if (!dirty) draft(); }, [clientSlug, version]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Coming back from Google's sign-in.
+  useEffect(() => {
+    const status = new URLSearchParams(window.location.search).get("gmail");
+    if (!status) return;
+    const messages: Record<string, { tone: "good" | "bad"; text: string }> = {
+      connected: { tone: "good", text: "Gmail connected. Drafts will be saved to your Gmail." },
+      cancelled: { tone: "bad", text: "Gmail wasn't connected. The sign-in was cancelled." },
+      expired: { tone: "bad", text: "The sign-in took too long. Try Connect Gmail again." },
+      failed: { tone: "bad", text: "Google didn't finish the connection. Check the OAuth client settings and try again." },
+    };
+    const url = new URL(window.location.href);
+    url.searchParams.delete("gmail");
+    window.history.replaceState(null, "", url);
+    if (messages[status]) Promise.resolve().then(() => setNotice(messages[status]));
+  }, []);
+
+  async function saveContact() {
+    if (!email || (to === (email.to || "") && contactName === (email.contactName || ""))) return;
+    const res = await fetch("/api/portal", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client: clientSlug, settings: { contactEmail: to.trim() || null, contactName: contactName.trim() || null } }),
+    });
+    const json = await res.json();
+    if (json.settings) onContactSaved(json.settings); // triggers a redraft with the new greeting
+  }
+
+  async function saveDraft() {
+    setBusy("draft");
+    setNotice(null);
+    await saveContact();
+    const res = await fetch("/api/portal/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client: clientSlug, to, subject, body }),
+    });
+    const json = await res.json();
+    setBusy(null);
+    setNotice(res.ok ? { tone: "good", text: "Saved to your Gmail drafts. Review it there and send when you're ready.", href: json.draftsUrl } : { tone: "bad", text: json.error || "Couldn't save the draft." });
+  }
+
+  async function disconnect() {
+    if (!confirm("Disconnect Gmail? MMG Pulse will no longer be able to save drafts until you connect again.")) return;
+    setBusy("disconnect");
+    await fetch("/api/google", { method: "DELETE" });
+    await draft();
+    setBusy(null);
+  }
+
+  const connectHref = `/api/google/connect?next=${encodeURIComponent(`${window.location.pathname}?section=portal`)}`;
+  const gmail = email?.gmail;
+
+  return (
+    <div className={card}>
+      <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
+        <h3 className="font-headline text-[22px] text-[#001A2E]">Monthly update email</h3>
+        <span className="text-[12px] font-semibold rounded-full px-2.5 py-0.5 bg-muted text-muted-foreground">Only you see this</span>
+      </div>
+      <p className="text-[13.5px] text-muted-foreground mb-4">
+        A draft for you to send {clientName} yourself, written from this month&apos;s numbers, wins, and work (hidden items are left out). Edit it here, then copy it or save it to your Gmail drafts. MMG Pulse never sends it.
+      </p>
+
+      {!email ? (
+        <div className="py-6 flex justify-center"><Loader2 size={18} className="animate-spin text-[#0CA4C3]" /></div>
+      ) : (
+        <div className="space-y-3">
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block">
+              <span className="text-[13px] font-medium text-[#001A2E]">To</span>
+              <input value={to} onChange={(e) => setTo(e.target.value)} onBlur={saveContact} placeholder="client@example.com" className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-[14px]" />
+            </label>
+            <label className="block">
+              <span className="text-[13px] font-medium text-[#001A2E]">Their name</span>
+              <input value={contactName} onChange={(e) => setContactName(e.target.value)} onBlur={saveContact} placeholder="Used in the greeting" className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-[14px]" />
+            </label>
+          </div>
+          <label className="block">
+            <span className="text-[13px] font-medium text-[#001A2E]">Subject</span>
+            <input value={subject} onChange={(e) => { setSubject(e.target.value); setDirty(true); }} className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-[14px]" />
+          </label>
+          <textarea value={body} onChange={(e) => { setBody(e.target.value); setDirty(true); }} rows={16} className="w-full rounded-lg border border-border px-3 py-2.5 text-[14px] leading-relaxed text-[#001A2E]" />
+
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <label className={`inline-flex items-center gap-2 text-[13px] ${email.linkAvailable ? "text-[#001A2E]" : "text-muted-foreground"}`} title={email.linkAvailable ? "" : "Share the client page first to include its link"}>
+              <input type="checkbox" disabled={!email.linkAvailable} checked={includeLink && email.linkAvailable} onChange={(e) => { setIncludeLink(e.target.checked); draft(e.target.checked); }} />
+              Include the link to their progress page{!shared && " (share the page first)"}
+            </label>
+            <button onClick={() => draft()} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#0394B2] hover:underline">
+              <RefreshCw size={13} /> {dirty ? "Discard edits and redraft" : "Redraft"}
+            </button>
+          </div>
+
+          <div className="flex gap-2 flex-wrap pt-1">
+            {gmail?.connection ? (
+              <button onClick={saveDraft} disabled={busy === "draft"} className="inline-flex items-center gap-1.5 rounded-lg bg-[#0CA4C3] px-3.5 py-2 text-[14px] font-semibold text-white hover:bg-[#0394B2]">
+                {busy === "draft" ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />} Save to Gmail drafts
+              </button>
+            ) : gmail?.configured ? (
+              <a href={connectHref} className="inline-flex items-center gap-1.5 rounded-lg bg-[#0CA4C3] px-3.5 py-2 text-[14px] font-semibold text-white hover:bg-[#0394B2]">
+                <Mail size={14} /> Connect Gmail
+              </a>
+            ) : null}
+            <button
+              onClick={() => { navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3.5 py-2 text-[14px] font-medium hover:bg-muted/50"
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? "Copied" : "Copy email"}
+            </button>
+          </div>
+
+          {notice && (
+            <p className={`text-[13px] rounded-lg px-3 py-2 ${notice.tone === "good" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
+              {notice.text}{notice.href && <> <a href={notice.href} target="_blank" rel="noreferrer" className="font-semibold underline">Open Gmail drafts</a></>}
+            </p>
+          )}
+          {gmail?.connection ? (
+            <p className="text-[12.5px] text-muted-foreground">
+              Drafts go to {gmail.connection.email}.{" "}
+              <button onClick={disconnect} disabled={busy === "disconnect"} className="underline hover:text-[#001A2E]">Disconnect</button>
+            </p>
+          ) : !gmail?.configured ? (
+            <p className="text-[12.5px] text-muted-foreground">
+              Saving to Gmail drafts turns on once Google sign-in is set up (an OAuth client plus GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET in Vercel). Until then, use Copy email.
+            </p>
+          ) : (
+            <p className="text-[12.5px] text-muted-foreground">Connect Gmail lets MMG Pulse save drafts to your account. It can&apos;t read your inbox or send anything.</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -29,6 +29,8 @@ export interface PortalSettings {
   leadValue: number | null; // average value of one lead, for the revenue line
   hidden: string[]; // win and change keys the team hid
   overrides: Record<string, { title?: string; why?: string }>;
+  contactName: string | null; // who the monthly update draft is addressed to (team-only)
+  contactEmail: string | null;
 }
 
 export interface Portal {
@@ -59,6 +61,8 @@ function normalizeSettings(raw: unknown): PortalSettings {
     leadValue: typeof s.leadValue === "number" && s.leadValue > 0 ? Math.round(s.leadValue) : null,
     hidden: Array.isArray(s.hidden) ? s.hidden.filter((h): h is string => typeof h === "string") : [],
     overrides,
+    contactName: typeof s.contactName === "string" && s.contactName.trim() ? s.contactName.trim().slice(0, 120) : null,
+    contactEmail: typeof s.contactEmail === "string" && /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(s.contactEmail.trim()) ? s.contactEmail.trim().slice(0, 200) : null,
   };
 }
 

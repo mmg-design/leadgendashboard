@@ -140,6 +140,17 @@ async function initSchema(db: Client) {
     -- Client progress page: one private link per client, off until the team
     -- shares it. settings holds the lead value, start date, and which items
     -- are hidden or reworded for the client.
+    -- The team's Google sign-in for Gmail drafts (one per dashboard). The
+    -- refresh token is encrypted; it never leaves the server.
+    CREATE TABLE IF NOT EXISTS google_connections (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      name TEXT,
+      scopes TEXT NOT NULL,
+      refresh_token TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS client_portals (
       client_slug TEXT PRIMARY KEY,
       token TEXT UNIQUE NOT NULL,
