@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { AgentError, runStructured } from "@/lib/agent-llm";
 import { getClient } from "@/lib/clients";
 import { brandTerms, classifyKeyword } from "@/lib/keyword-insights";
 
@@ -12,7 +12,6 @@ export async function POST(req: NextRequest) {
   if (!slug) return NextResponse.json({ error: "Missing client" }, { status: 400 });
   const config = await getClient(slug);
   if (!config) return NextResponse.json({ error: "Client not found" }, { status: 404 });
-  if (!process.env.GEMINI_API_KEY) return NextResponse.json({ error: "GEMINI_API_KEY not configured" }, { status: 500 });
 
   // Top tracked keywords by search volume, brand searches removed: nobody asks
   // ChatGPT "who is Exact Medicare" to find a provider.
@@ -46,23 +45,16 @@ Rules:
 - Each under 200 characters. No em dashes.`;
 
   try {
-    const model = new GoogleGenerativeAI(process.env.GEMINI_API_KEY).getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: SchemaType.OBJECT,
-          properties: { prompts: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } } },
-          required: ["prompts"],
-        },
-      },
-    });
-    const result = await model.generateContent(prompt);
-    const parsed = JSON.parse(result.response.text()) as { prompts?: string[] };
+    const { output: parsed } = await runStructured<{ prompts?: string[] }>(
+      "You help an SEO agency set up AI-search tracking. Reply with the requested JSON only.",
+      prompt,
+      { type: "object", properties: { prompts: { type: "array", items: { type: "string" } } } },
+      { effort: "low" }
+    );
     const prompts = (parsed.prompts || []).map((p) => p.trim()).filter((p) => p && p.length <= 255).slice(0, 10);
     return NextResponse.json({ prompts, basedOn: keywords.slice(0, 8) });
   } catch (err) {
     console.error("Prompt suggestion error:", err);
-    return NextResponse.json({ error: "Couldn't suggest prompts right now." }, { status: 500 });
+    return NextResponse.json({ error: err instanceof AgentError ? err.message : "Couldn't suggest prompts right now." }, { status: 500 });
   }
 }

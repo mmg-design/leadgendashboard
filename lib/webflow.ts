@@ -69,7 +69,12 @@ export async function collectionFields(token: string, collectionId: string): Pro
 
 export type WfTarget =
   | { kind: "page"; pageId: string; title: string; seoTitle: string; seoDescription: string }
-  | { kind: "item"; collectionId: string; collectionName: string; itemId: string; titleField: string | null; descField: string | null; seoTitle: string; seoDescription: string };
+  | {
+      kind: "item"; collectionId: string; collectionName: string; itemId: string; itemName: string;
+      titleField: string | null; descField: string | null; seoTitle: string; seoDescription: string;
+      // The post body and an optional JSON-LD field, for the agent's Webflow plan.
+      richField: string | null; schemaField: string | null; fieldNames: Record<string, string>;
+    };
 
 const norm = (p: string) => ("/" + p.replace(/^\/+|\/+$/g, "")).toLowerCase();
 
@@ -82,6 +87,14 @@ function seoFields(fields: WfField[]) {
     text.find((f) => /(seo|meta).*desc|desc.*(seo|meta)/i.test(`${f.slug} ${f.displayName}`)) ||
     text.find((f) => /summary|excerpt|description/i.test(`${f.slug} ${f.displayName}`));
   return { titleField: title?.slug || null, descField: desc?.slug || null };
+}
+
+// The main body is the first rich-text field; a JSON-LD field is any text
+// field named like "Schema" or "JSON-LD".
+function contentFields(fields: WfField[]) {
+  const rich = fields.find((f) => f.type === "RichText");
+  const schema = fields.find((f) => (f.type === "PlainText" || f.type === "RichText") && f !== rich && /schema|json.?ld|structured/i.test(`${f.slug} ${f.displayName}`));
+  return { richField: rich?.slug || null, schemaField: schema?.slug || null };
 }
 
 export async function findTarget(token: string, siteId: string, path: string): Promise<WfTarget | null> {
@@ -108,19 +121,27 @@ export async function findTarget(token: string, siteId: string, path: string): P
     const res = await wf<{ items: { id: string; fieldData: Record<string, unknown> }[] }>(token, `/collections/${c.id}/items?slug=${encodeURIComponent(itemSlug)}&limit=1`);
     const item = res.items?.[0];
     if (!item) continue;
-    const { titleField, descField } = seoFields(await collectionFields(token, c.id));
+    const fields = await collectionFields(token, c.id);
+    const { titleField, descField } = seoFields(fields);
     return {
       kind: "item",
       collectionId: c.id,
       collectionName: c.displayName,
       itemId: item.id,
+      itemName: String(item.fieldData.name || itemSlug),
       titleField,
       descField,
       seoTitle: titleField ? String(item.fieldData[titleField] || "") : "",
       seoDescription: descField ? String(item.fieldData[descField] || "") : "",
+      ...contentFields(fields),
+      fieldNames: Object.fromEntries(fields.map((f) => [f.slug, f.displayName])),
     };
   }
   return null;
+}
+
+export async function getItem(token: string, collectionId: string, itemId: string) {
+  return wf<{ id: string; fieldData: Record<string, unknown> }>(token, `/collections/${collectionId}/items/${itemId}`);
 }
 
 // ── Writes (staged, not published) ──────────────────────────────────────────

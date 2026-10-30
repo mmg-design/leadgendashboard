@@ -3,6 +3,7 @@ import { getClient } from "@/lib/clients";
 import { getTask, updateTask } from "@/lib/agent-tasks";
 import { runAgent } from "@/lib/agent-runner";
 import { AgentError } from "@/lib/agent-llm";
+import { buildPlan } from "@/lib/webflow-plan";
 
 // Long drafts (a full new page) can take a couple of minutes.
 export const maxDuration = 300;
@@ -17,6 +18,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const output = await runAgent(task, config);
+    output.webflowPlan = await buildPlan(task, output, config).catch((err) => {
+      console.error("Webflow plan error:", err);
+      return null;
+    });
     const status = task.status === "applied" || task.status === "done" ? task.status : "drafted";
     await updateTask(slug, key, { output, status });
     return NextResponse.json({ ok: true, output, status });

@@ -15,6 +15,7 @@ import {
   updatePageSeo,
 } from "@/lib/webflow";
 import { recordEvent } from "@/lib/site-events";
+import { applyPlan, buildPlan, type PlanOpId } from "@/lib/webflow-plan";
 
 // Every way an agent's draft leaves the dashboard. Each action runs only when
 // the user presses its button; Webflow changes are staged until "publish".
@@ -22,7 +23,8 @@ import { recordEvent } from "@/lib/site-events";
 type Body = {
   client?: string;
   key?: string;
-  action?: "webflow_lookup" | "webflow_seo" | "webflow_draft" | "webflow_publish" | "clickup" | "resubmit_sitemap";
+  action?: "webflow_lookup" | "webflow_plan" | "webflow_apply_plan" | "webflow_seo" | "webflow_draft" | "webflow_publish" | "clickup" | "resubmit_sitemap";
+  ops?: PlanOpId[];
   title?: string;
   description?: string;
   collectionId?: string;
@@ -66,6 +68,28 @@ export async function POST(req: NextRequest) {
           listCollections(auth.token, auth.siteId),
         ]);
         return NextResponse.json({ connected: true, siteName: config.integrations.webflow?.siteName, target, collections });
+      }
+
+      // Re-checks the draft against Webflow (after fixing the token, say).
+      case "webflow_plan": {
+        if (!out) return NextResponse.json({ error: "Run the agent first." }, { status: 400 });
+        const plan = await buildPlan(task, out, config);
+        const output = { ...out, webflowPlan: plan };
+        await updateTask(slug, key, { output });
+        return NextResponse.json({ ok: true, output });
+      }
+
+      // Stages the changes the user ticked in the plan. Nothing goes live here.
+      case "webflow_apply_plan": {
+        if (!out?.webflowPlan) return NextResponse.json({ error: "Run the agent first." }, { status: 400 });
+        const ops = (body.ops || []).filter((id) => out.webflowPlan!.ops.some((o) => o.id === id && o.auto));
+        if (!ops.length) return NextResponse.json({ error: "Pick at least one change." }, { status: 400 });
+        const { target, applied, previous, previousFields } = await applyPlan(task, out, config, ops, { title: body.title, description: body.description });
+        if (!applied.length) return NextResponse.json({ error: "Nothing could be applied. Check the plan again." }, { status: 400 });
+        const appliedText = { title: (body.title || out.seo?.title || "").trim(), description: (body.description || out.seo?.metaDescription || "").trim() };
+        result.webflow = { ...target, previous, previousFields, applied: { ...appliedText, ops: applied }, appliedAt: new Date().toISOString(), published: false };
+        await updateTask(slug, key, { status: "applied", result });
+        return NextResponse.json({ ok: true, result });
       }
 
       case "webflow_seo": {

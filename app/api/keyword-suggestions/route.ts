@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { AgentError, runStructured } from "@/lib/agent-llm";
 import { getClient } from "@/lib/clients";
 import { getDb } from "@/lib/db";
 
 // AI keyword ideas for one page, shown in the Top Pages hover card. Requested
-// on hover, so results are cached per page for a week to keep Gemini calls
+// on hover, so results are cached per page for a week to keep Claude calls
 // (and the wait) to the first hover.
 
 const CACHE_DAYS = 7;
@@ -15,10 +15,6 @@ interface Suggestion {
 }
 
 export async function POST(req: NextRequest) {
-  if (!process.env.GEMINI_API_KEY) {
-    return NextResponse.json({ error: "GEMINI_API_KEY not configured" }, { status: 500 });
-  }
-
   const { client, page, ranking = [], tracked = [] } = (await req.json()) as {
     client?: string;
     page?: string;
@@ -56,42 +52,15 @@ Rules:
 - Judge the page's topic from its URL path and the keywords above. Don't invent services the business doesn't offer.
 - Prefer specific, realistic phrases a buyer would type (3-6 words) over broad head terms.
 - Give each a one-sentence reason in plain language, no jargon, no em dashes.
-- Return JSON only: {"suggestions":[{"keyword":"...","why":"..."}]}`;
+- Return exactly 3 suggestions.`;
 
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    // A response schema makes Gemini return well-formed JSON; one retry covers
-    // the rare reply that still doesn't parse.
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: SchemaType.OBJECT,
-          properties: {
-            suggestions: {
-              type: SchemaType.ARRAY,
-              items: {
-                type: SchemaType.OBJECT,
-                properties: { keyword: { type: SchemaType.STRING }, why: { type: SchemaType.STRING } },
-                required: ["keyword", "why"],
-              },
-            },
-          },
-          required: ["suggestions"],
-        },
-      },
-    });
-    let parsed: { suggestions?: Suggestion[] } | null = null;
-    for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
-      const result = await model.generateContent(prompt);
-      try {
-        parsed = JSON.parse(result.response.text());
-      } catch {
-        if (attempt === 1) throw new Error("Gemini returned malformed JSON twice");
-      }
-    }
-    if (!parsed) throw new Error("No suggestions returned");
+    const { output: parsed } = await runStructured<{ suggestions?: Suggestion[] }>(
+      "You are an SEO strategist. Reply with the requested JSON only.",
+      prompt,
+      { type: "object", properties: { suggestions: { type: "array", items: { type: "object", properties: { keyword: { type: "string" }, why: { type: "string" } } } } } },
+      { effort: "low" }
+    );
     const suggestions = (parsed.suggestions || [])
       .filter((s) => s && typeof s.keyword === "string" && typeof s.why === "string")
       .map((s) => ({ keyword: s.keyword.trim(), why: s.why.trim() }))
@@ -105,6 +74,6 @@ Rules:
     return NextResponse.json({ suggestions });
   } catch (err) {
     console.error("Keyword suggestion error:", err);
-    return NextResponse.json({ error: "Couldn't generate suggestions" }, { status: 500 });
+    return NextResponse.json({ error: err instanceof AgentError ? err.message : "Couldn't generate suggestions" }, { status: 500 });
   }
 }

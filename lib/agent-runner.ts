@@ -5,6 +5,7 @@ import { fetchPage, sitemapUrls, type PageSnapshot } from "./page-fetch";
 import { getAnswer } from "./airt";
 import type { IndexStatus } from "./gsc";
 import { normalizePath } from "./page-behavior";
+import type { WebflowPlan } from "./webflow-plan";
 
 // What each agent produces. Every field is optional except summary and steps,
 // so the Agents tab can render any task's draft with one component.
@@ -22,6 +23,8 @@ export interface AgentOutput {
   proposedChange?: string;
   clientReply?: string;
   steps: { title: string; detail: string }[];
+  // The exact Webflow changes this draft implies, checked against the live site.
+  webflowPlan?: WebflowPlan | null;
   model: string;
   generatedAt: string;
 }

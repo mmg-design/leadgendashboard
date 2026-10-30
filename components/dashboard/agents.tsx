@@ -9,6 +9,7 @@ import {
 import type { ScanSummary, StoredTask, TaskCategory } from "@/lib/agent-tasks";
 import type { AgentOutput } from "@/lib/agent-runner";
 import type { WfCollection } from "@/lib/webflow";
+import type { PlanOpId, WebflowPlan } from "@/lib/webflow-plan";
 import { safeHtml } from "@/lib/safe-html";
 import { lighten } from "@/lib/source-colors";
 import { ImpactChip as ChangeImpact, reloadSiteEvents, useSiteEvents } from "./change-markers";
@@ -97,11 +98,19 @@ const STATUS_TEXT: Record<StoredTask["status"], string> = {
 
 type Post = (body: Record<string, unknown>) => Promise<{ ok?: boolean; error?: string; result?: Record<string, unknown> } & Record<string, unknown>>;
 
-function SeoEditor({ task, out, post, webflowConnected, onResult }: {
+type SeoEdits = { title: string; description: string };
+
+function SeoEditor({ task, post, webflowConnected, onResult, edits, onEdit, planMode }: {
   task: StoredTask; out: AgentOutput; post: Post; webflowConnected: boolean; onResult: (r: Record<string, unknown>, status?: StoredTask["status"]) => void;
+  edits: SeoEdits; onEdit: (e: SeoEdits) => void;
+  // The Webflow plan above stages and publishes these, so the editor only edits.
+  planMode: boolean;
 }) {
-  const [title, setTitle] = useState(out.seo?.title || "");
-  const [desc, setDesc] = useState(out.seo?.metaDescription || "");
+  const out = task.output as AgentOutput;
+  const title = edits.title;
+  const desc = edits.description;
+  const setTitle = (v: string) => onEdit({ ...edits, title: v });
+  const setDesc = (v: string) => onEdit({ ...edits, description: v });
   const [busy, setBusy] = useState<"" | "apply" | "publish">("");
   const [error, setError] = useState<string | null>(null);
   const [confirmPublish, setConfirmPublish] = useState(false);
@@ -148,7 +157,7 @@ function SeoEditor({ task, out, post, webflowConnected, onResult }: {
           <p className="text-[13px] text-[#4d5156] line-clamp-2">{desc}</p>
         </div>
 
-        {task.path && (
+        {task.path && !planMode && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {webflowConnected ? (
               applied?.published ? (
@@ -179,7 +188,7 @@ function SeoEditor({ task, out, post, webflowConnected, onResult }: {
             )}
           </div>
         )}
-        {applied?.previous && (
+        {applied?.previous && !planMode && (
           <p className="text-[12px] text-muted-foreground">Before: “{applied.previous.title || "(empty)"}” · “{applied.previous.description || "(empty)"}”</p>
         )}
         {error && <p className="text-[13px] text-red-600">{error}</p>}
@@ -281,12 +290,192 @@ function ClientReply({ task, text }: { task: StoredTask; text: string }) {
   );
 }
 
+// The structured outline of what the agent will change in Webflow. Auto
+// changes are staged together through the Webflow API; nothing is live until
+// Publish. "By hand" items say exactly where to make the change.
+function WebflowPlanView({ task, plan, post, edits, onResult, onOutput }: {
+  task: StoredTask; plan: WebflowPlan; post: Post; edits: SeoEdits;
+  onResult: (r: Record<string, unknown>, status?: StoredTask["status"]) => void;
+  onOutput: (o: AgentOutput) => void;
+}) {
+  const [selected, setSelected] = useState<Set<PlanOpId>>(() => new Set(plan.ops.filter((o) => o.auto && o.recommended).map((o) => o.id)));
+  const [busy, setBusy] = useState<"" | "stage" | "publish" | "check">("");
+  const [error, setError] = useState<string | null>(null);
+  const [confirmPublish, setConfirmPublish] = useState(false);
+  const staged = task.result?.webflow as { applied?: { ops?: PlanOpId[] }; published?: boolean; appliedAt?: string } | undefined;
+  const stagedOps = staged?.applied?.ops || [];
+  const autoOps = plan.ops.filter((o) => o.auto);
+  const handOps = plan.ops.filter((o) => !o.auto);
+
+  function toggle(id: PlanOpId) {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelected(next);
+  }
+  async function stage() {
+    setBusy("stage"); setError(null);
+    const res = await post({ action: "webflow_apply_plan", ops: [...selected], title: edits.title, description: edits.description });
+    setBusy("");
+    if (res.error) setError(res.error); else onResult(res.result!, "applied");
+  }
+  async function publish() {
+    setBusy("publish"); setError(null); setConfirmPublish(false);
+    const res = await post({ action: "webflow_publish" });
+    setBusy("");
+    if (res.error) setError(res.error); else onResult(res.result!, "done");
+  }
+  async function check() {
+    setBusy("check"); setError(null);
+    const res = await post({ action: "webflow_plan" });
+    setBusy("");
+    if (res.error) setError(res.error);
+    else {
+      const output = res.output as AgentOutput;
+      onOutput(output);
+      setSelected(new Set((output.webflowPlan?.ops || []).filter((o) => o.auto && o.recommended).map((o) => o.id)));
+    }
+  }
+
+  // The SEO rewrite shows whatever is in the editor below, not the first draft.
+  const changesFor = (op: WebflowPlan["ops"][number]) => op.id !== "seo" ? op.changes : op.changes.map((c) =>
+    c.field === "Title tag" ? { ...c, after: edits.title } : c.field === "Meta description" ? { ...c, after: edits.description } : c);
+
+  const opRow = (op: WebflowPlan["ops"][number], i: number) => {
+    const isStaged = stagedOps.includes(op.id);
+    return (
+      <li key={op.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
+        <div className="pt-0.5">
+          {op.auto ? (
+            isStaged ? (
+              <span className="flex size-[18px] items-center justify-center rounded bg-emerald-600 text-white"><Check size={12} /></span>
+            ) : (
+              <input type="checkbox" className="size-[18px] accent-[#0CA4C3]" checked={selected.has(op.id)} onChange={() => toggle(op.id)} aria-label={op.label} />
+            )
+          ) : (
+            <span className="flex size-[18px] items-center justify-center rounded-full bg-[#001A2E]/[0.07] text-[11px] font-semibold text-[#001A2E]">{i + 1}</span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-[14px] font-medium text-[#001A2E]">{op.label}</span>
+            {isStaged && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11.5px] font-semibold text-emerald-700">Staged</span>}
+            {!op.auto && <span className="rounded-full border border-border px-2 py-0.5 text-[11.5px] font-medium text-muted-foreground">By hand</span>}
+          </div>
+          <p className="text-[12.5px] text-muted-foreground">{op.where}</p>
+          {changesFor(op).length > 0 && (
+            <div className="mt-1.5 space-y-1">
+              {changesFor(op).map((c, j) => (
+                <div key={j} className="text-[13px] leading-snug">
+                  <span className="text-muted-foreground">{c.field}: </span>
+                  {c.before && <><span className="text-[#001A2E]/50 line-through decoration-[#001A2E]/30">{c.before}</span><span className="text-muted-foreground"> → </span></>}
+                  <span className="text-[#001A2E]">{c.after}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {op.manual && (
+            <p className="mt-1.5 text-[12.5px] text-[#001A2E]/70">
+              {op.manual} {op.copy && !op.auto && <CopyButton text={op.copy} />}
+            </p>
+          )}
+        </div>
+      </li>
+    );
+  };
+
+  return (
+    <Block title="What the agent will do in Webflow">
+      <div className="space-y-3">
+        <p className="text-[13px] text-muted-foreground">
+          {plan.target ? <><span className="font-medium text-[#001A2E]">{plan.target.label}</span>{plan.siteName ? ` on ${plan.siteName}` : ""}</> : "Webflow"}
+          {" · "}checked {timeAgo(plan.builtAt)}
+          <button className="ml-2 inline-flex items-center gap-1 text-[#0394B2] hover:underline disabled:opacity-50" disabled={!!busy} onClick={check}>
+            {busy === "check" ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Check again
+          </button>
+        </p>
+
+        {plan.problem && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-900">{plan.problem}</div>
+        )}
+
+        {autoOps.length > 0 && (
+          <div>
+            <p className={`${eyebrow} mb-2`}>The agent can do these</p>
+            <ul className="divide-y divide-border/60">{autoOps.map((op, i) => opRow(op, i))}</ul>
+          </div>
+        )}
+        {handOps.length > 0 && (
+          <div>
+            <p className={`${eyebrow} mb-2`}>{autoOps.length ? "Needs you" : "To do by hand"}</p>
+            <ul className="divide-y divide-border/60">{handOps.map((op, i) => opRow(op, i))}</ul>
+          </div>
+        )}
+        {!plan.ops.length && <p className="text-[13px] text-muted-foreground">Nothing in this draft changes Webflow; the page already matches it.</p>}
+
+        {autoOps.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+            {staged?.published ? (
+              <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-emerald-700"><Check size={14} /> Live on the site</span>
+            ) : confirmPublish ? (
+              <>
+                <span className="text-[14px] text-[#001A2E]">Publish {task.path} to the live site?</span>
+                <button className={btnPrimary} onClick={publish}>Yes, publish</button>
+                <button className={btnGhost} onClick={() => setConfirmPublish(false)}>Cancel</button>
+              </>
+            ) : (
+              <>
+                {stagedOps.length > 0 && (
+                  <button className={btnPrimary} disabled={!!busy} onClick={() => setConfirmPublish(true)}>
+                    {busy === "publish" ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />} Publish to the live site
+                  </button>
+                )}
+                <button className={stagedOps.length ? btnSecondary : btnPrimary} disabled={!!busy || !selected.size} onClick={stage}>
+                  {busy === "stage" ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                  {stagedOps.length ? "Stage again" : `Stage ${selected.size} change${selected.size === 1 ? "" : "s"} in Webflow`}
+                </button>
+                <span className="text-[12.5px] text-muted-foreground">
+                  {stagedOps.length ? "Staged in Webflow. Nothing is live until you publish." : "Staging edits Webflow but nothing goes live until you publish."}
+                </span>
+              </>
+            )}
+          </div>
+        )}
+        {error && <p className="text-[13px] text-red-600">{error}</p>}
+      </div>
+    </Block>
+  );
+}
+
+function PlanButton({ post, onOutput }: { post: Post; onOutput: (o: AgentOutput) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function plan() {
+    setBusy(true); setError(null);
+    const res = await post({ action: "webflow_plan" });
+    setBusy(false);
+    if (res.error) setError(res.error); else onOutput(res.output as AgentOutput);
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button className={btnSecondary} disabled={busy} onClick={plan}>
+        {busy ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />} Plan the Webflow changes
+      </button>
+      {error && <span className="text-[13px] text-red-600">{error}</span>}
+    </div>
+  );
+}
+
 const proseHtml = "text-[14px] leading-relaxed text-[#001A2E] [&_h2]:mt-4 [&_h2]:mb-1.5 [&_h2]:text-[17px] [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:font-semibold [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[#0394B2] [&_a]:underline";
 
-function OutputView({ task, out, post, webflowConnected, onResult }: {
+function OutputView({ task, out, post, webflowConnected, onResult, onOutput }: {
   task: StoredTask; out: AgentOutput; post: Post; webflowConnected: boolean; onResult: (r: Record<string, unknown>, status?: StoredTask["status"]) => void;
+  onOutput: (o: AgentOutput) => void;
 }) {
   const showSeoEditor = !!out.seo?.title && task.type !== "missing_page" && !(task.type === "ai_prompt" && out.targetPage === "new");
+  const [edits, setEdits] = useState<SeoEdits>({ title: out.seo?.title || "", description: out.seo?.metaDescription || "" });
+  const plan = out.webflowPlan || null;
+  // Drafts made before the plan existed can get one without re-running.
+  const canPlan = !!task.path && ["ctr", "onpage", "striking", "ai_prompt"].includes(task.type) && !(task.type === "ai_prompt" && (!out.targetPage || out.targetPage === "new"));
   return (
     <div className="space-y-3">
       <div className="rounded-xl bg-[#0CA4C3]/[0.06] border border-[#0CA4C3]/25 px-4 py-3">
@@ -294,7 +483,13 @@ function OutputView({ task, out, post, webflowConnected, onResult }: {
         <p className="mt-1 text-[12px] text-[#097388]/80">Drafted by {out.model} · {timeAgo(out.generatedAt)}</p>
       </div>
 
-      {showSeoEditor && <SeoEditor task={task} out={out} post={post} webflowConnected={webflowConnected} onResult={onResult} />}
+      {plan ? (
+        <WebflowPlanView key={plan.builtAt} task={task} plan={plan} post={post} edits={edits} onResult={onResult} onOutput={onOutput} />
+      ) : canPlan && (
+        <PlanButton post={post} onOutput={onOutput} />
+      )}
+
+      {showSeoEditor && <SeoEditor task={task} out={out} post={post} webflowConnected={webflowConnected} onResult={onResult} edits={edits} onEdit={setEdits} planMode={!!plan} />}
 
       {out.newPage?.bodyHtml && (
         <Block title={task.type === "ai_prompt" && out.targetPage && out.targetPage !== "new" ? `Content to add to ${out.targetPage}` : "New page"} copy={out.newPage.bodyHtml}>
@@ -539,7 +734,7 @@ function TaskCard({ task, clientSlug, webflowConnected, clickupConnected, onChan
               </div>
             )}
 
-            {out && !running && <OutputView task={task} out={out} post={post} webflowConnected={webflowConnected} onResult={onResult} />}
+            {out && !running && <OutputView key={out.generatedAt} task={task} out={out} post={post} webflowConnected={webflowConnected} onResult={onResult} onOutput={(output) => onChange({ ...task, output })} />}
 
             {isIndexing && (
               <div className="flex flex-wrap items-center gap-2">
@@ -669,7 +864,7 @@ export function AgentsTab({ clientSlug, clientName }: { clientSlug: string; clie
               Webflow{data.webflow.siteName ? `: ${data.webflow.siteName}` : " (add a site token in Settings to apply changes)"}
             </span>
             <span className="inline-flex items-center gap-1 rounded-full border border-border bg-white px-2.5 py-1 text-[#001A2E]">
-              <Bot size={12} className="text-[#0394B2]" /> {data.model || "No AI key set"}
+              <Bot size={12} className="text-[#0394B2]" /> {data.model || "Claude not connected (add ANTHROPIC_API_KEY in Vercel)"}
             </span>
           </div>
 
