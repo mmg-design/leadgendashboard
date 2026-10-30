@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore, type ReactElement } from "react";
 import { ReferenceLine } from "recharts";
 import {
-  Bot, FilePlus2, FileMinus2, Globe, Loader2, Map as MapIcon, MessageSquare, PencilLine, Rocket, Sparkles,
+  Bot, FilePen, FilePlus2, FileMinus2, Globe, Loader2, Map as MapIcon, MessageSquare, PencilLine, Rocket, Sparkles,
 } from "lucide-react";
 import type { EventKind, SiteEvent } from "@/lib/site-events";
 import type { EventImpact } from "@/lib/event-impact";
@@ -16,6 +16,7 @@ export const KIND_META: Record<EventKind, { label: string; color: string; Icon: 
   agent_task: { label: "Agents task done", color: "#1baf7a", Icon: Bot },
   published: { label: "Published by an agent", color: "#2a78d6", Icon: Rocket },
   page_added: { label: "New page", color: "#4a3aa7", Icon: FilePlus2 },
+  page_updated: { label: "Pages updated", color: "#0CA4C3", Icon: FilePen },
   page_removed: { label: "Page removed", color: "#e34948", Icon: FileMinus2 },
   site_published: { label: "Webflow publish", color: "#eda100", Icon: Globe },
   feedback_resolved: { label: "Client feedback resolved", color: "#e87ba4", Icon: MessageSquare },

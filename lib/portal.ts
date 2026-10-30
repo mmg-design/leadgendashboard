@@ -19,7 +19,7 @@ import { getReviewLink, listFeedback } from "./feedback";
 // Client page tab show up immediately.
 
 const CACHE_HOURS = 6;
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const DAY = 86_400_000;
 
 // ── Link and settings ───────────────────────────────────────────────────────
@@ -334,7 +334,7 @@ async function aiVisibility(slug: string, config: ClientConfig): Promise<AiVisib
 
 // ── Build ───────────────────────────────────────────────────────────────────
 
-const CHANGE_KINDS = new Set(["agent_task", "published", "page_added", "feedback_resolved"]);
+const CHANGE_KINDS = new Set(["agent_task", "published", "page_added", "page_updated", "feedback_resolved"]);
 
 // One entry per piece of work: an Agents task marked done and later published
 // is a single change, dated when it went live.
@@ -533,6 +533,10 @@ export async function buildReport(slug: string, config: ClientConfig, settings: 
       if (e.kind === "page_added") {
         const title = e.pages.length === 1 ? `Added a new page: ${pageName(e.pages[0])}` : `Added ${e.pages.length} new pages to your site`;
         return { key: `change:${k}`, day: e.day, kind: "page", title, why: null, result: resultText(impact) };
+      }
+      if (e.kind === "page_updated") {
+        const title = e.pages.length === 1 ? `Updated ${page(e.pages[0])}` : `Updated ${e.pages.length} pages on your site`;
+        return { key: `change:${k}`, day: e.day, kind: "improvement", title: title.charAt(0).toUpperCase() + title.slice(1), why: null, result: resultText(impact) };
       }
       return { key: `change:${k}`, day: e.day, kind: "improvement", title: clientTitle(e.title), why: whyByTask.get(k.slice(5)) || (e.kind === "published" ? null : e.detail) || null, result: resultText(impact) };
     }));

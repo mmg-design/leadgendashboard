@@ -356,7 +356,8 @@ function VisitsChart({ weekly, changes }: { weekly: PortalReport["weekly"]; chan
   const byWeek = new Map<number, PortalChange[]>();
   for (const c of changes) {
     const i = weekIndex(c.day);
-    if (i < 0 || i > span + 1) continue;
+    // Work from the current, unfinished week goes on the last point.
+    if (i < 0) continue;
     const k = Math.min(span, Math.round(i));
     byWeek.set(k, [...(byWeek.get(k) || []), c]);
   }
