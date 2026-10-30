@@ -74,6 +74,8 @@ export type WfTarget =
       titleField: string | null; descField: string | null; seoTitle: string; seoDescription: string;
       // The post body and an optional JSON-LD field, for the agent's Webflow plan.
       richField: string | null; schemaField: string | null; fieldNames: Record<string, string>;
+      // Text the template wraps around the SEO title field, e.g. " – Exact Benefits".
+      titleAffix: { before: string; after: string };
     };
 
 const norm = (p: string) => ("/" + p.replace(/^\/+|\/+$/g, "")).toLowerCase();
@@ -87,6 +89,15 @@ function seoFields(fields: WfField[]) {
     text.find((f) => /(seo|meta).*desc|desc.*(seo|meta)/i.test(`${f.slug} ${f.displayName}`)) ||
     text.find((f) => /summary|excerpt|description/i.test(`${f.slug} ${f.displayName}`));
   return { titleField: title?.slug || null, descField: desc?.slug || null };
+}
+
+// A CMS template's SEO title is usually the bound field plus a brand suffix
+// ("{{wf meta-title}} – Exact Benefits"). Returns what surrounds the binding.
+function titleAffix(pattern: string, titleField: string | null) {
+  const decoded = pattern.replace(/&quot;/g, '"');
+  const m = decoded.match(/\{\{wf[\s\S]*?\}\}/);
+  if (!m || !titleField || !m[0].includes(`"${titleField}"`)) return { before: "", after: "" };
+  return { before: decoded.slice(0, m.index), after: decoded.slice(m.index! + m[0].length) };
 }
 
 // The main body is the first rich-text field; a JSON-LD field is any text
@@ -134,6 +145,7 @@ export async function findTarget(token: string, siteId: string, path: string): P
       seoTitle: titleField ? String(item.fieldData[titleField] || "") : "",
       seoDescription: descField ? String(item.fieldData[descField] || "") : "",
       ...contentFields(fields),
+      titleAffix: titleAffix(templates.find((t) => t.collectionId === c.id)?.seo?.title || "", titleField),
       fieldNames: Object.fromEntries(fields.map((f) => [f.slug, f.displayName])),
     };
   }

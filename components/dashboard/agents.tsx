@@ -10,6 +10,7 @@ import type { ScanSummary, StoredTask, TaskCategory } from "@/lib/agent-tasks";
 import type { AgentOutput } from "@/lib/agent-runner";
 import type { WfCollection } from "@/lib/webflow";
 import type { PlanOpId, WebflowPlan } from "@/lib/webflow-plan";
+import { fitTitle, type TitleAffix } from "@/lib/seo-title";
 import { safeHtml } from "@/lib/safe-html";
 import { lighten } from "@/lib/source-colors";
 import { ImpactChip as ChangeImpact, reloadSiteEvents, useSiteEvents } from "./change-markers";
@@ -100,17 +101,20 @@ type Post = (body: Record<string, unknown>) => Promise<{ ok?: boolean; error?: s
 
 type SeoEdits = { title: string; description: string };
 
-function SeoEditor({ task, post, webflowConnected, onResult, edits, onEdit, planMode }: {
+function SeoEditor({ task, post, webflowConnected, onResult, edits, onEdit, planMode, affix }: {
   task: StoredTask; out: AgentOutput; post: Post; webflowConnected: boolean; onResult: (r: Record<string, unknown>, status?: StoredTask["status"]) => void;
   edits: SeoEdits; onEdit: (e: SeoEdits) => void;
   // The Webflow plan above stages and publishes these, so the editor only edits.
   planMode: boolean;
+  affix?: TitleAffix;
 }) {
   const out = task.output as AgentOutput;
   const title = edits.title;
   const desc = edits.description;
   const setTitle = (v: string) => onEdit({ ...edits, title: v });
   const setDesc = (v: string) => onEdit({ ...edits, description: v });
+  // What searchers see, including any brand suffix the CMS template adds.
+  const shown = fitTitle(title, affix).rendered;
   const [busy, setBusy] = useState<"" | "apply" | "publish">("");
   const [error, setError] = useState<string | null>(null);
   const [confirmPublish, setConfirmPublish] = useState(false);
@@ -135,7 +139,7 @@ function SeoEditor({ task, post, webflowConnected, onResult, edits, onEdit, plan
         <div>
           <div className="mb-1 flex items-center justify-between text-[13px]">
             <span className="font-medium text-foreground/70">Title tag</span>
-            <span className={title.length > 60 ? "text-amber-700" : "text-muted-foreground"}>{title.length}/60 <CopyButton text={title} /></span>
+            <span className={shown.length > 60 ? "text-amber-700" : "text-muted-foreground"}>{shown.length}/60{shown !== title ? " with suffix" : ""} <CopyButton text={title} /></span>
           </div>
           <input className={input} value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
@@ -153,7 +157,7 @@ function SeoEditor({ task, post, webflowConnected, onResult, edits, onEdit, plan
         {/* Google preview */}
         <div className="rounded-lg bg-muted/40 px-3 py-2.5">
           <p className="text-[12px] text-muted-foreground truncate">{task.url || task.path}</p>
-          <p className="text-[17px] leading-snug text-[#1a0dab] truncate">{title || "(no title)"}</p>
+          <p className="text-[17px] leading-snug text-[#1a0dab] truncate">{shown || "(no title)"}</p>
           <p className="text-[13px] text-[#4d5156] line-clamp-2">{desc}</p>
         </div>
 
@@ -338,7 +342,7 @@ function WebflowPlanView({ task, plan, post, edits, onResult, onOutput }: {
 
   // The SEO rewrite shows whatever is in the editor below, not the first draft.
   const changesFor = (op: WebflowPlan["ops"][number]) => op.id !== "seo" ? op.changes : op.changes.map((c) =>
-    c.field === "Title tag" ? { ...c, after: edits.title } : c.field === "Meta description" ? { ...c, after: edits.description } : c);
+    c.field === "Title tag" ? { ...c, after: fitTitle(edits.title, op.affix).rendered } : c.field === "Meta description" ? { ...c, after: edits.description } : c);
 
   const opRow = (op: WebflowPlan["ops"][number], i: number) => {
     const isStaged = stagedOps.includes(op.id);
@@ -489,7 +493,7 @@ function OutputView({ task, out, post, webflowConnected, onResult, onOutput }: {
         <PlanButton post={post} onOutput={onOutput} />
       )}
 
-      {showSeoEditor && <SeoEditor task={task} out={out} post={post} webflowConnected={webflowConnected} onResult={onResult} edits={edits} onEdit={setEdits} planMode={!!plan} />}
+      {showSeoEditor && <SeoEditor task={task} out={out} post={post} webflowConnected={webflowConnected} onResult={onResult} edits={edits} onEdit={setEdits} planMode={!!plan} affix={plan?.ops.find((o) => o.id === "seo")?.affix} />}
 
       {out.newPage?.bodyHtml && (
         <Block title={task.type === "ai_prompt" && out.targetPage && out.targetPage !== "new" ? `Content to add to ${out.targetPage}` : "New page"} copy={out.newPage.bodyHtml}>

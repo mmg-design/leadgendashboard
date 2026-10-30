@@ -2,6 +2,7 @@ import type { ClientConfig } from "./clients";
 import type { StoredTask } from "./agent-tasks";
 import type { AgentOutput } from "./agent-runner";
 import { faqHtml, safeHtml } from "./safe-html";
+import { fitTitle, type TitleAffix } from "./seo-title";
 import { WebflowError, findTarget, getItem, updateItemFields, updatePageSeo, type WfTarget } from "./webflow";
 
 // Turns an agent's draft into the exact list of Webflow changes it implies,
@@ -23,6 +24,8 @@ export interface PlanOp {
   recommended: boolean;
   manual?: string;
   copy?: string;
+  // For the title: text the CMS template adds around the field.
+  affix?: TitleAffix;
 }
 
 export interface WebflowPlan {
@@ -54,6 +57,7 @@ function webflowProblem(err: unknown): string {
 
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 const words = (html: string) => (text(html) ? text(html).split(" ").length : 0);
+const sameText = (a: string, b: string) => a.toLowerCase().replace(/[^a-z0-9]+/g, "") === b.toLowerCase().replace(/[^a-z0-9]+/g, "");
 const h1s = (html: string) => [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)].map((m) => text(m[1]));
 
 // Agent sections are plain text with "- " list items; Webflow rich text wants HTML.
@@ -114,9 +118,11 @@ export async function buildPlan(task: StoredTask, out: AgentOutput, config: Clie
 
   // Title tag and meta description.
   if (out.seo?.title) {
-    const before = { title: target?.seoTitle ?? "", description: target?.seoDescription ?? "" };
+    const affix = item?.titleField ? item.titleAffix : undefined;
+    const before = { title: affix ? fitTitle(item!.seoTitle, affix).rendered : target?.seoTitle ?? "", description: target?.seoDescription ?? "" };
+    const title = fitTitle(out.seo.title, affix);
     const changes: PlanOp["changes"] = [];
-    if (out.seo.title !== before.title) changes.push({ field: "Title tag", before: before.title, after: out.seo.title });
+    if (title.rendered !== before.title) changes.push({ field: "Title tag", before: before.title, after: title.rendered });
     if (out.seo.metaDescription && out.seo.metaDescription !== before.description) changes.push({ field: "Meta description", before: before.description, after: out.seo.metaDescription });
     if (changes.length) {
       const itemFields = item ? [item.titleField && `“${name(item.titleField)}”`, item.descField && `“${name(item.descField)}”`].filter(Boolean).join(" and ") : "";
@@ -128,10 +134,13 @@ export async function buildPlan(task: StoredTask, out: AgentOutput, config: Clie
         changes,
         auto,
         recommended: true,
+        affix,
         manual: item && !auto
           ? `The ${item.collectionName} collection has no SEO title or description field, so the template is probably using the post name. Add “SEO Title” and “Meta Description” plain-text fields to the collection and bind them in the template's SEO settings once; after that this is automatic.`
           : item && (!item.titleField || !item.descField)
           ? `Only the ${item.titleField ? "title" : "description"} has a field in this collection; the other one needs a field added before it can be set.`
+          : affix?.after.trim() || affix?.before.trim()
+          ? `The template adds “${(affix.before + affix.after).trim()}” to the “${name(item!.titleField)}” field, so the field gets “${title.field}” and searchers see the full title.${title.rendered.length > 60 ? ` That's ${title.rendered.length} characters; Google shows about 60.` : ""}`
           : undefined,
         copy: `${out.seo.title}\n${out.seo.metaDescription}`,
       });
@@ -150,14 +159,19 @@ export async function buildPlan(task: StoredTask, out: AgentOutput, config: Clie
         copy: out.seo?.h1,
       });
     } else if (item && item.richField && inBody.length) {
+      const repeats = inBody.filter((t) => sameText(t, item.itemName)).length;
       ops.push({
         id: "h1",
-        label: `Turn the ${inBody.length === 1 ? "H1" : `${inBody.length} H1s`} inside the post body into H2${inBody.length === 1 ? "" : "s"}`,
+        label: repeats === inBody.length
+          ? "Remove the repeated title from the top of the post body"
+          : `Fix the ${inBody.length === 1 ? "H1" : `${inBody.length} H1s`} inside the post body`,
         where: `${item.collectionName} item, “${name(item.richField)}” field`,
-        changes: inBody.map((t) => ({ field: "Heading level", before: `H1: ${t}`, after: `H2: ${t}` })),
+        changes: inBody.map((t) => sameText(t, item.itemName)
+          ? { field: "Heading", before: `H1: ${t}`, after: "Removed (the template already shows the title as the H1)" }
+          : { field: "Heading", before: `H1: ${t}`, after: `H2: ${t}` }),
         auto: true,
         recommended: true,
-        manual: "The template's own title stays the page's only H1.",
+        manual: "The template's own title stays the page's only H1. Nothing else in the post changes.",
       });
     } else {
       ops.push({
@@ -266,14 +280,15 @@ export async function applyPlan(
   const set = (slug: string, value: string) => { previousFields[slug] ??= String(item.fieldData[slug] ?? ""); fieldData[slug] = value; };
 
   if (want.has("seo")) {
-    if (target.titleField && title) set(target.titleField, title);
+    if (target.titleField && title) set(target.titleField, fitTitle(title, target.titleAffix).field);
     if (target.descField && description) set(target.descField, description);
     if (target.titleField || target.descField) applied.push("seo");
   }
   if (target.richField && (want.has("h1") || want.has("content"))) {
     let body = String(item.fieldData[target.richField] || "");
     if (want.has("h1") && /<h1/i.test(body)) {
-      body = body.replace(/<h1(\s[^>]*)?>/gi, "<h2$1>").replace(/<\/h1>/gi, "</h2>");
+      // A body H1 that repeats the post title is dropped; any other becomes an H2.
+      body = body.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, (_, inner: string) => (sameText(text(inner), target.itemName) ? "" : `<h2>${inner}</h2>`));
       applied.push("h1");
     }
     const added = want.has("content") ? newContent(task, out) : "";
