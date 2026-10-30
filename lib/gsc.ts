@@ -13,6 +13,7 @@ import fs from "fs";
 import path from "path";
 import { GoogleAuth } from "google-auth-library";
 import { normalizePath } from "./page-behavior";
+import { GSC_LAG_DAYS } from "./data-lag";
 
 const READ_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
 const WRITE_SCOPE = "https://www.googleapis.com/auth/webmasters";
@@ -143,9 +144,9 @@ export interface GscPerformance {
 }
 
 export async function getPerformance(property: string, domain: string, days: number): Promise<GscPerformance> {
-  // Search Console data runs about two days behind; end the window there so the
+  // Search Console data settles a few days behind; end the window there so the
   // last days aren't half-empty.
-  const end = new Date(Date.now() - 2 * 86_400_000);
+  const end = new Date(Date.now() - GSC_LAG_DAYS * 86_400_000);
   const start = new Date(end.getTime() - (days - 1) * 86_400_000);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
   const body = { startDate: fmt(start), endDate: fmt(end), type: "web" };

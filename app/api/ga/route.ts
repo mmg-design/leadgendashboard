@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getClient } from "@/lib/clients";
 import { getDb } from "@/lib/db";
 import { getAnalyticsClient, conversionFilterFor } from "@/lib/ga-client";
+import { GA_LAG_DAYS } from "@/lib/data-lag";
 
 export async function GET(req: NextRequest) {
   const client = req.nextUrl.searchParams.get("client");
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
       const cachedData = JSON.parse(cached.rows[0].data as string);
       // Older cached payloads used a non-adjacent 60–31-days-ago baseline, or
       // predate the device/source splits; refetch those instead of serving them.
-      if (cachedData?.comparison?.previous && cachedData?.devices && cachedData?.dailySources) {
+      if (cachedData?.comparison?.previous && cachedData?.devices && cachedData?.dailySources && cachedData.comparison.current?.endDate === `${GA_LAG_DAYS}daysAgo`) {
         return NextResponse.json(cachedData);
       }
     }
@@ -40,12 +41,13 @@ export async function GET(req: NextRequest) {
 
   const periodDays: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 };
   const days = periodDays[range] || 7;
-  // GA date ranges are inclusive. A seven-day window ending today therefore
-  // starts six days ago; the comparison is the immediately preceding seven days.
-  const currentDateRange = { startDate: `${days - 1}daysAgo`, endDate: "today", name: "current" };
+  // GA date ranges are inclusive. The window ends GA_LAG_DAYS back so today's
+  // half-collected numbers don't show as a drop: with a one-day lag, seven days
+  // run from 7 days ago through yesterday. The comparison is the seven before.
+  const currentDateRange = { startDate: `${days + GA_LAG_DAYS - 1}daysAgo`, endDate: `${GA_LAG_DAYS}daysAgo`, name: "current" };
   const previousDateRange = {
-    startDate: `${days * 2 - 1}daysAgo`,
-    endDate: `${days}daysAgo`,
+    startDate: `${days * 2 + GA_LAG_DAYS - 1}daysAgo`,
+    endDate: `${days + GA_LAG_DAYS}daysAgo`,
     name: "previous",
   };
   const goals = config.goals;

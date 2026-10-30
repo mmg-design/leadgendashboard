@@ -2,6 +2,7 @@ import { getDb } from "./db";
 import type { ClientConfig } from "./clients";
 import { dailyTotals, resolveProperty, type DayTotals } from "./gsc";
 import { getEvent, googleUpdates, listEvents, type SiteEvent } from "./site-events";
+import { GSC_LAG_DAYS } from "./data-lag";
 
 // Before/after for one change: the affected pages' Google search numbers for
 // the 14 days before vs. the 14 days after, next to the whole site over the
@@ -11,7 +12,6 @@ import { getEvent, googleUpdates, listEvents, type SiteEvent } from "./site-even
 
 const WINDOW = 14;
 const MIN_AFTER = 7; // below this, show "measuring" instead of a noisy number
-const GSC_LAG_DAYS = 3; // Search Console data settles about 3 days behind
 const MAX_PAGES = 10;
 
 export interface Totals { clicksPerDay: number; impressionsPerDay: number; ctr: number; position: number | null }

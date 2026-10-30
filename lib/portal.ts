@@ -7,6 +7,7 @@ import { brandTerms, classifyKeyword } from "./keyword-insights";
 import { getAiVisibility, type AiVisibility } from "./airt";
 import { listEvents, type SiteEvent } from "./site-events";
 import { eventImpact } from "./event-impact";
+import { GA_LAG_DAYS, GSC_LAG_DAYS } from "./data-lag";
 import { getReviewLink, listFeedback } from "./feedback";
 
 // The client's progress page: a plain-language read of their results, built
@@ -18,8 +19,7 @@ import { getReviewLink, listFeedback } from "./feedback";
 // Client page tab show up immediately.
 
 const CACHE_HOURS = 6;
-const CACHE_VERSION = "v1";
-const GSC_LAG_DAYS = 3;
+const CACHE_VERSION = "v2";
 const DAY = 86_400_000;
 
 // ── Link and settings ───────────────────────────────────────────────────────
@@ -371,7 +371,7 @@ export async function buildReport(slug: string, config: ClientConfig, settings: 
 
   const property = await resolveProperty(config).catch(() => null);
   const [ga, gsc, ranks, ai] = await Promise.all([
-    safe("Google Analytics", sources, () => gaDaily(config, dataFrom, today)),
+    safe("Google Analytics", sources, () => gaDaily(config, dataFrom, addDays(today, -GA_LAG_DAYS))),
     property
       ? safe("Search Console", sources, async () => (await dailyTotals(property, [dataFrom, addDays(today, -470)].sort().reverse()[0], gscEnd)).map((r) => ({ date: r.date, v: r.clicks })))
       : Promise.resolve(null),
