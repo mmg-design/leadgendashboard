@@ -19,7 +19,7 @@ import { getReviewLink, listFeedback } from "./feedback";
 // Client page tab show up immediately.
 
 const CACHE_HOURS = 6;
-const CACHE_VERSION = "v4";
+const CACHE_VERSION = "v5";
 const DAY = 86_400_000;
 
 // ── Link and settings ───────────────────────────────────────────────────────
@@ -179,6 +179,8 @@ export interface PortalReport {
   startedLabel: string; // "May 2026"
   periods: PortalPeriod[];
   weekly: { week: string; visits: number }[];
+  // The last month day by day, for the chart's zoomed-in view.
+  daily: { date: string; visits: number }[];
   wins: PortalWin[];
   changes: PortalChange[];
   rankings: { pageOne: number; top3: number; pageOneAtStart: number | null; trackedSince: string; rows: PortalKeyword[] } | null;
@@ -504,7 +506,7 @@ export async function buildReport(slug: string, config: ClientConfig, settings: 
     // Prefer the publish (when it went live) over the "done" mark.
     if (!prev || (e.kind === "published" && prev.kind !== "published")) groups.set(k, e);
   }
-  const recent = [...groups.entries()].sort((a, b) => b[1].occurredAt.localeCompare(a[1].occurredAt)).slice(0, 15);
+  const recent = [...groups.entries()].sort((a, b) => b[1].occurredAt.localeCompare(a[1].occurredAt)).slice(0, 30);
 
   const taskKeys = recent.map(([k]) => k).filter((k) => k.startsWith("task:")).map((k) => k.slice(5));
   const whyByTask = new Map<string, string>();
@@ -646,6 +648,7 @@ export async function buildReport(slug: string, config: ClientConfig, settings: 
     startedLabel: monthLabel(startedAt),
     periods,
     weekly,
+    daily: (ga?.visits || []).filter((r) => r.date >= addDays(today, -30 - GA_LAG_DAYS) && r.date <= addDays(today, -GA_LAG_DAYS)).sort((a, b) => a.date.localeCompare(b.date)).map((r) => ({ date: r.date, visits: r.v })),
     wins: wins.slice(0, 8),
     changes,
     rankings,

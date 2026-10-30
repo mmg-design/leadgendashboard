@@ -24,6 +24,7 @@ export default function ProgressPage() {
   const [preview, setPreview] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<"month" | "start">("month");
+  const [allChanges, setAllChanges] = useState(false);
 
   useEffect(() => {
     fetch(`/api/progress/${token}`, { cache: "no-store" })
@@ -174,15 +175,15 @@ export default function ProgressPage() {
         )}
 
         {report.weekly.length >= 4 && (
-          <Section title="Visits and what we changed" note="Weekly visits to your website. Each line is something we did; hover or tap one to see it.">
-            <VisitsChart weekly={report.weekly} changes={report.changes} />
+          <Section title="Visits and what we changed" note="Visits to your website. Each line is something we did; hover or tap one to see it.">
+            <VisitsChart weekly={report.weekly} daily={report.daily || []} changes={report.changes} />
           </Section>
         )}
 
         {report.changes.length > 0 && (
           <Section title="What we did, and why" note="Every change to your site, and what it's done since">
             <div>
-              {report.changes.map((c, i) => (
+              {(allChanges ? report.changes : report.changes.slice(0, 6)).map((c, i) => (
                 <div key={c.key} className={`grid md:grid-cols-[88px_1fr] gap-1 md:gap-4 py-4 ${i ? "border-t border-[#dde8ec]" : "pt-1"}`}>
                   <div className="text-[13px] text-[#6b8591] pt-0.5">
                     <b className="md:block text-[15px] font-semibold text-[#001A2E] mr-1.5 md:mr-0">{day(c.day)}</b>
@@ -203,6 +204,11 @@ export default function ProgressPage() {
                   </div>
                 </div>
               ))}
+              {report.changes.length > 6 && (
+                <button onClick={() => setAllChanges(!allChanges)} className="mt-2 text-[13.5px] font-semibold text-[#037c95] hover:underline">
+                  {allChanges ? "Show fewer" : `Show all ${report.changes.length} changes`}
+                </button>
+              )}
             </div>
           </Section>
         )}
@@ -338,8 +344,23 @@ function Spark({ history }: { history: (number | null)[] }) {
   );
 }
 
-function VisitsChart({ weekly, changes }: { weekly: PortalReport["weekly"]; changes: PortalChange[] }) {
+const RANGES = [
+  { key: "1m", label: "1 month" },
+  { key: "3m", label: "3 months" },
+  { key: "6m", label: "6 months" },
+] as const;
+type Range = (typeof RANGES)[number]["key"];
+
+function VisitsChart({ weekly: allWeeks, daily, changes: allChanges }: { weekly: PortalReport["weekly"]; daily: PortalReport["daily"]; changes: PortalChange[] }) {
   const [open, setOpen] = useState<number | null>(null);
+  // Zooming in spreads the change lines out so each one can be read.
+  const [range, setRange] = useState<Range>("3m");
+  const byDay = range === "1m" && daily.length >= 7;
+  const points = byDay
+    ? daily.map((d) => ({ date: d.date, visits: d.visits }))
+    : (range === "3m" ? allWeeks.slice(-13) : allWeeks).map((w) => ({ date: w.week, visits: w.visits }));
+  const weekly = points.map((p) => ({ week: p.date, visits: p.visits }));
+  const unit = byDay ? 1 : 7;
   const W = 900, H = 260, L = 44, R = 14, T = 26, B = 30;
   const first = weekly[0].week;
   const span = weekly.length - 1;
@@ -350,31 +371,47 @@ function VisitsChart({ weekly, changes }: { weekly: PortalReport["weekly"]; chan
   }, [weekly]);
   const x = (i: number) => L + (i / span) * (W - L - R);
   const y = (v: number) => T + (1 - v / top) * (H - T - B);
-  const weekIndex = (d: string) => (new Date(`${d}T12:00:00Z`).getTime() - new Date(`${first}T12:00:00Z`).getTime()) / (7 * 86_400_000);
+  const pointIndex = (d: string) => Math.floor((new Date(`${d}T12:00:00Z`).getTime() - new Date(`${first}T12:00:00Z`).getTime()) / (unit * 86_400_000));
+  const changes = allChanges.filter((c) => pointIndex(c.day) >= 0);
 
-  // Changes on the same week share one pin.
+  // Changes on the same day (or week) share one pin; anything after the last
+  // point (today, or the unfinished week) goes on the last one.
   const byWeek = new Map<number, PortalChange[]>();
   for (const c of changes) {
-    const i = weekIndex(c.day);
-    // Work from the current, unfinished week goes on the last point.
-    if (i < 0) continue;
-    const k = Math.min(span, Math.round(i));
+    const k = Math.min(span, pointIndex(c.day));
     byWeek.set(k, [...(byWeek.get(k) || []), c]);
   }
   const pins = [...byWeek].sort((a, b) => a[0] - b[0]);
 
   const line = weekly.map((w, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(w.visits).toFixed(1)}`).join(" ");
-  const months = weekly
-    .map((w, i) => ({ i, m: w.week.slice(0, 7) }))
-    .filter((w, idx, arr) => idx === 0 || w.m !== arr[idx - 1].m)
-    .filter((w, idx, arr) => w.i <= span - 1 && (idx === arr.length - 1 || arr[idx + 1].i - w.i >= 2));
+  // Axis labels: months for weekly views, every seventh day for the daily one.
+  const months = byDay
+    ? weekly.map((w, i) => ({ i, m: w.week, label: day(w.week, { month: "short", day: "numeric" }) })).filter((w) => w.i % 7 === 0 && w.i <= span - 2)
+    : weekly
+      .map((w, i) => ({ i, m: w.week.slice(0, 7), label: day(`${w.week.slice(0, 7)}-01`, { month: "short" }) }))
+      .filter((w, idx, arr) => idx === 0 || w.m !== arr[idx - 1].m)
+      .filter((w, idx, arr) => w.i <= span - 1 && (idx === arr.length - 1 || arr[idx + 1].i - w.i >= 2));
   const peak = weekly.reduce((best, w, i) => (w.visits > weekly[best].visits ? i : best), 0);
   const active = pins.find(([i]) => i === open);
   const ticks = [0, top / 3, (2 * top) / 3, top].map((v) => Math.round(v));
 
   return (
     <div className="relative">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block" role="img" aria-label={`Weekly website visits over the last ${weekly.length} weeks, with ${changes.length} site changes marked`}>
+      <div className="flex justify-end mb-2">
+        <div className="inline-flex rounded-lg bg-[#001A2E]/[0.06] p-0.5" role="group" aria-label="Chart period">
+          {RANGES.map((r) => (
+            <button
+              key={r.key}
+              onClick={() => { setRange(r.key); setOpen(null); }}
+              aria-pressed={range === r.key}
+              className={`rounded-md px-3 py-1 text-[12.5px] font-medium transition-colors ${range === r.key ? "bg-white text-[#001A2E] shadow-sm" : "text-[#6b8591] hover:text-[#001A2E]"}`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block" role="img" aria-label={`Website visits by ${byDay ? "day" : "week"} over the last ${weekly.length} ${byDay ? "days" : "weeks"}, with ${changes.length} site changes marked`}>
         <defs>
           <linearGradient id="visits-fill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#0CA4C3" stopOpacity={0.24} />
@@ -388,13 +425,13 @@ function VisitsChart({ weekly, changes }: { weekly: PortalReport["weekly"]; chan
           </g>
         ))}
         {months.map((m) => (
-          <text key={m.m} x={x(m.i)} y={H - 8} textAnchor="start" fontSize={11} fill="#6b8591">{day(`${m.m}-01`, { month: "short" })}</text>
+          <text key={m.m} x={x(m.i)} y={H - 8} textAnchor="start" fontSize={11} fill="#6b8591">{m.label}</text>
         ))}
         <path d={`${line} L${x(span)} ${y(0)} L${x(0)} ${y(0)} Z`} fill="url(#visits-fill)" />
         <path d={line} fill="none" stroke="#0CA4C3" strokeWidth={2.4} strokeLinejoin="round" />
         <circle cx={x(peak)} cy={y(weekly[peak].visits)} r={4.5} fill="#0CA4C3" stroke="#fff" strokeWidth={2} />
         <text x={x(peak) + (peak > span / 2 ? -8 : 8)} y={y(weekly[peak].visits) - 10} textAnchor={peak > span / 2 ? "end" : "start"} fontSize={12} fontWeight={600} fill="#001A2E">
-          {n(weekly[peak].visits)} visits, best week
+          {n(weekly[peak].visits)} visits, best {byDay ? "day" : "week"}
         </text>
         {pins.map(([i, items]) => {
           const color = items.length === 1 ? MARK[items[0].kind] : "#001A2E";
