@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
-  Check, CheckCircle2, ChevronLeft, Hand, Link2, Loader2, MessageCircle, Monitor, PanelLeftClose,
+  BarChart3, Check, CheckCircle2, ChevronLeft, Hand, Link2, Loader2, MessageCircle, Monitor, PanelLeftClose,
   PanelLeftOpen, RefreshCw, RotateCcw, Send, Smartphone, Tablet, X,
 } from "lucide-react";
 import type { Anchor, Device, Feedback } from "@/lib/feedback";
@@ -13,6 +13,7 @@ interface ReviewData {
   client: { name: string; domain: string; iconUrl: string | null; slug: string };
   isTeam: boolean;
   comments: Feedback[];
+  progressPath: string | null;
 }
 type Rect = { x: number; y: number; bottom: number };
 
@@ -310,10 +311,15 @@ function ReviewPage() {
         </div>
 
         <div className="flex items-center justify-end gap-2 flex-1">
+          {data?.progressPath && (
+            <a href={data.progressPath} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-[13px] font-medium hover:bg-muted/50" title="See how your website is doing">
+              <BarChart3 size={14} className="text-[#0CA4C3]" /> <span className="hidden lg:inline">View your website data</span><span className="lg:hidden">Your data</span>
+            </a>
+          )}
           {approved ? (
             <span className="hidden md:inline-flex items-center gap-1.5 text-[13px] font-medium text-emerald-700"><CheckCircle2 size={15} /> Page approved</span>
           ) : (
-            <button onClick={approvePage} disabled={!page} className="hidden md:inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[13px] font-medium hover:bg-muted/50 disabled:opacity-50">
+            <button onClick={approvePage} disabled={!page} className="hidden md:inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-[13px] font-medium hover:bg-muted/50 disabled:opacity-50">
               <Check size={14} /> Approve page
             </button>
           )}

@@ -86,6 +86,16 @@ export async function getPortal(slug: string): Promise<Portal> {
   return getPortal(slug);
 }
 
+// The client's progress page path, when it's shared (or for the team, who can
+// preview it either way). Read-only: never creates a portal row.
+export async function progressPathFor(slug: string, isTeam: boolean): Promise<string | null> {
+  const db = await getDb();
+  const res = await db.execute({ sql: "SELECT token, enabled FROM client_portals WHERE client_slug = ?", args: [slug] });
+  const row = res.rows[0];
+  if (!row || (!Number(row.enabled) && !isTeam)) return null;
+  return `/progress/${row.token}`;
+}
+
 export async function updatePortal(slug: string, patch: { enabled?: boolean; settings?: Partial<PortalSettings> }) {
   const current = await getPortal(slug);
   const settings = normalizeSettings(JSON.stringify({ ...current.settings, ...(patch.settings || {}) }));

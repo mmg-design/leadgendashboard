@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { DASHBOARD_SESSION_COOKIE, isTeamSession } from "@/lib/dashboard-auth";
 import { clientForToken, createFeedback, getFeedback, isClientHost, listFeedback, setSlackTs, type Anchor, type Device } from "@/lib/feedback";
 import { notifyNewFeedback } from "@/lib/slack";
+import { progressPathFor } from "@/lib/portal";
 
 // Public, link-scoped API behind a client's review link: read the comments on
 // their site and leave new ones. The token is the only credential.
@@ -14,10 +15,13 @@ export async function GET(req: NextRequest, { params }: Params) {
   const { token } = await params;
   const client = await clientForToken(token);
   if (!client) return NextResponse.json({ error: "This review link isn't valid anymore." }, { status: 404 });
+  const isTeam = await isTeamSession(req.cookies.get(DASHBOARD_SESSION_COOKIE)?.value);
   return NextResponse.json({
     client: { name: client.name, domain: client.domain, iconUrl: client.iconUrl || null, slug: client.slug },
-    isTeam: await isTeamSession(req.cookies.get(DASHBOARD_SESSION_COOKIE)?.value),
+    isTeam,
     comments: await listFeedback(client.slug),
+    // Link to the client's progress page, once the team has shared it.
+    progressPath: await progressPathFor(client.slug, isTeam),
   });
 }
 
