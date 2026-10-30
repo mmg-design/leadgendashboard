@@ -19,7 +19,7 @@ import { getReviewLink, listFeedback } from "./feedback";
 // Client page tab show up immediately.
 
 const CACHE_HOURS = 6;
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const DAY = 86_400_000;
 
 // ── Link and settings ───────────────────────────────────────────────────────
@@ -118,6 +118,7 @@ export async function portalForToken(token: string): Promise<Portal | null> {
 // ── Report shape ────────────────────────────────────────────────────────────
 
 export interface Metric { value: number; pct: number | null }
+export type LeadKind = "leads" | "contact";
 
 export interface PortalPeriod {
   key: "month" | "start";
@@ -126,7 +127,9 @@ export interface PortalPeriod {
   lede: string;
   compareLabel: string; // after the % change, e.g. "vs the 30 days before"
   found: (Metric & { label: string }) | null;
-  leads: Metric | null;
+  // "contact" when the client's only goal is reaching the contact page: those
+  // are visits, not leads, and are worded that way everywhere.
+  leads: (Metric & { label: string; kind: LeadKind }) | null;
   pageOne: { value: number; gained: number | null; gainedLabel: string } | null;
   value: number | null; // leads × lead value, filled in on read
   valueNote: string | null;
@@ -392,6 +395,10 @@ export async function buildReport(slug: string, config: ClientConfig, settings: 
   const foundMonth = foundRows ? { value: sumRange(foundRows, fFrom, fTo), pct: pct(sumRange(foundRows, fPrevFrom, fPrevTo), sumRange(foundRows, fFrom, fTo)) } : null;
   const foundStart = foundRows ? { value: sumRange(foundRows, startedAt, fTo), pct: startPossible ? pct(sumRange(foundRows, startedAt, addDays(startedAt, 29)), sumRange(foundRows, fFrom, fTo)) : null } : null;
   const leadRows = ga?.leads || null;
+  const leadKind: LeadKind = config.goals.length && config.goals.every((g) => g.conversionType === "pageview" && /contact/i.test(g.conversionValue)) ? "contact" : "leads";
+  const leadLabel = leadKind === "contact" ? "Visits to your contact page" : "New leads from your website";
+  const leadWords = (v: number) => leadKind === "contact" ? `${v === 1 ? "visit" : "visits"} to your contact page` : v === 1 ? "lead" : "leads";
+  const LeadsUp = leadKind === "contact" ? "Visits to your contact page are up" : "Leads from your website are up";
   const leadsMonth = leadRows ? { value: sumRange(leadRows, last30From, last30To), pct: pct(sumRange(leadRows, prev30From, prev30To), sumRange(leadRows, last30From, last30To)) } : null;
   const leadsStart = leadRows ? { value: sumRange(leadRows, startedAt, last30To), pct: startPossible ? pct(sumRange(leadRows, startedAt, first30To), sumRange(leadRows, last30From, last30To)) : null } : null;
 
@@ -445,7 +452,7 @@ export async function buildReport(slug: string, config: ClientConfig, settings: 
     });
   }
   if (leadsMonth && leadsMonth.pct != null && leadsMonth.pct >= 15 && leadsMonth.value >= 3) {
-    wins.push({ key: `win:leads:${last30To.slice(0, 7)}`, icon: "leads", title: `Leads from your website are up ${leadsMonth.pct}%`, detail: `${n(leadsMonth.value)} in the last 30 days, compared with the 30 days before.`, day: last30To });
+    wins.push({ key: `win:leads:${last30To.slice(0, 7)}`, icon: "leads", title: `${LeadsUp} ${leadsMonth.pct}%`, detail: `${n(leadsMonth.value)} in the last 30 days, compared with the 30 days before.`, day: last30To });
   }
 
   // Weekly visits (Monday weeks, complete weeks only) for the chart and the record-week win.
@@ -567,13 +574,13 @@ export async function buildReport(slug: string, config: ClientConfig, settings: 
   // ── Headline sentences
   const done30 = changes.filter((c) => c.day >= last30From).length;
   const monthHeadline =
-    leadsMonth?.pct != null && leadsMonth.pct >= 10 ? `Leads from your website are up ${leadsMonth.pct}% this month.`
+    leadsMonth?.pct != null && leadsMonth.pct >= 10 ? `${LeadsUp} ${leadsMonth.pct}% this month.`
     : foundMonth?.pct != null && foundMonth.pct >= 10 ? `${foundMonth.pct}% more people found you on Google this month.`
     : pageOneNow > pageOne30 ? `You moved onto Google's first page for ${pageOneNow - pageOne30} more ${pageOneNow - pageOne30 === 1 ? "search" : "searches"} this month.`
     : "Here's how your website did this month.";
   const monthLede = [
     foundMonth ? `${n(foundMonth.value)} ${gsc ? "people found you through Google search" : "visits to your website"} in the last 30 days` : null,
-    leadsMonth ? `${n(leadsMonth.value)} ${leadsMonth.value === 1 ? "lead" : "leads"} came in through your site` : null,
+    leadsMonth ? (leadKind === "contact" ? `your contact page had ${n(leadsMonth.value)} ${leadsMonth.value === 1 ? "visit" : "visits"}` : `${n(leadsMonth.value)} ${leadWords(leadsMonth.value)} came in through your site`) : null,
     done30 ? `we made ${done30} ${done30 === 1 ? "improvement" : "improvements"}` : null,
   ].filter(Boolean);
   const startHeadline =
@@ -582,7 +589,7 @@ export async function buildReport(slug: string, config: ClientConfig, settings: 
     : `Here's everything since we started in ${monthLabel(startedAt)}.`;
   const startLede = [
     foundStart ? `${n(foundStart.value)} ${gsc ? "people have found you through Google" : "visits to your website"}` : null,
-    leadsStart ? `${n(leadsStart.value)} ${leadsStart.value === 1 ? "lead" : "leads"} from your site` : null,
+    leadsStart ? (leadKind === "contact" ? `${n(leadsStart.value)} ${leadWords(leadsStart.value)}` : `${n(leadsStart.value)} ${leadWords(leadsStart.value)} from your site`) : null,
     groups.size ? `${groups.size} ${groups.size === 1 ? "change" : "changes"} made to your site` : null,
   ].filter(Boolean);
   const list = (parts: string[]) => (parts.length <= 2 ? parts.join(" and ") : `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`);
@@ -599,7 +606,7 @@ export async function buildReport(slug: string, config: ClientConfig, settings: 
       lede: sentence(monthLede, "").replace(/^./, (c) => c.toUpperCase()),
       compareLabel: "vs the 30 days before",
       found: foundMonth ? { ...foundMonth, label: foundLabel } : null,
-      leads: leadsMonth,
+      leads: leadsMonth ? { ...leadsMonth, label: leadLabel, kind: leadKind } : null,
       pageOne: ranks ? { value: pageOneNow, gained: pageOneNow - pageOne30, gainedLabel: "this month" } : null,
       value: null,
       valueNote: null,
@@ -611,7 +618,7 @@ export async function buildReport(slug: string, config: ClientConfig, settings: 
       lede: sentence(startLede, "So far: "),
       compareLabel: `per month vs your first month`,
       found: foundStart ? { ...foundStart, label: foundLabel } : null,
-      leads: leadsStart,
+      leads: leadsStart ? { ...leadsStart, label: leadLabel, kind: leadKind } : null,
       pageOne: ranks ? { value: pageOneNow, gained: pageOneNow - pageOneStart, gainedLabel: `since ${monthLabel(trackedSince).split(" ")[0]}` } : null,
       value: null,
       valueNote: null,
@@ -664,7 +671,14 @@ export function applySettings(report: PortalReport, settings: PortalSettings, fo
   const wins = report.wins.map(edit).filter((w) => !forClient || !w.hidden);
   const changes = report.changes.map(edit).filter((c) => !forClient || !c.hidden);
   const periods = report.periods.map((p) => {
-    if (!settings.leadValue || !p.leads) return p;
+    // Clients see a comparison only when it's an improvement; the team's tab
+    // keeps every number, drops included.
+    if (forClient) {
+      const up = <T extends Metric>(m: T | null) => (m && m.pct != null && m.pct < 0 ? { ...m, pct: null } : m);
+      p = { ...p, found: up(p.found), leads: up(p.leads), pageOne: p.pageOne && (p.pageOne.gained ?? 0) < 0 ? { ...p.pageOne, gained: null } : p.pageOne };
+    }
+    // A lead value only makes sense for real leads, not contact-page visits.
+    if (!settings.leadValue || !p.leads || p.leads.kind === "contact") return p;
     return {
       ...p,
       value: p.leads.value * settings.leadValue,

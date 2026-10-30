@@ -24,7 +24,10 @@ export function composeUpdate(report: PortalReport, opts: { contactName: string 
     numbers.push(`${n(month.found.value)} ${who}${month.found.pct != null && month.found.pct >= 5 ? ` (up ${month.found.pct}% from the month before)` : ""}`);
   }
   if (month?.leads) {
-    numbers.push(`the site brought in ${n(month.leads.value)} new ${month.leads.value === 1 ? "lead" : "leads"}${month.leads.pct != null && month.leads.pct >= 5 ? `, up ${month.leads.pct}%` : ""}`);
+    const up = month.leads.pct != null && month.leads.pct >= 5 ? `, up ${month.leads.pct}%` : "";
+    numbers.push(month.leads.kind === "contact"
+      ? `your contact page had ${n(month.leads.value)} ${month.leads.value === 1 ? "visit" : "visits"}${up}`
+      : `the site brought in ${n(month.leads.value)} new ${month.leads.value === 1 ? "lead" : "leads"}${up}`);
   }
   const para: string[] = [];
   if (numbers.length) para.push(`Over the last 30 days, ${list(numbers)}.`);

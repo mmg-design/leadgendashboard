@@ -64,7 +64,7 @@ export default function ProgressPage() {
   const p = report.periods.find((x) => x.key === period) || report.periods[0];
   const tiles = [
     p.found && { label: p.found.label, value: n(p.found.value), delta: p.found.pct },
-    p.leads && { label: "New leads from your website", value: n(p.leads.value), delta: p.leads.pct },
+    p.leads && { label: p.leads.label || "New leads from your website", value: n(p.leads.value), delta: p.leads.pct },
     p.pageOne && {
       label: "Searches where you're on Google's first page",
       value: n(p.pageOne.value),
