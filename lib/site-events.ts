@@ -8,7 +8,6 @@ export type EventKind =
   | "agent_task" // an Agents task marked done
   | "published" // an agent's change published to the live site from MMG Pulse
   | "page_added"
-  | "page_updated" // pages edited in Webflow (from each page's last-updated date)
   | "page_removed"
   | "site_published" // a Webflow publish made outside MMG Pulse
   | "feedback_resolved"

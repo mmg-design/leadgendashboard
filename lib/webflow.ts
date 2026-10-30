@@ -35,8 +35,7 @@ async function wf<T>(token: string, path: string, init?: { method?: string; body
 }
 
 export interface WfSite { id: string; displayName: string; shortName: string; customDomains?: { id: string; url: string }[] }
-export interface WfPage { id: string; title: string; slug: string; publishedPath?: string; collectionId?: string | null; seo?: { title?: string; description?: string }; archived?: boolean; draft?: boolean; createdOn?: string; lastUpdated?: string }
-export interface WfItem { id: string; createdOn?: string; lastPublished?: string | null; isDraft?: boolean; isArchived?: boolean; fieldData: Record<string, unknown> }
+export interface WfPage { id: string; title: string; slug: string; publishedPath?: string; collectionId?: string | null; seo?: { title?: string; description?: string }; archived?: boolean; draft?: boolean }
 export interface WfCollection { id: string; displayName: string; singularName: string; slug: string }
 export interface WfField { id: string; slug: string; displayName: string; type: string; isRequired: boolean }
 
@@ -151,16 +150,6 @@ export async function findTarget(token: string, siteId: string, path: string): P
     };
   }
   return null;
-}
-
-export async function listItems(token: string, collectionId: string, max = 1000): Promise<WfItem[]> {
-  const items: WfItem[] = [];
-  for (let offset = 0; offset < max; offset += 100) {
-    const res = await wf<{ items: WfItem[]; pagination: { total: number } }>(token, `/collections/${collectionId}/items?limit=100&offset=${offset}`);
-    items.push(...(res.items || []));
-    if (items.length >= (res.pagination?.total ?? 0) || !res.items?.length) break;
-  }
-  return items;
 }
 
 export async function getItem(token: string, collectionId: string, itemId: string) {
