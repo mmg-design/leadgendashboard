@@ -118,8 +118,15 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
     setAgents((d) => (d ? { ...d, tasks: d.tasks.map((t) => (t.key === updated.key ? updated : t)) } : d));
   }
 
+  // Prospects and the company profile don't depend on SE Ranking, so they show
+  // while the report loads too.
   if (loading) {
-    return <Card><CardContent className="py-14 flex items-center justify-center gap-2 text-[15px] text-muted-foreground"><Loader2 size={17} className="animate-spin" /> Pulling the backlink report from SE Ranking. The first one takes about a minute…</CardContent></Card>;
+    return (
+      <div className="space-y-7">
+        <Card><CardContent className="py-10 flex items-center justify-center gap-2 text-[15px] text-muted-foreground"><Loader2 size={17} className="animate-spin" /> Pulling the backlink report from SE Ranking. The first one takes about a minute…</CardContent></Card>
+        <LinkProspects clientSlug={clientSlug} clientName={clientName} />
+      </div>
+    );
   }
   // No report yet (or SE Ranking can't be reached): explain it, and keep the
   // company profile and link prospects, which don't depend on SE Ranking.
