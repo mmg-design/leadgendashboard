@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, Clock, ExternalLink, Loader2, Pencil, Sparkles, X } from "lucide-react";
+import { CalendarClock, ChevronDown, Clock, ExternalLink, Info, Loader2, Pencil, Sparkles, Terminal, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { CopyButton } from "@/components/dashboard/agents";
 import { EFFORT_LABEL, KIND_LABEL, PROFILE_FIELDS, STAGE_LABEL, type LinkProfile, type Stage } from "@/lib/link-prospect-labels";
@@ -86,7 +86,7 @@ function ProspectRow({ p, rank, onStage, onNotes }: { p: LinkProspect; rank: num
           <div className="grid gap-x-6 gap-y-1 text-[13px] text-[#001A2E]/80 sm:grid-cols-2">
             <p><span className="text-muted-foreground">Link to:</span> {p.targetPage}</p>
             {p.contact && <p><span className="text-muted-foreground">Contact:</span> {p.contact}</p>}
-            <p className="truncate"><span className="text-muted-foreground">Next step:</span> <a href={p.nextStepUrl} target="_blank" rel="noreferrer" className="text-[#0394B2] hover:underline">{p.nextStepUrl}</a>{p.nextStepStatus === null ? " (didn't load when checked)" : p.nextStepStatus >= 400 ? ` (returned ${p.nextStepStatus} when checked)` : ""}</p>
+            <p className="truncate"><span className="text-muted-foreground">Next step:</span> <a href={p.nextStepUrl} target="_blank" rel="noreferrer" className="text-[#0394B2] hover:underline">{p.nextStepUrl}</a>{p.nextStepStatus === null ? " (didn't load when checked)" : p.nextStepStatus >= 500 ? ` (returned ${p.nextStepStatus} when checked)` : ""}</p>
             <p><span className="text-muted-foreground">{STAGE_LABEL[p.stage]} since</span> {shortDate(p.stageChangedAt)}</p>
           </div>
           {p.pitchBody && <Text title={isForm ? "What to put in the form" : `Subject: ${p.pitchSubject}`} text={isForm ? p.pitchBody : `Subject: ${p.pitchSubject}\n\n${p.pitchBody}`} />}
@@ -179,6 +179,39 @@ function ProfileCard({ clientSlug, profile, onSaved }: { clientSlug: string; pro
   );
 }
 
+// How new prospects get added. Research runs in the Claude app on the team's
+// Claude plan, so it can't be started from this page; this says how.
+function HowToRefresh({ command }: { command: string }) {
+  return (
+    <div className="relative group/how">
+      <button type="button" className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[13px] font-medium text-[#0394B2] hover:bg-[#0CA4C3]/10">
+        <Info size={13} /> How to get more
+      </button>
+      <div className="invisible absolute right-0 top-full z-50 w-[360px] max-w-[calc(100vw-32px)] pt-2 opacity-0 transition-all duration-150 group-hover/how:visible group-hover/how:opacity-100 group-focus-within/how:visible group-focus-within/how:opacity-100">
+        <div className="space-y-3 rounded-xl bg-[#001A2E] px-4 py-3.5 text-[13px] leading-relaxed text-white shadow-lg">
+          <p className="font-semibold">How new prospects get added</p>
+          <div className="flex gap-2.5">
+            <CalendarClock size={15} className="mt-0.5 shrink-0 text-[#5FD3EA]" />
+            <p><span className="font-semibold">Automatically, every Monday at 8am.</span> Claude researches every client with fewer than 15 left to start. The Claude app needs to be open on the Mac it&apos;s set up on; if it&apos;s closed, the run happens next time it opens.</p>
+          </div>
+          <div className="flex gap-2.5">
+            <Terminal size={15} className="mt-0.5 shrink-0 text-[#5FD3EA]" />
+            <div>
+              <p><span className="font-semibold">Right now:</span> open the Claude app, go to <span className="font-semibold">Code</span>, start a new session and send:</p>
+              <div className="mt-1.5 flex items-center justify-between gap-2 rounded-lg bg-white/10 px-2.5 py-1.5">
+                <code className="text-[13px]">{command}</code>
+                <span className="[&_button]:text-[#5FD3EA] [&_button:hover]:bg-white/10"><CopyButton text={command} /></span>
+              </div>
+              <p className="mt-1.5 text-white/70">It takes about 10 minutes. Reload this page when Claude says it&apos;s done.</p>
+            </div>
+          </div>
+          <p className="border-t border-white/15 pt-2.5 text-white/70">Both run on the Claude plan, not API credits. To steer what Claude looks for, edit the company profile.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LinkProspects({ clientSlug, clientName }: { clientSlug: string; clientName: string }) {
   const [prospects, setProspects] = useState<LinkProspect[] | null>(null);
   const [profile, setProfile] = useState<LinkProfile | null>(null);
@@ -218,9 +251,12 @@ export function LinkProspects({ clientSlug, clientName }: { clientSlug: string; 
               Sites worth a link for {clientName}, easiest first, picked from the company profile below. Each one opens the page where the next step happens. Nothing is sent for you.
             </p>
           </div>
-          {prospects.length > 0 && (
-            <p className="text-[13px] text-muted-foreground tabular-nums">{working.length} in progress · {notStarted.length} to start · {won} won</p>
-          )}
+          <div className="flex items-center gap-3">
+            {prospects.length > 0 && (
+              <p className="text-[13px] text-muted-foreground tabular-nums">{working.length} in progress · {notStarted.length} to start · {won} won</p>
+            )}
+            <HowToRefresh command={command} />
+          </div>
         </div>
 
         <ProfileCard clientSlug={clientSlug} profile={profile} onSaved={setProfile} />
@@ -228,13 +264,13 @@ export function LinkProspects({ clientSlug, clientName }: { clientSlug: string; 
         {prospects.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border px-5 py-6 text-[14px] text-[#001A2E]/80">
             <p className="flex items-center gap-1.5 font-semibold text-[#001A2E]"><Sparkles size={15} style={{ color: GREEN }} /> No prospects yet</p>
-            <p className="mt-1">Research runs in Claude Code on your Claude plan. Open Claude Code in the dashboard repo and run <code className="rounded bg-muted px-1.5 py-0.5 text-[13px]">{command}</code> <CopyButton text={command} /></p>
+            <p className="mt-1">The weekly run on Monday mornings adds them. For some now, open the Claude app, go to Code and send <code className="rounded bg-muted px-1.5 py-0.5 text-[13px]">{command}</code> <CopyButton text={command} /></p>
           </div>
         ) : (
           <>
             {notStarted.length < SHOWN && (
               <p className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-[14px] text-[#001A2E]">
-                {notStarted.length === 0 ? "Nothing left to start." : `Only ${notStarted.length} left to start.`} The weekly research run adds more, or run <code className="rounded bg-white/70 px-1.5 py-0.5 text-[13px]">{command}</code> in Claude Code now.
+                {notStarted.length === 0 ? "Nothing left to start." : `Only ${notStarted.length} left to start.`} The Monday run adds more, or send <code className="rounded bg-white/70 px-1.5 py-0.5 text-[13px]">{command}</code> in the Claude app&apos;s Code tab for some now.
               </p>
             )}
             {working.length > 0 && (
