@@ -8,14 +8,15 @@ import { ensureClaritySnapshot, getClaritySummary } from "./clarity";
 import { normalizePath, type ClarityPage } from "./page-behavior";
 import { fetchPage, sitemapUrls } from "./page-fetch";
 import { brandTerms, classifyKeyword, type RankedKeyword } from "./keyword-insights";
+import { cachedBacklinkReport, type BacklinkReport } from "./backlinks";
 
 // The Agents tab's task list. A scan reads every connected source for one
 // client and turns what it finds into concrete tasks, each with the evidence
 // behind it and an estimated payoff. Rules are plain thresholds on purpose:
 // every task can say exactly why it exists.
 
-export type TaskCategory = "feedback" | "ai" | "indexing" | "search" | "upkeep";
-export type TaskType = "client_feedback" | "indexing" | "ctr" | "striking" | "missing_page" | "ai_prompt" | "ai_source" | "ux_leak" | "onpage";
+export type TaskCategory = "feedback" | "ai" | "links" | "indexing" | "search" | "upkeep";
+export type TaskType = "client_feedback" | "indexing" | "ctr" | "striking" | "missing_page" | "ai_prompt" | "ai_source" | "ux_leak" | "onpage" | "link_gap" | "link_reclaim" | "link_broken" | "link_junk";
 export type TaskStatus = "open" | "drafted" | "applied" | "done" | "dismissed" | "resolved";
 export type Impact = "high" | "medium" | "low";
 
@@ -62,6 +63,10 @@ const TYPE_SOURCE: Record<TaskType, string> = {
   ai_source: "AI tracker",
   ux_leak: "Clarity",
   onpage: "Live pages",
+  link_gap: "Backlinks",
+  link_reclaim: "Backlinks",
+  link_broken: "Backlinks",
+  link_junk: "Backlinks",
 };
 
 // Typical organic CTR by position. Pages well below this are losing clicks to
@@ -291,6 +296,77 @@ function aiSourceTasks(ai: AiVisibility): AgentTask[] {
     }));
 }
 
+// Link building: links rivals have that the client doesn't, links the client
+// lost, and links that now land on a missing page.
+function linkTasks(r: BacklinkReport, name: string): AgentTask[] {
+  const tasks: AgentTask[] = [];
+  const broken = new Map<string, BacklinkReport["pages"][number]>();
+  for (const p of r.pages) if ((p.status === 404 || p.status === 410) && !broken.has(p.path)) broken.set(p.path, p);
+  for (const p of broken.values()) {
+    tasks.push({
+      key: `link_broken:${p.path}`,
+      type: "link_broken",
+      category: "links",
+      title: `Recover the links pointing at a missing page: ${p.path}`,
+      why: `${p.refdomains} ${p.refdomains === 1 ? "site links" : "sites link"} to ${p.path}, which now returns a ${p.status}. A redirect to the closest live page passes that value back to the site.`,
+      evidence: [`${p.url} returns ${p.status}`, `Linked from ${p.refdomains} referring ${p.refdomains === 1 ? "domain" : "domains"}`],
+      impact: impactFrom(p.refdomains, 5, 2),
+      score: p.refdomains * 12,
+      path: p.path,
+      url: p.url,
+      data: { url: p.url, refdomains: p.refdomains, status: p.status },
+    });
+  }
+  for (const l of r.lost.filter((l) => l.authority >= 20).slice(0, 5)) {
+    tasks.push({
+      key: `link_reclaim:${l.domain}`,
+      type: "link_reclaim",
+      category: "links",
+      title: `Win back the link from ${l.domain}`,
+      why: `${l.domain} linked to ${name} until ${l.date}. Lost links from real sites are usually a page edit or a directory refresh, and the easiest links to get back.`,
+      evidence: [
+        `Was on: ${l.urlFrom}`,
+        `Linked to: ${l.urlTo}${l.anchor ? ` with the words “${l.anchor}”` : ""}`,
+        `Domain authority ${l.authority}${l.reason ? `, SE Ranking reason: ${l.reason.replace(/_/g, " ")}` : ""}`,
+      ],
+      impact: impactFrom(l.authority, 80, 40),
+      score: l.authority,
+      domain: l.domain,
+      url: l.urlFrom,
+      data: l,
+    });
+  }
+  for (const g of r.gap.slice(0, 6)) {
+    tasks.push({
+      key: `link_gap:${g.domain}`,
+      type: "link_gap",
+      category: "links",
+      title: `Get a link from ${g.domain}`,
+      why: `${g.competitors.join(" and ")} ${g.competitors.length > 1 ? "get" : "gets"} links from ${g.domain}, and ${name} doesn't. A site that already links to rivals is a warm prospect.`,
+      evidence: [`Links to: ${g.competitors.join(", ")}`, `Domain authority ${g.authority}`],
+      // Two rivals on one site is a proven niche link; one rival's link is a lead.
+      impact: g.competitors.length >= 2 ? impactFrom(g.authority, 30, 10) : g.authority >= 50 ? "medium" : "low",
+      score: g.authority + g.competitors.length * 15,
+      domain: g.domain,
+      data: g,
+    });
+  }
+  if (r.junkBurst) {
+    tasks.push({
+      key: `link_junk:${r.junkBurst.from.slice(0, 7)}`,
+      type: "link_junk",
+      category: "links",
+      title: `Check a burst of ${r.junkBurst.count} junk links`,
+      why: `${r.junkBurst.count} link-farm domains started linking between ${r.junkBurst.from} and ${r.junkBurst.to}. Google ignores these almost always; this is a check, not an emergency.`,
+      evidence: [`Examples: ${r.junkBurst.sample.join(", ")}`, `Real linking sites: ${r.totals.realRefdomains} of ${r.totals.refdomains}`],
+      impact: "low",
+      score: 1,
+      data: r.junkBurst,
+    });
+  }
+  return tasks;
+}
+
 const ISSUE_LABEL: Record<string, string> = {
   rage: "rage clicks (repeated clicking on something that doesn't respond)",
   dead: "dead clicks (clicking things that aren't links)",
@@ -382,23 +458,30 @@ export async function scanClient(slug: string, config: ClientConfig): Promise<{ 
   // Search Console + SE Ranking + AI tracker + Clarity load in parallel.
   const property = await resolveProperty(config).catch(() => null);
   const siteId = config.integrations.seRanking?.enabled ? config.integrations.seRanking.projectId : "";
-  const [gscRes, srRes, aiRes, clarityRes] = await Promise.allSettled([
+  const [gscRes, srRes, aiRes, clarityRes, linksRes] = await Promise.allSettled([
     property ? cachedPerformance(slug, property, config.domain, "30d", 30) : Promise.reject(new Error("Search Console isn't connected")),
     siteId && process.env.SERANKING_API_KEY ? getSeRankingData(config, process.env.SERANKING_API_KEY) : Promise.reject(new Error("SE Ranking isn't connected")),
     siteId && process.env.SERANKING_API_KEY ? cachedAi(slug, siteId, config.domain) : Promise.reject(new Error("SE Ranking isn't connected")),
     config.integrations.clarity?.enabled
       ? ensureClaritySnapshot(slug, config).then((e) => getClaritySummary(slug, config, 30, e))
       : Promise.reject(new Error("Clarity isn't connected")),
+    // The Links tab builds this report weekly (it takes SE Ranking about a
+    // minute); the scan reuses the latest one rather than waiting on it.
+    siteId && process.env.SERANKING_API_KEY
+      ? cachedBacklinkReport(slug).then((r) => r ?? Promise.reject(new Error("Open the Links tab to pull the first backlink report")))
+      : Promise.reject(new Error("SE Ranking isn't connected")),
   ]);
 
   const gsc = gscRes.status === "fulfilled" ? gscRes.value : null;
   const sr = srRes.status === "fulfilled" ? srRes.value : null;
   const ai = aiRes.status === "fulfilled" ? aiRes.value : null;
   const clarity = clarityRes.status === "fulfilled" ? clarityRes.value : null;
+  const links = linksRes.status === "fulfilled" ? linksRes.value : null;
   const reason = (r: PromiseSettledResult<unknown>) => (r.status === "rejected" ? String((r.reason as Error)?.message || r.reason).slice(0, 140) : undefined);
   note("Search Console", !!gsc, reason(gscRes));
   note("SE Ranking", !!sr, reason(srRes));
   note("AI tracker", !!ai && ai.status === "ok", ai && ai.status !== "ok" ? (ai.status === "collecting" ? "Still collecting first answers" : "Not set up") : reason(aiRes));
+  note("Backlinks", !!links, links ? `${links.totals.realRefdomains} real linking sites` : reason(linksRes));
   note("Clarity", !!clarity && clarity.status === "ok", clarity && clarity.status !== "ok" ? clarity.message || clarity.status : reason(clarityRes));
 
   const origin = originFor(config, gsc?.origin);
@@ -414,6 +497,7 @@ export async function scanClient(slug: string, config: ClientConfig): Promise<{ 
   }
   if (ai?.status === "ok") tasks.push(...aiPromptTasks(ai), ...aiSourceTasks(ai));
   if (clarity?.status === "ok") tasks.push(...uxTasks(clarity.pages, origin));
+  if (links) tasks.push(...linkTasks(links, config.name));
 
   // Indexing: the pages most likely to be missing from Google are the ones in
   // the sitemap that never get an impression, plus the homepage.

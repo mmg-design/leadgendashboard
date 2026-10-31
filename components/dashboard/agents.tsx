@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Bot, Check, ChevronDown, MessageSquare, ClipboardCopy, ExternalLink, FileSearch, Globe, Loader2, RefreshCw,
+  Bot, Check, ChevronDown, MessageSquare, ClipboardCopy, ExternalLink, FileSearch, Globe, Link2, Loader2, RefreshCw,
   RotateCcw, Search, Send, Sparkles, Wrench, X,
 } from "lucide-react";
 import type { ScanSummary, StoredTask, TaskCategory } from "@/lib/agent-tasks";
@@ -29,11 +29,12 @@ interface AgentsResponse {
 const CATEGORIES: Record<TaskCategory, { label: string; color: string; Icon: typeof Bot; blurb: string }> = {
   feedback: { label: "Client feedback", color: "#e87ba4", Icon: MessageSquare, blurb: "Open comments from the client's review link" },
   ai: { label: "AI visibility", color: "#4a3aa7", Icon: Sparkles, blurb: "Get named by ChatGPT, Google AI and Perplexity" },
+  links: { label: "Links", color: "#008300", Icon: Link2, blurb: "Outreach, lost links and competitor link gaps" },
   indexing: { label: "Indexing", color: "#eb6834", Icon: FileSearch, blurb: "Pages Google can't show yet" },
   search: { label: "Search growth", color: "#2a78d6", Icon: Search, blurb: "Rankings and clicks within reach" },
   upkeep: { label: "Site upkeep", color: "#1baf7a", Icon: Wrench, blurb: "On-page basics and visitor friction" },
 };
-const CATEGORY_ORDER: TaskCategory[] = ["feedback", "ai", "indexing", "search", "upkeep"];
+const CATEGORY_ORDER: TaskCategory[] = ["feedback", "ai", "links", "indexing", "search", "upkeep"];
 const IMPACT_RANK = { high: 0, medium: 1, low: 2 };
 
 const eyebrow = "text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground";
@@ -76,7 +77,7 @@ function Block({ title, copy, children }: { title: string; copy?: string; childr
   );
 }
 
-function CategoryChip({ category }: { category: TaskCategory }) {
+export function CategoryChip({ category }: { category: TaskCategory }) {
   const c = CATEGORIES[category];
   return (
     <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold" style={{ background: lighten(c.color, 0.88), color: "#001A2E" }}>
@@ -568,6 +569,15 @@ function OutputView({ task, out, post, webflowConnected, onResult, onOutput }: {
                     <p className="mt-1 whitespace-pre-line text-[13px] text-[#001A2E]/85">{o.pitchBody}</p>
                   </div>
                 )}
+                {o.followUp && (
+                  <div className="mt-2 rounded-lg border border-dashed border-border p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[13px] font-medium">Follow-up, 4-5 days later if no reply</p>
+                      <CopyButton text={o.followUp} />
+                    </div>
+                    <p className="mt-1 whitespace-pre-line text-[13px] text-[#001A2E]/85">{o.followUp}</p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -614,7 +624,7 @@ function OutputView({ task, out, post, webflowConnected, onResult, onOutput }: {
 
 // ── Task card ───────────────────────────────────────────────────────────────
 
-function TaskCard({ task, clientSlug, webflowConnected, clickupConnected, onChange }: {
+export function TaskCard({ task, clientSlug, webflowConnected, clickupConnected, onChange }: {
   task: StoredTask; clientSlug: string; webflowConnected: boolean; clickupConnected: boolean; onChange: (t: StoredTask) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -788,12 +798,12 @@ function TaskCard({ task, clientSlug, webflowConnected, clickupConnected, onChan
 
 // ── Tab ─────────────────────────────────────────────────────────────────────
 
-export function AgentsTab({ clientSlug, clientName }: { clientSlug: string; clientName: string }) {
+export function AgentsTab({ clientSlug, clientName, initialCategory = "all" }: { clientSlug: string; clientName: string; initialCategory?: TaskCategory | "all" }) {
   const [data, setData] = useState<AgentsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [category, setCategory] = useState<TaskCategory | "all">("all");
+  const [category, setCategory] = useState<TaskCategory | "all">(initialCategory);
   const [view, setView] = useState<"active" | "closed">("active");
 
   function load(scan = false) {
@@ -837,7 +847,7 @@ export function AgentsTab({ clientSlug, clientName }: { clientSlug: string; clie
           <div className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#0394B2] mb-1.5">Agents</div>
           <h2 className="font-headline text-[28px] text-[#001A2E]">Work queue for {clientName}</h2>
           <p className="mt-1 max-w-[720px] text-[15px] text-muted-foreground">
-            Agents scan Search Console, SE Ranking, the AI tracker, Clarity and the live site, then turn what they find into tasks.
+            Agents scan Search Console, SE Ranking (rankings and backlinks), the AI tracker, Clarity and the live site, then turn what they find into tasks.
             Run an agent to get a ready-to-ship draft; nothing changes on the site until you apply and publish it.
           </p>
         </div>
@@ -873,7 +883,7 @@ export function AgentsTab({ clientSlug, clientName }: { clientSlug: string; clie
           </div>
 
           {/* Category summary */}
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
             {CATEGORY_ORDER.map((key) => {
               const c = CATEGORIES[key];
               const active = category === key;

@@ -53,7 +53,9 @@ export async function PATCH(req: NextRequest) {
 
   // Finished work goes on the change timeline (client feedback is logged as
   // "feedback resolved" below instead).
-  if (status === "done" && !key.startsWith("feedback:")) {
+  // Outreach tasks are done when the email goes out, which isn't a site change,
+  // so only link fixes on the site itself (redirects) reach the timeline.
+  if (status === "done" && !key.startsWith("feedback:") && !/^link_(gap|reclaim|junk):/.test(key)) {
     const task = await getTask(slug, key);
     if (task) await recordEvent(slug, { kind: "agent_task", title: task.title, pages: task.path ? [task.path] : [], source: "Agents", ref: `task:${key}` });
   }

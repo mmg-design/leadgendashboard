@@ -18,7 +18,7 @@ export interface AgentOutput {
   targetPage?: string;
   schemaJsonLd?: string;
   internalLinks?: { fromPage: string; anchorText: string }[];
-  outreach?: { target: string; approach: string; pitchSubject: string; pitchBody: string }[];
+  outreach?: { target: string; approach: string; pitchSubject: string; pitchBody: string; followUp?: string }[];
   findings?: { issue: string; likelyCause: string; fix: string }[];
   proposedChange?: string;
   clientReply?: string;
@@ -50,6 +50,14 @@ const NEW_PAGE = obj({
   bodyHtml: str("Full page body as clean semantic HTML: h2, h3, p, ul, ol, li, strong, em, a. No h1 (it's separate), no classes, no inline styles, no scripts."),
 });
 
+const LINK_OUTREACH = arr(obj({
+  target: str("Who to contact and how to reach them (editor, site owner, listings form), with where to find the address if you don't know it"),
+  approach: str("Why this site would link and exactly where the link would go"),
+  pitchSubject: str("Email subject, specific and under 60 characters"),
+  pitchBody: str("Ready-to-send email, under 120 words, one clear ask, opening with something specific to their site, [placeholders] for unknowns"),
+  followUp: str("A 2-3 sentence follow-up to send 4-5 days later if there's no reply"),
+}));
+
 const SCHEMAS: Record<string, JsonSchema> = {
   ctr: obj({ summary: SUMMARY, seo: SEO, steps: STEPS }),
   onpage: obj({ summary: SUMMARY, seo: SEO, schemaJsonLd: JSONLD, steps: STEPS }),
@@ -79,6 +87,13 @@ const SCHEMAS: Record<string, JsonSchema> = {
       pitchSubject: str("Email subject or post title; empty if not an email"),
       pitchBody: str("Ready-to-send message, under 150 words, with [placeholders] for anything you don't know"),
     })),
+    steps: STEPS,
+  }),
+  link_gap: obj({ summary: SUMMARY, outreach: LINK_OUTREACH, steps: STEPS }),
+  link_reclaim: obj({ summary: SUMMARY, outreach: LINK_OUTREACH, steps: STEPS }),
+  link_broken: obj({
+    summary: SUMMARY,
+    proposedChange: str("The redirect to add, as: /old-path -> /new-path (301). Pick the closest live page from the list."),
     steps: STEPS,
   }),
   client_feedback: obj({
@@ -159,6 +174,22 @@ function indexingOutput(task: StoredTask, page: PageSnapshot | null): AgentOutpu
   };
 }
 
+// Junk link bursts need a check, not a draft, so this one is plain rules.
+function junkLinksOutput(task: StoredTask): AgentOutput {
+  const d = (task.data || {}) as { count?: number; from?: string; to?: string; sample?: string[] };
+  return {
+    summary: `${d.count ?? "Many"} link-farm domains started linking between ${d.from} and ${d.to}. Google discounts these automatically, so the work is a quick check, not a cleanup.`,
+    steps: [
+      { title: "Check for a manual action", detail: "In Search Console, open Security & Manual actions, then Manual actions. If it says No issues detected, there is nothing to fix." },
+      { title: "Don't disavow yet", detail: "Google's advice is to disavow only when there's a manual action or you bought links. A disavow file can't add value back, and a wrong one removes good links." },
+      { title: "Watch rankings for two weeks", detail: "If tracked keywords drop sharply while these keep arriving, export the domains from SE Ranking and upload a disavow file (domain: lines) in Search Console's disavow tool." },
+      { title: "Keep the report honest", detail: `These are counted as junk in the Links tab, so the client's real link count isn't inflated. Examples: ${(d.sample || []).join(", ")}.` },
+    ],
+    model: "Rules",
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 // ── Run ─────────────────────────────────────────────────────────────────────
 
 export async function runAgent(task: StoredTask, config: ClientConfig): Promise<AgentOutput> {
@@ -171,6 +202,7 @@ export async function runAgent(task: StoredTask, config: ClientConfig): Promise<
   const target = task.path === "/" ? home : page;
 
   if (task.type === "indexing") return indexingOutput(task, target);
+  if (task.type === "link_junk") return junkLinksOutput(task);
 
   const about = home.ok ? `${home.title}\n${home.metaDescription}\n${home.text.slice(0, 2500)}` : "";
   let prompt = "";
@@ -255,6 +287,53 @@ Prompts the client tracks, where this site shows up as a source:
 ${list(prompts)}
 
 Plan how ${config.name} gets mentioned on ${task.domain}. Work out what kind of site it is (directory, review platform, publication, association, forum, competitor, government) and give the realistic route for that kind of site: claim or create a listing, request inclusion in a roundup, contribute an expert quote or guest post, answer a thread, earn a review, or pitch an editor. Write 1-3 outreach items with ready-to-send messages. If ${task.domain} is a competitor or a site that would never mention another business, say so in the summary and instead give the closest alternative route. Steps should be specific to this site.`;
+      break;
+    }
+    case "link_gap": {
+      const d = (task.data || {}) as { competitors?: string[]; authority?: number };
+      const site = await fetchPage(`https://${task.domain}`).catch(() => null);
+      const sitemap = (await sitemapUrls(origin).catch(() => [])).slice(0, 60);
+      prompt = `${taskBlock(task)}
+
+The prospect: ${task.domain} (domain authority ${d.authority ?? "unknown"})
+${site?.ok ? `What it is (from its homepage): ${site.title}. ${site.metaDescription} ${site.text.slice(0, 1500)}` : "(Couldn't load the site; use what you know about it.)"}
+
+It links to these competitors of ${config.name}: ${(d.competitors || []).join(", ")}
+
+Pages on ${config.name}'s site that could be linked to:
+${list(sitemap.map((u) => u.replace(origin, "") || "/"))}
+
+Plan how ${config.name} earns a link from ${task.domain}. First work out what kind of site it is and why it links to those competitors: a local directory or chamber listing, an association member list, a resource roundup, a news or blog article, a sponsorship, a press release network, or a partner page. Give the realistic route for that kind of site (submit a listing, join, request inclusion, offer an expert quote or guest article, pitch a story). If it's a paid press release network or a link farm, say so plainly in the summary and recommend whether it's worth it. Write 1-2 outreach items with ready-to-send emails and follow-ups, and name the exact page on ${config.name}'s site the link should point to. Steps should be specific to this site.`;
+      break;
+    }
+    case "link_reclaim": {
+      const d = (task.data || {}) as { urlFrom?: string; urlTo?: string; anchor?: string; title?: string; date?: string; reason?: string };
+      const stillThere = page?.ok ? (page.text.toLowerCase().includes(config.name.toLowerCase()) ? "The page still mentions the client by name." : "The page no longer mentions the client by name.") : "The page couldn't be loaded (it may have been removed or moved).";
+      prompt = `${taskBlock(task)}
+
+The lost link:
+- Was on: ${d.urlFrom}${d.title ? ` (“${d.title}”)` : ""}
+- Pointed to: ${d.urlTo}${d.anchor ? ` with the text “${d.anchor}”` : ""}
+- Lost on: ${d.date}${d.reason ? ` (SE Ranking's reason: ${d.reason.replace(/_/g, " ")})` : ""}
+- ${stillThere}
+${page?.ok ? `
+The page today: ${page.title}
+${page.text.slice(0, 1500)}` : ""}
+
+Work out why the link went away (the listing expired, the page was redesigned, the URL the link pointed to changed, the article was edited) and the fastest way to get it back. If it's a directory or chamber listing, the fix is usually renewing or re-claiming the listing; say where. If it's an article, write a short, friendly email to the author or editor asking to restore it, pointing to the right current URL on ${origin}. If the link pointed to an old URL on the client's site that no longer works, add a step to redirect it. Write 1 outreach item (with a follow-up) unless it's a self-serve fix.`;
+      break;
+    }
+    case "link_broken": {
+      const d = (task.data || {}) as { refdomains?: number; status?: number };
+      const sitemap = (await sitemapUrls(origin).catch(() => [])).slice(0, 100);
+      prompt = `${taskBlock(task)}
+
+${task.url} returns ${d.status} but ${d.refdomains} other ${d.refdomains === 1 ? "site links" : "sites link"} to it, so that link value is wasted.
+
+Live pages on the site:
+${list(sitemap.map((u) => u.replace(origin, "") || "/"))}
+
+Pick the live page that best matches what ${task.path} used to be about (from its URL and the site's pages) and give the 301 redirect in proposedChange. Steps: add it in Webflow (Site settings, Publishing, 301 redirects), publish, then check the old URL lands on the new page. If no page is a reasonable match, say so and recommend recreating the page instead.`;
       break;
     }
     case "client_feedback": {

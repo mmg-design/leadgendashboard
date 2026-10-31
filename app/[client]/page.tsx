@@ -22,6 +22,7 @@ import { Attribution } from "@/components/dashboard/attribution";
 import { CustomReportGenerator } from "@/components/dashboard/custom-report-generator";
 import { AiVisibilityTab } from "@/components/dashboard/ai-visibility";
 import { AgentsTab } from "@/components/dashboard/agents";
+import { LinksTab } from "@/components/dashboard/links";
 import { ClientFeedback } from "@/components/dashboard/client-feedback";
 import { ClientPortal } from "@/components/dashboard/client-portal";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
@@ -42,6 +43,7 @@ import {
   UploadCloud,
   RefreshCw,
   LayoutDashboard,
+  Link2,
   Route,
   FileChartColumn,
   Sparkles,
@@ -182,9 +184,11 @@ export default function ClientDashboard() {
   const [range, setRange] = useState("7d");
   // ?section=portal lands back on the Client Page tab (e.g. after Connect Gmail).
   const searchParams = useSearchParams();
-  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "ai-visibility" | "agents" | "report-generator" | "feedback" | "portal">(
+  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "ai-visibility" | "links" | "agents" | "report-generator" | "feedback" | "portal">(
     searchParams.get("section") === "portal" ? "portal" : "overview"
   );
+  // "Open in Agents" from the Links tab lands on Agents filtered to link tasks.
+  const [agentsCategory, setAgentsCategory] = useState<"all" | "links">("all");
   const [clientName, setClientName] = useState(
     clientSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
   );
@@ -884,6 +888,7 @@ export default function ClientDashboard() {
                 ["overview", "Overview", LayoutDashboard],
                 ["attribution", "Lead Funnel", Route],
                 ["ai-visibility", "AI Visibility", Sparkles],
+                ["links", "Links", Link2],
                 ["agents", "Agents", Bot],
                 ["report-generator", "Custom Reports", FileChartColumn],
                 ["feedback", "Client Feedback", MessageSquare],
@@ -893,7 +898,7 @@ export default function ClientDashboard() {
                 return (
                   <button
                     key={key}
-                    onClick={() => setActiveSection(key)}
+                    onClick={() => { setActiveSection(key); setAgentsCategory("all"); }}
                     aria-current={active ? "page" : undefined}
                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[15px] font-medium transition-colors ${
                       active
@@ -916,7 +921,9 @@ export default function ClientDashboard() {
             ) : activeSection === "feedback" ? (
               <ClientFeedback clientSlug={clientSlug} clientName={clientName} />
             ) : activeSection === "agents" ? (
-              <AgentsTab clientSlug={clientSlug} clientName={clientName} />
+              <AgentsTab key={agentsCategory} clientSlug={clientSlug} clientName={clientName} initialCategory={agentsCategory} />
+            ) : activeSection === "links" ? (
+              <LinksTab clientSlug={clientSlug} clientName={clientName} onOpenAgents={() => { setAgentsCategory("links"); setActiveSection("agents"); }} />
             ) : activeSection === "ai-visibility" ? (
               <AiVisibilityTab clientSlug={clientSlug} clientName={clientName} range={range} />
             ) : activeSection === "report-generator" ? (
