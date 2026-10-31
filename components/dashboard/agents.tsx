@@ -51,7 +51,7 @@ function timeAgo(iso: string) {
   return h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
 }
 
-function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
   return (
     <button
@@ -736,7 +736,7 @@ export function TaskCard({ task, clientSlug, webflowConnected, clickupConnected,
                 </a>
               ) : task.url && (
                 <a href={task.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[13px] text-[#0394B2] hover:underline">
-                  Open the page <ExternalLink size={12} />
+                  {typeof task.data?.nextStepLabel === "string" ? task.data.nextStepLabel : "Open the page"} <ExternalLink size={12} />
                 </a>
               )}
             </div>
@@ -767,7 +767,7 @@ export function TaskCard({ task, clientSlug, webflowConnected, clickupConnected,
             {error && <p className="text-[14px] text-red-600">{error}</p>}
 
             <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-3">
-              {out && !closed && (
+              {out && !closed && task.type !== "link_prospect" && (
                 <button className={btnGhost} disabled={running} onClick={run}><RotateCcw size={14} /> Run again</button>
               )}
               {clickupConnected && (

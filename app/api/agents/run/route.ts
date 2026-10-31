@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
   if (!slug || !key) return NextResponse.json({ error: "Missing client or key" }, { status: 400 });
   const [config, task] = await Promise.all([getClient(slug), getTask(slug, key)]);
   if (!config || !task) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  if (task.type === "link_prospect") return NextResponse.json({ ok: false, error: "Link prospects are researched in Claude Code, with the pitch already written." }, { status: 400 });
 
   try {
     const output = await runAgent(task, config);

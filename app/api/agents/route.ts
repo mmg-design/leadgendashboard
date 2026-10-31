@@ -7,6 +7,7 @@ import { getFeedback, getReviewLink, setFeedbackStatus, slackTsFor } from "@/lib
 import { notifyStatus } from "@/lib/slack";
 import { recordEvent } from "@/lib/site-events";
 import { getTask } from "@/lib/agent-tasks";
+import { stageFromTask } from "@/lib/link-prospects";
 
 export const maxDuration = 120;
 
@@ -50,12 +51,14 @@ export async function PATCH(req: NextRequest) {
   const { client: slug, key, status } = (await req.json()) as { client?: string; key?: string; status?: TaskStatus };
   if (!slug || !key || !status || !STATUSES.includes(status)) return NextResponse.json({ error: "Missing client, key, or status" }, { status: 400 });
   await updateTask(slug, key, { status });
+  // A link prospect's stage follows its Agents task (and re-syncs the queue).
+  await stageFromTask(slug, key, status);
 
   // Finished work goes on the change timeline (client feedback is logged as
   // "feedback resolved" below instead).
   // Outreach tasks are done when the email goes out, which isn't a site change,
   // so only link fixes on the site itself (redirects) reach the timeline.
-  if (status === "done" && !key.startsWith("feedback:") && !/^link_(gap|reclaim|junk):/.test(key)) {
+  if (status === "done" && !key.startsWith("feedback:") && !/^link_(gap|reclaim|junk|prospect):/.test(key)) {
     const task = await getTask(slug, key);
     if (task) await recordEvent(slug, { kind: "agent_task", title: task.title, pages: task.path ? [task.path] : [], source: "Agents", ref: `task:${key}` });
   }

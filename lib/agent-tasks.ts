@@ -16,7 +16,7 @@ import { cachedBacklinkReport, type BacklinkReport } from "./backlinks";
 // every task can say exactly why it exists.
 
 export type TaskCategory = "feedback" | "ai" | "links" | "indexing" | "search" | "upkeep";
-export type TaskType = "client_feedback" | "indexing" | "ctr" | "striking" | "missing_page" | "ai_prompt" | "ai_source" | "ux_leak" | "onpage" | "link_gap" | "link_reclaim" | "link_broken" | "link_junk";
+export type TaskType = "client_feedback" | "indexing" | "ctr" | "striking" | "missing_page" | "ai_prompt" | "ai_source" | "ux_leak" | "onpage" | "link_gap" | "link_reclaim" | "link_broken" | "link_junk" | "link_prospect";
 export type TaskStatus = "open" | "drafted" | "applied" | "done" | "dismissed" | "resolved";
 export type Impact = "high" | "medium" | "low";
 
@@ -67,6 +67,7 @@ const TYPE_SOURCE: Record<TaskType, string> = {
   link_reclaim: "Backlinks",
   link_broken: "Backlinks",
   link_junk: "Backlinks",
+  link_prospect: "Link prospects", // synced from research, never auto-resolved by a scan
 };
 
 // Typical organic CTR by position. Pages well below this are losing clicks to
@@ -296,8 +297,9 @@ function aiSourceTasks(ai: AiVisibility): AgentTask[] {
     }));
 }
 
-// Link building: links rivals have that the client doesn't, links the client
-// lost, and links that now land on a missing page.
+// Link fixes: links the client lost, and links that now land on a missing
+// page. New links to go after are link prospects (lib/link-prospects.ts),
+// which fold in the competitor gap.
 function linkTasks(r: BacklinkReport, name: string): AgentTask[] {
   const tasks: AgentTask[] = [];
   const broken = new Map<string, BacklinkReport["pages"][number]>();
@@ -334,21 +336,6 @@ function linkTasks(r: BacklinkReport, name: string): AgentTask[] {
       domain: l.domain,
       url: l.urlFrom,
       data: l,
-    });
-  }
-  for (const g of r.gap.slice(0, 6)) {
-    tasks.push({
-      key: `link_gap:${g.domain}`,
-      type: "link_gap",
-      category: "links",
-      title: `Get a link from ${g.domain}`,
-      why: `${g.competitors.join(" and ")} ${g.competitors.length > 1 ? "get" : "gets"} links from ${g.domain}, and ${name} doesn't. A site that already links to rivals is a warm prospect.`,
-      evidence: [`Links to: ${g.competitors.join(", ")}`, `Domain authority ${g.authority}`],
-      // Two rivals on one site is a proven niche link; one rival's link is a lead.
-      impact: g.competitors.length >= 2 ? impactFrom(g.authority, 30, 10) : g.authority >= 50 ? "medium" : "low",
-      score: g.authority + g.competitors.length * 15,
-      domain: g.domain,
-      data: g,
     });
   }
   if (r.junkBurst) {

@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowRight, Bot, ExternalLink, Link2, Loader2, RefreshCw
 import { Card, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { TaskCard } from "@/components/dashboard/agents";
+import { LinkProspects } from "@/components/dashboard/link-prospects";
 import type { BacklinkReport } from "@/lib/backlinks";
 import type { StoredTask } from "@/lib/agent-tasks";
 
@@ -109,7 +110,7 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
 
   const linkTasks = useMemo(
     () => (agents?.tasks || [])
-      .filter((t) => t.category === "links" && (t.status === "open" || t.status === "drafted" || t.status === "applied"))
+      .filter((t) => t.category === "links" && t.type !== "link_prospect" && (t.status === "open" || t.status === "drafted" || t.status === "applied"))
       .sort((a, b) => IMPACT_RANK[a.impact] - IMPACT_RANK[b.impact] || b.score - a.score),
     [agents],
   );
@@ -140,7 +141,7 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
           <div className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#0394B2] mb-1.5">Links</div>
           <h2 className="font-headline text-[28px] text-[#001A2E]">Backlinks for {clientName}</h2>
           <p className="mt-1 max-w-[720px] text-[15px] text-muted-foreground">
-            Who links to {report.domain}, what changed, and the links competitors have that {clientName} doesn&apos;t. Every opportunity below is also in Agents, where Claude drafts the outreach.
+            Who links to {report.domain}, what changed, and the sites worth a link next. Prospects and fixes are also in Agents, under Links.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -160,7 +161,7 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
           <div>
             <p className="font-semibold">{report.junkBurst.count} junk links arrived between {shortDate(report.junkBurst.from)} and {shortDate(report.junkBurst.to)}</p>
             <p className="mt-0.5 text-[#001A2E]/75">
-              Automated link farms ({report.junkBurst.sample.slice(0, 2).join(", ")} and others). Google ignores links like these, so they&apos;re left out of the real link count below. There&apos;s a check for it in the outreach queue.
+              Automated link farms ({report.junkBurst.sample.slice(0, 2).join(", ")} and others). Google ignores links like these, so they&apos;re left out of the real link count below. There&apos;s a check for it under Fixes and lost links.
             </p>
           </div>
         </div>
@@ -173,6 +174,8 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
         <StatCard title="Last 30 days" value={`+${gained} / −${lost}`} subtitle="real sites gained / lost" tooltip="Referring domains SE Ranking found or lost in the last 30 days, not counting junk." />
       </div>
 
+      <LinkProspects clientSlug={clientSlug} clientName={clientName} />
+
       <div className="grid gap-6 xl:grid-cols-[1fr_420px] items-start">
         <Section title="Backlinks over the last year" note="Every link SE Ranking can find, junk included, so a sudden jump is usually a link farm.">
           <div className="h-[240px]">
@@ -183,7 +186,7 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
                 </defs>
                 <CartesianGrid vertical={false} stroke="rgba(0,26,46,0.06)" />
                 <XAxis dataKey="date" tickFormatter={monthLabel} tick={axisTick} axisLine={{ stroke: "rgba(0,26,46,0.1)" }} tickLine={false} minTickGap={36} dy={6} />
-                <YAxis tick={axisTick} axisLine={false} tickLine={false} width={44} allowDecimals={false} />
+                <YAxis tick={axisTick} axisLine={false} tickLine={false} width={44} allowDecimals={false} tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 100) / 10}k` : String(v))} />
                 <Tooltip content={<HistoryTooltip />} cursor={{ stroke: "rgba(0,26,46,0.25)" }} wrapperStyle={{ outline: "none" }} />
                 <Area type="monotone" dataKey="backlinks" stroke={GREEN} strokeWidth={2} fill="url(#linksFill)" />
               </AreaChart>
@@ -210,14 +213,14 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
       </div>
 
       <Section
-        title="Outreach queue"
-        note={`${linkTasks.length} link ${linkTasks.length === 1 ? "opportunity" : "opportunities"}, ranked by payoff. Run an agent to get a ready-to-send email and follow-up. Nothing is sent for you.`}
+        title="Fixes and lost links"
+        note={`${linkTasks.length} ${linkTasks.length === 1 ? "task" : "tasks"}: redirects for missing pages, links to win back, and checks. Run an agent for the redirect or the email. Nothing is sent for you.`}
         action={<button className="inline-flex items-center gap-1 text-[14px] font-medium text-[#0394B2] hover:underline" onClick={onOpenAgents}>All link tasks <ArrowRight size={14} /></button>}
       >
         {!agents ? (
           <p className="flex items-center gap-2 text-[14px] text-muted-foreground"><Loader2 size={14} className="animate-spin" /> Loading tasks…</p>
         ) : linkTasks.length === 0 ? (
-          <p className="text-[14px] text-muted-foreground">No open link tasks. New ones appear after the weekly refresh.</p>
+          <p className="text-[14px] text-muted-foreground">Nothing to fix. New tasks appear after the weekly refresh.</p>
         ) : (
           <div className="space-y-4">
             {(allTasks ? linkTasks : linkTasks.slice(0, 6)).map((task) => (
@@ -293,7 +296,7 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
               </li>
             ))}
           </ul>
-          {brokenPages.length > 0 && <p className="text-[13px] text-red-700">{brokenPages.length} linked {brokenPages.length === 1 ? "page is" : "pages are"} missing. The redirect fix is in the outreach queue.</p>}
+          {brokenPages.length > 0 && <p className="text-[13px] text-red-700">{brokenPages.length} linked {brokenPages.length === 1 ? "page is" : "pages are"} missing. The redirect fix is under Fixes and lost links.</p>}
         </Section>
       </div>
 

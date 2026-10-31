@@ -42,6 +42,7 @@ export interface BacklinkReport {
   competitors: { domain: string; refdomains: number; authority: number }[];
   gap: { domain: string; authority: number; competitors: string[] }[];
   lost: { domain: string; urlFrom: string; urlTo: string; anchor: string; title: string; date: string; reason: string; authority: number }[];
+  linking?: string[]; // every site linking to the client, so prospect research skips them
 }
 
 // ── Junk detection ──────────────────────────────────────────────────────────
@@ -89,6 +90,10 @@ async function sr<T>(path: string, params: Record<string, string>): Promise<T> {
     return res.json() as Promise<T>;
   }
 }
+
+// One domain's SE Ranking authority, for scoring a link prospect.
+export const domainAuthority = (domain: string) =>
+  sr<{ pages: { domain_inlink_rank: number }[] }>("/backlinks/authority", { target: rootOf(domain) }).then((r) => r.pages?.[0]?.domain_inlink_rank ?? 0);
 
 type RefdomainRow = { refdomain: string; backlinks: number; dofollow_backlinks: number; domain_inlink_rank: number; first_seen?: string };
 type SummaryRow = {
@@ -227,6 +232,7 @@ export async function buildBacklinkReport(config: ClientConfig): Promise<Backlin
     competitors,
     gap,
     lost: [...lostByDomain.values()].sort((a, b) => b.authority - a.authority).slice(0, 12),
+    linking: [...mineRoots],
   };
 }
 

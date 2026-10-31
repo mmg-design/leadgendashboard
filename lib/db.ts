@@ -160,6 +160,33 @@ async function initSchema(db: Client) {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
+    -- Link building: sites worth a link for each client, researched in Claude
+    -- Code from the client's link profile, then worked through by the team
+    -- (not started, in progress, follow-up, completed). domain is unique per
+    -- client so a dismissed prospect never comes back.
+    CREATE TABLE IF NOT EXISTS link_prospects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_slug TEXT NOT NULL,
+      domain TEXT NOT NULL,
+      data TEXT NOT NULL,
+      stage TEXT NOT NULL DEFAULT 'not_started',
+      notes TEXT,
+      stage_changed_at TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(client_slug, domain)
+    );
+    CREATE INDEX IF NOT EXISTS idx_link_prospects_client ON link_prospects(client_slug, stage);
+
+    -- What each client is, who it serves and which pages links should point
+    -- at. Claude drafts it; once the team edits it, research never overwrites it.
+    CREATE TABLE IF NOT EXISTS link_profiles (
+      client_slug TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      updated_by TEXT NOT NULL,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS clients (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       slug TEXT UNIQUE NOT NULL,
