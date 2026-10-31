@@ -143,7 +143,7 @@ function ProfileCard({ clientSlug, profile, onSaved }: { clientSlug: string; pro
           {editing ? (
             <>
               <button className={btnGhost} onClick={() => setEditing(false)}>Cancel</button>
-              <button className={btnSecondary} disabled={saving} onClick={save}>{saving && <Loader2 size={14} className="animate-spin" />} Save</button>
+              <button className={btnSecondary} disabled={saving || !Object.values(draft).some((v) => v.trim())} onClick={save}>{saving && <Loader2 size={14} className="animate-spin" />} Save</button>
             </>
           ) : (
             <button className={btnGhost} onClick={edit}><Pencil size={14} /> Edit</button>

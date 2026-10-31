@@ -22,6 +22,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(await getBacklinkReport(slug, config, true));
   } catch (err) {
     console.error("Backlinks error:", err);
-    return NextResponse.json({ error: (err as Error)?.message || "Couldn't load backlinks from SE Ranking." }, { status: 500 });
+    // SE Ranking's raw errors aren't for the page: say what happened in plain words.
+    const message = (err as Error)?.message || "";
+    const error = /SE Ranking (402|403)/.test(message) || /insufficient funds/i.test(message)
+      ? "SE Ranking's backlink data is paused because this month's units are used up. Reports come back when the units reset or are topped up. Rank tracking isn't affected."
+      : /has no backlink data/i.test(message)
+        ? "SE Ranking doesn't have backlink data for this site yet."
+        : "Couldn't reach SE Ranking for the backlink report. Try again later.";
+    return NextResponse.json({ error }, { status: 503 });
   }
 }

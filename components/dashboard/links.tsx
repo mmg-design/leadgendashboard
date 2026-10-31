@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { AlertTriangle, ArrowRight, Bot, ExternalLink, Link2, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bot, ExternalLink, Info, Link2, Loader2, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { TaskCard } from "@/components/dashboard/agents";
@@ -121,8 +121,25 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
   if (loading) {
     return <Card><CardContent className="py-14 flex items-center justify-center gap-2 text-[15px] text-muted-foreground"><Loader2 size={17} className="animate-spin" /> Pulling the backlink report from SE Ranking. The first one takes about a minute…</CardContent></Card>;
   }
+  // No report yet (or SE Ranking can't be reached): explain it, and keep the
+  // company profile and link prospects, which don't depend on SE Ranking.
   if (error || !report) {
-    return <Card><CardContent className="py-10 text-center text-[15px] text-muted-foreground">{error || "No backlink data yet."}</CardContent></Card>;
+    return (
+      <div className="space-y-7">
+        <div className="px-1">
+          <div className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#0394B2] mb-1.5">Links</div>
+          <h2 className="font-headline text-[28px] text-[#001A2E]">Backlinks for {clientName}</h2>
+        </div>
+        <div className="flex gap-3 rounded-2xl border border-border bg-white px-5 py-4 text-[14px] text-[#001A2E]">
+          <Info size={18} className="mt-0.5 shrink-0 text-[#0394B2]" />
+          <div>
+            <p className="font-semibold">The backlink report isn&apos;t available yet</p>
+            <p className="mt-0.5 text-[#001A2E]/75">{error || "SE Ranking hasn't returned backlink data for this site yet."} Link prospects below still work.</p>
+          </div>
+        </div>
+        <LinkProspects clientSlug={clientSlug} clientName={clientName} />
+      </div>
+    );
   }
 
   const t = report.totals;

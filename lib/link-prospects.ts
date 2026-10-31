@@ -175,7 +175,9 @@ export async function getProfile(slug: string): Promise<LinkProfile | null> {
 // Claude's draft never replaces a profile the team has edited.
 export async function saveProfile(slug: string, profile: Partial<LinkProfile>, by: LinkProfile["updatedBy"]) {
   const current = await getProfile(slug);
-  if (by === "Claude" && current?.updatedBy === "Team") return { saved: false as const, reason: "The team has edited this profile, so Claude's draft wasn't saved." };
+  // An empty profile saved from the form doesn't count as the team's version.
+  const teamWrote = current?.updatedBy === "Team" && PROFILE_FIELDS.some(({ key }) => current[key]?.trim());
+  if (by === "Claude" && teamWrote) return { saved: false as const, reason: "The team has edited this profile, so Claude's draft wasn't saved." };
   const data = Object.fromEntries(PROFILE_FIELDS.map(({ key }) => [key, String(profile[key] ?? current?.[key] ?? "").slice(0, 3000)]));
   const db = await getDb();
   await db.execute({
