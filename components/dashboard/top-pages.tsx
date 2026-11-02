@@ -43,7 +43,10 @@ function formatDuration(seconds: number): string {
 // Labels shown on this card. "Ignored" and "Low data" stay off: the first read
 // as a judgment clients didn't find useful, the second tags most rows on a
 // quiet week. Both still feed the Page behavior card's Fix first list.
-const SHOWN_LABELS = new Set(["Strong", "Okay", "Leaking"]);
+// Only "Strong" gets a pill. "Okay" and "Leaking" read badly to clients, so
+// those pages show no pill; a Leaking page still shows what visitors ran into.
+const PILL_LABELS = new Set(["Strong"]);
+const REASON_LABELS = new Set(["Strong", "Leaking"]);
 
 function SectionTitle({ icon, children }: { icon?: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -137,7 +140,8 @@ function PageDetail({ page, labeled, keywords, keywordsEnabled, clientSlug, gsc,
   const path = normalizePath(page.page);
   const ranking = keywords ? keywordsForPage(path, keywords) : [];
   const targets = keywords ? targetsForPage(path, keywords) : [];
-  const showLabel = labeled && SHOWN_LABELS.has(labeled.label);
+  const showPill = labeled && PILL_LABELS.has(labeled.label);
+  const showLabel = labeled && REASON_LABELS.has(labeled.label);
   const { events } = useSiteEvents(clientSlug);
   const pageEvents = events.filter((e) => e.pages.includes(path)).slice(0, 4);
 
@@ -146,7 +150,7 @@ function PageDetail({ page, labeled, keywords, keywordsEnabled, clientSlug, gsc,
       <div>
         <div className="flex items-center gap-2">
           <span className="text-[16px] font-semibold text-[#001A2E] break-all">{path === "/" ? "Home" : path}</span>
-          {showLabel && <PageLabelPill label={labeled!.label} />}
+          {showPill && <PageLabelPill label={labeled!.label} />}
         </div>
         <p className="mt-1 text-[13px] text-muted-foreground">
           {page.views.toLocaleString()} views
@@ -285,7 +289,7 @@ export function TopPages({ data: allPages, labels = [], keywords, keywordsEnable
                     {page.page === "/" ? "Home" : page.page}
                   </span>
                   <IndexBadge index={indexByPath[normalizePath(page.page)]} />
-                  {labeled && SHOWN_LABELS.has(labeled.label) && <PageLabelPill label={labeled.label} />}
+                  {labeled && PILL_LABELS.has(labeled.label) && <PageLabelPill label={labeled.label} />}
                   {onToggleHidden && (
                     <HideButton hidden={isHidden(page)} label={page.page === "/" ? "Home" : page.page} onClick={() => onToggleHidden(normalizePath(page.page))} />
                   )}
