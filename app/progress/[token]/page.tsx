@@ -349,36 +349,33 @@ function GuideVideo({ guide }: { guide: PortalGuide }) {
           onClick={() => setOpen(true)}
           aria-label={`Watch: ${guide.title}`}
           title={guide.title}
-          className="fixed bottom-4 left-4 z-40 size-12 rounded-full grid place-items-center bg-[#0CA4C3] hover:bg-[#0394B2] text-white shadow-[0_10px_28px_rgba(0,26,46,0.28)] transition-colors"
+          className="fixed bottom-4 left-4 z-40 size-10 rounded-full grid place-items-center bg-[#0CA4C3] hover:bg-[#0394B2] text-white shadow-[0_6px_18px_rgba(0,26,46,0.2)] transition-[background-color,transform] hover:scale-105"
         >
-          <Play size={20} fill="currentColor" className="ml-0.5" />
+          <Play size={16} fill="currentColor" className="ml-0.5" />
         </button>
       ) : (
-        <div className="fixed bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-auto sm:w-[300px] z-40 bg-white border border-[#dde8ec] rounded-2xl shadow-[0_14px_36px_rgba(0,26,46,0.18)] overflow-hidden">
-          <button onClick={() => setOpen(true)} aria-label={`Watch: ${guide.title}`} className="group w-full text-left flex sm:block items-center gap-3 p-2.5 pr-10 sm:p-0 hover:bg-[#F4F8F9] transition-colors">
-            <span className="relative block shrink-0 w-[104px] sm:w-full aspect-[40/21] rounded-lg sm:rounded-none overflow-hidden bg-[#001A2E]">
-              <Image src={guide.previewImage} alt="" fill sizes="(min-width: 640px) 300px, 104px" className="object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
-              <span className="absolute inset-0 bg-[#001A2E]/25 group-hover:bg-[#001A2E]/10 transition-colors" />
+        <div className="group fixed bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-auto sm:w-[225px] z-40 origin-bottom-left bg-white border border-[#dde8ec] rounded-xl shadow-[0_6px_20px_rgba(0,26,46,0.12)] overflow-hidden transition-transform duration-200 hover:scale-[1.03]">
+          <button onClick={() => setOpen(true)} aria-label={`Watch: ${guide.title}`} className="w-full text-left flex sm:block items-center gap-2.5 p-2 pr-9 sm:p-0">
+            <span className="relative block shrink-0 w-[84px] sm:w-full aspect-[40/21] rounded-md sm:rounded-none overflow-hidden bg-[#001A2E]">
+              <Image src={guide.previewImage} alt="" fill sizes="(min-width: 640px) 225px, 84px" className="object-cover" />
               <span className="absolute inset-0 grid place-items-center">
-                <span className="size-8 sm:size-12 rounded-full grid place-items-center bg-white/95 text-[#001A2E] shadow-[0_6px_18px_rgba(0,0,0,0.3)] transition-transform group-hover:scale-110">
-                  <Play size={15} fill="currentColor" className="ml-0.5 sm:hidden" />
-                  <Play size={20} fill="currentColor" className="ml-0.5 hidden sm:block" />
+                <span className="size-7 sm:size-9 rounded-full grid place-items-center bg-white/90 text-[#001A2E]">
+                  <Play size={13} fill="currentColor" className="ml-0.5" />
                 </span>
               </span>
-              <span className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 rounded bg-black/70 text-white text-[10.5px] sm:text-[11.5px] font-semibold tabular-nums px-1 sm:px-1.5 py-px">{guide.duration}</span>
+              <span className="absolute bottom-1 right-1 rounded bg-black/60 text-white text-[10px] font-medium tabular-nums px-1">{guide.duration}</span>
             </span>
-            <span className="block min-w-0 sm:px-3.5 sm:pt-2.5 sm:pb-3">
-              <span className="block text-[11.5px] font-semibold tracking-[0.1em] uppercase text-[#037c95]">Video guide</span>
-              <span className="block text-[14.5px] font-semibold text-[#001A2E] leading-snug">{guide.title}</span>
-              <span className="hidden sm:block text-[12.5px] text-[#6b8591] leading-snug">{guide.note}</span>
+            <span className="block min-w-0 sm:px-3 sm:pt-2 sm:pb-2.5">
+              <span className="block text-[13px] font-semibold text-[#001A2E] leading-snug">{guide.title}</span>
+              <span className="hidden sm:block mt-0.5 text-[11.5px] text-[#6b8591] leading-snug">{guide.note}</span>
             </span>
           </button>
           <button
             onClick={() => minimize(true)}
             aria-label="Shrink the video guide"
-            className="absolute top-2 right-2 size-7 rounded-full grid place-items-center text-[#6b8591] hover:text-[#001A2E] bg-white/90 hover:bg-white shadow-sm"
+            className="absolute top-1.5 right-1.5 size-6 rounded-full grid place-items-center text-[#6b8591] hover:text-[#001A2E] bg-white/90 hover:bg-white"
           >
-            <X size={15} />
+            <X size={13} />
           </button>
         </div>
       )}
