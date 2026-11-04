@@ -342,14 +342,13 @@ export default function ClientDashboard() {
         seRanking: settingsForm.seRankingProjectId
           ? { enabled: true, projectId: settingsForm.seRankingProjectId }
           : { enabled: false, projectId: "" },
-        clickup:
-          clickupListIds.length > 0
-            ? {
-                enabled: true,
-                listIds: clickupListIds,
-                engagementStartDate: settingsForm.clickupEngagementStart || undefined,
-              }
-            : { enabled: false, listIds: [] },
+        // The start date also powers the client portal's "Since we started",
+        // so it's kept even when the client has no ClickUp lists.
+        clickup: {
+          enabled: clickupListIds.length > 0,
+          listIds: clickupListIds,
+          engagementStartDate: settingsForm.clickupEngagementStart || undefined,
+        },
         posthog: settingsForm.posthogProjectId
           ? { enabled: true, projectId: settingsForm.posthogProjectId, host: settingsForm.posthogHost || undefined }
           : { enabled: false, projectId: "" },

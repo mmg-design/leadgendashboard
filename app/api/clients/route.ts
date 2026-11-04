@@ -87,9 +87,9 @@ export async function POST(req: NextRequest) {
           ? { enabled: true, property: String(integrations.searchConsole.property).trim() }
           : undefined,
         clickup:
-          integrations?.clickup?.enabled && clickupListIds.length > 0
+          (integrations?.clickup?.enabled && clickupListIds.length > 0) || integrations?.clickup?.engagementStartDate
             ? {
-                enabled: true,
+                enabled: !!integrations.clickup.enabled && clickupListIds.length > 0,
                 listIds: clickupListIds,
                 engagementStartDate: integrations.clickup.engagementStartDate || undefined,
               }

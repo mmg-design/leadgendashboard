@@ -657,7 +657,9 @@ export async function buildReport(slug: string, config: ClientConfig, settings: 
 
 export async function cachedReport(slug: string, config: ClientConfig, settings: PortalSettings, fresh = false): Promise<PortalReport> {
   const db = await getDb();
-  const key = `${CACHE_VERSION}:${settings.startedAt || ""}`;
+  // Keyed by the start date in effect, so changing it in either place (the
+  // portal tab or the client's settings) rebuilds the report.
+  const key = `${CACHE_VERSION}:${settings.startedAt || config.integrations.clickup?.engagementStartDate || ""}`;
   if (!fresh) {
     const cached = await db.execute({
       sql: `SELECT data FROM analytics_cache WHERE client_slug = ? AND metric_type = 'portal_report' AND date_range = ? AND fetched_at > datetime('now', ?)`,
