@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getClient } from "@/lib/clients";
 import { DASHBOARD_SESSION_COOKIE, isTeamSession } from "@/lib/dashboard-auth";
 import { applySettings, cachedReport, portalForToken } from "@/lib/portal";
+import { PORTAL_GUIDES } from "@/lib/portal-guides";
 
 export const maxDuration = 60;
 
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   if (!config) return NextResponse.json({ error: "This progress page isn't available." }, { status: 404 });
   const report = applySettings(await cachedReport(portal.slug, config, portal.settings), portal.settings, true);
   return NextResponse.json(
-    { report, preview: !portal.enabled },
+    { report, preview: !portal.enabled, guide: PORTAL_GUIDES[portal.slug] ?? null },
     { headers: { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" } }
   );
 }

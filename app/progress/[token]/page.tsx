@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { BarChart3, Check, FilePlus2, Loader2, MessageSquare, Sparkles, Star, TrendingUp, Users } from "lucide-react";
+import { BarChart3, Check, FilePlus2, Loader2, MessageSquare, Play, Sparkles, Star, TrendingUp, Users, X } from "lucide-react";
 import type { PortalChange, PortalReport, WinIcon } from "@/lib/portal";
+import type { PortalGuide } from "@/lib/portal-guides";
 
 // The client's own progress page, opened from their private link. Summary
 // first, receipts below; every number is written for a practice owner, not
@@ -22,6 +23,7 @@ export default function ProgressPage() {
   const { token } = useParams<{ token: string }>();
   const [report, setReport] = useState<PortalReport | null>(null);
   const [preview, setPreview] = useState(false);
+  const [guide, setGuide] = useState<PortalGuide | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<"month" | "start">("month");
   const [allChanges, setAllChanges] = useState(false);
@@ -33,6 +35,7 @@ export default function ProgressPage() {
         if (!r.ok) throw new Error(json.error || "This page isn't available.");
         setReport(json.report);
         setPreview(!!json.preview);
+        setGuide(json.guide ?? null);
       })
       .catch((err) => setError(err.message));
   }, [token]);
@@ -300,12 +303,119 @@ export default function ProgressPage() {
       </main>
 
       <footer className="bg-white border-t border-[#dde8ec]">
-        <div className="max-w-[1040px] mx-auto px-4 md:px-6 py-5 flex gap-4 justify-between flex-wrap text-[13px] text-[#6b8591]">
+        <div className={`max-w-[1040px] mx-auto px-4 md:px-6 py-5 flex gap-4 justify-between flex-wrap text-[13px] text-[#6b8591] ${guide ? "pb-24" : ""}`}>
           <span>Prepared by your team at MMG Studio · Updated {new Date(report.generatedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
           <span>Powered by MMG Pulse</span>
         </div>
       </footer>
+      {guide && <GuideVideo guide={guide} />}
     </div>
+  );
+}
+
+const GUIDE_MINIMIZED_KEY = "pulse-guide-minimized";
+
+// A walkthrough video pinned to the bottom-left corner. Opens in a player
+// over the page; the card can be shrunk to a small button and stays that way.
+function GuideVideo({ guide }: { guide: PortalGuide }) {
+  const [open, setOpen] = useState(false);
+  const [minimized, setMinimized] = useState(false);
+
+  useEffect(() => {
+    try { setMinimized(localStorage.getItem(GUIDE_MINIMIZED_KEY) === "1"); } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("keydown", onKey);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = overflow;
+    };
+  }, [open]);
+
+  const minimize = (value: boolean) => {
+    setMinimized(value);
+    try { localStorage.setItem(GUIDE_MINIMIZED_KEY, value ? "1" : "0"); } catch {}
+  };
+
+  return (
+    <>
+      {minimized ? (
+        <button
+          onClick={() => setOpen(true)}
+          aria-label={`Watch: ${guide.title}`}
+          title={guide.title}
+          className="fixed bottom-4 left-4 z-40 size-12 rounded-full grid place-items-center bg-[#0CA4C3] hover:bg-[#0394B2] text-white shadow-[0_10px_28px_rgba(0,26,46,0.28)] transition-colors"
+        >
+          <Play size={20} fill="currentColor" className="ml-0.5" />
+        </button>
+      ) : (
+        <div className="fixed bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-auto sm:w-[300px] z-40 bg-white border border-[#dde8ec] rounded-2xl shadow-[0_14px_36px_rgba(0,26,46,0.18)] overflow-hidden">
+          <button onClick={() => setOpen(true)} aria-label={`Watch: ${guide.title}`} className="group w-full text-left flex sm:block items-center gap-3 p-2.5 pr-10 sm:p-0 hover:bg-[#F4F8F9] transition-colors">
+            <span className="relative block shrink-0 w-[104px] sm:w-full aspect-[40/21] rounded-lg sm:rounded-none overflow-hidden bg-[#001A2E]">
+              <Image src={guide.previewImage} alt="" fill sizes="(min-width: 640px) 300px, 104px" className="object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+              <span className="absolute inset-0 bg-[#001A2E]/25 group-hover:bg-[#001A2E]/10 transition-colors" />
+              <span className="absolute inset-0 grid place-items-center">
+                <span className="size-8 sm:size-12 rounded-full grid place-items-center bg-white/95 text-[#001A2E] shadow-[0_6px_18px_rgba(0,0,0,0.3)] transition-transform group-hover:scale-110">
+                  <Play size={15} fill="currentColor" className="ml-0.5 sm:hidden" />
+                  <Play size={20} fill="currentColor" className="ml-0.5 hidden sm:block" />
+                </span>
+              </span>
+              <span className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 rounded bg-black/70 text-white text-[10.5px] sm:text-[11.5px] font-semibold tabular-nums px-1 sm:px-1.5 py-px">{guide.duration}</span>
+            </span>
+            <span className="block min-w-0 sm:px-3.5 sm:pt-2.5 sm:pb-3">
+              <span className="block text-[11.5px] font-semibold tracking-[0.1em] uppercase text-[#037c95]">Video guide</span>
+              <span className="block text-[14.5px] font-semibold text-[#001A2E] leading-snug">{guide.title}</span>
+              <span className="hidden sm:block text-[12.5px] text-[#6b8591] leading-snug">{guide.note}</span>
+            </span>
+          </button>
+          <button
+            onClick={() => minimize(true)}
+            aria-label="Shrink the video guide"
+            className="absolute top-2 right-2 size-7 rounded-full grid place-items-center text-[#6b8591] hover:text-[#001A2E] bg-white/90 hover:bg-white shadow-sm"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
+      {open && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={guide.title}
+          className="fixed inset-0 z-50 bg-[#001A2E]/75 backdrop-blur-sm grid place-items-center p-3 sm:p-6"
+          onClick={() => setOpen(false)}
+        >
+          <div className="w-full max-w-[960px]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 mb-2.5 text-white">
+              <strong className="text-[15px] font-semibold truncate">{guide.title}</strong>
+              <button onClick={() => setOpen(false)} aria-label="Close video" className="size-9 shrink-0 rounded-full grid place-items-center bg-white/10 hover:bg-white/20">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
+              {/* Shown until the player loads over it */}
+              <Image src={guide.previewImage} alt="" fill sizes="960px" className="object-cover" />
+              <span className="absolute inset-0 grid place-items-center">
+                <Loader2 size={28} className="animate-spin text-white drop-shadow" />
+              </span>
+              <iframe
+                src={guide.embedUrl}
+                title={guide.title}
+                allow="autoplay; fullscreen"
+                allowFullScreen
+                className="absolute inset-0 size-full border-0"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
