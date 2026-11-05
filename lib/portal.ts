@@ -8,6 +8,7 @@ import { getAiVisibility, type AiVisibility } from "./airt";
 import { listEvents, type SiteEvent } from "./site-events";
 import { eventImpact } from "./event-impact";
 import { GA_LAG_DAYS, GSC_LAG_DAYS } from "./data-lag";
+import { ghlAuth, dailySubmissions } from "./ghl";
 import { getReviewLink, listFeedback } from "./feedback";
 
 // The client's progress page: a plain-language read of their results, built
@@ -263,15 +264,21 @@ async function gaDaily(config: ClientConfig, from: string, to: string) {
   const ga = getAnalyticsClient();
   const property = `properties/${propertyId}`;
   const dateRanges = [{ startDate: from, endDate: to }];
-  const [visits, ...goals] = await Promise.all([
+  // GoHighLevel form leads come from GHL's own records, not GA4.
+  const ghl = ghlAuth(config);
+  const gaGoals = config.goals.filter((g) => g.conversionType !== "ghl_form");
+  const ghlGoals = ghl ? config.goals.filter((g) => g.conversionType === "ghl_form") : [];
+  const [visits, ghlDays, ...goals] = await Promise.all([
     ga.runReport({ property, dateRanges, dimensions: [{ name: "date" }], metrics: [{ name: "sessions" }], limit: 2000 }),
-    ...config.goals.map((goal) =>
+    Promise.all(ghlGoals.map((goal) => dailySubmissions(ghl!, goal.conversionValue, from, to))),
+    ...gaGoals.map((goal) =>
       ga.runReport({ property, dateRanges, dimensions: [{ name: "date" }], metrics: [{ name: "eventCount" }], dimensionFilter: conversionFilterFor(goal), limit: 2000 })
     ),
   ]);
   const rows = (r: typeof visits) => (r[0]?.rows || []).map((row) => ({ date: gaDay(row.dimensionValues?.[0]?.value || ""), v: Number(row.metricValues?.[0]?.value || 0) }));
   const leadsByDay = new Map<string, number>();
   for (const g of goals) for (const r of rows(g)) leadsByDay.set(r.date, (leadsByDay.get(r.date) || 0) + r.v);
+  for (const byDay of ghlDays) for (const [date, d] of byDay) leadsByDay.set(date, (leadsByDay.get(date) || 0) + d.count);
   return {
     visits: rows(visits),
     leads: config.goals.length ? [...leadsByDay].map(([date, v]) => ({ date, v })) : null,

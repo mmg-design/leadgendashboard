@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { X, Loader2, Check, Copy, FileText, MousePointerClick, FileCheck2, ArrowDownWideNarrow, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { X, Loader2, Check, Copy, FileText, MousePointerClick, FileCheck2, ArrowDownWideNarrow, Clock, ClipboardList } from "lucide-react";
 
 interface Suggestion {
   count?: number;
@@ -21,7 +21,7 @@ interface DiscoverResult {
   pageSuggestions: PageSuggestion[];
 }
 
-export type WizardConversionType = "pageview" | "event" | "click" | "form_submit" | "scroll_depth" | "time_on_page";
+export type WizardConversionType = "pageview" | "event" | "click" | "form_submit" | "scroll_depth" | "time_on_page" | "ghl_form";
 export type WizardValues = {
   conversionType: WizardConversionType;
   conversionValue: string;
@@ -49,6 +49,7 @@ const TYPE_OPTIONS: { type: WizardConversionType; icon: typeof FileText; title: 
   { type: "form_submit", icon: FileCheck2, title: "Someone submits a form", desc: "Any form submit on the page" },
   { type: "scroll_depth", icon: ArrowDownWideNarrow, title: "Someone scrolls down the page", desc: "Fires once they pass a scroll %" },
   { type: "time_on_page", icon: Clock, title: "Someone stays on the page a while", desc: "Fires after N seconds" },
+  { type: "ghl_form", icon: ClipboardList, title: "Someone submits a GoHighLevel form", desc: "Counted from GoHighLevel, past submissions included" },
 ];
 
 // Shared with the Attribution cards so every card's icon matches its trigger type.
@@ -59,6 +60,7 @@ export const TYPE_ICONS: Record<WizardConversionType, typeof FileText> = {
   scroll_depth: ArrowDownWideNarrow,
   time_on_page: Clock,
   event: FileText,
+  ghl_form: ClipboardList,
 };
 
 // Short noun-phrase used to name the modal header live as the user fills things in.
@@ -69,6 +71,7 @@ function shortDescribe(type: WizardConversionType, value: string): string {
   if (type === "form_submit") return value;
   if (type === "scroll_depth") return `Scroll to ${value}%`;
   if (type === "time_on_page") return `${value}s on page`;
+  if (type === "ghl_form") return "GoHighLevel form";
   return `GA4 event "${value}"`;
 }
 
@@ -79,6 +82,7 @@ function describeGoal(type: WizardConversionType, value: string, scopePagePath: 
   if (type === "form_submit") return `We'll count it every time a form is submitted${scope || " anywhere on the site"}.`;
   if (type === "scroll_depth") return `We'll count it every time someone scrolls ${value}% down${scope || " any page"}.`;
   if (type === "time_on_page") return `We'll count it every time someone stays ${value} seconds${scope || " on any page"}.`;
+  if (type === "ghl_form") return "We'll count every submission GoHighLevel records for this form, including ones from before today.";
   return `We'll count it every time the "${value}" event fires in GA4.`;
 }
 
@@ -143,6 +147,16 @@ export function EventWizardModal({
   const [copied, setCopied] = useState(false);
 
   const isSnippetType = conversionType === "click" || conversionType === "form_submit" || conversionType === "scroll_depth" || conversionType === "time_on_page";
+
+  // GoHighLevel forms for the picker, loaded the first time that type is chosen.
+  const [ghlForms, setGhlForms] = useState<{ connected: boolean; forms: { id: string; name: string }[]; error?: string } | null>(null);
+  useEffect(() => {
+    if (conversionType !== "ghl_form" || ghlForms) return;
+    fetch(`/api/ghl/forms?client=${clientSlug}`)
+      .then((r) => r.json())
+      .then(setGhlForms)
+      .catch(() => setGhlForms({ connected: true, forms: [], error: "Couldn't load GoHighLevel forms." }));
+  }, [conversionType, ghlForms, clientSlug]);
 
   const relevantSuggestions: Suggestion[] =
     conversionType === "pageview" ? suggestions?.pageSuggestions || [] : [];
@@ -306,6 +320,37 @@ export function EventWizardModal({
                   <p className="text-[12px] text-[#097388]/75 mt-1">
                     Counts any form submission - narrow it to one page below if you only want a specific form.
                   </p>
+                </div>
+              )}
+
+              {conversionType === "ghl_form" && (
+                <div>
+                  <p className="text-[13px] font-medium text-foreground/70 mb-1.5">
+                    {!ghlForms
+                      ? "Loading this client's GoHighLevel forms..."
+                      : !ghlForms.connected
+                      ? "Connect GoHighLevel in this client's Settings first."
+                      : ghlForms.error || (ghlForms.forms.length ? "Which form?" : "No forms found in this GoHighLevel sub-account.")}
+                  </p>
+                  {ghlForms && ghlForms.forms.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {ghlForms.forms.map((f) => {
+                        const active = conversionValue === f.id;
+                        return (
+                          <button
+                            key={f.id}
+                            type="button"
+                            onClick={() => { setConversionValue(f.id); if (!label) setLabel(f.name); }}
+                            className={`text-[13px] px-2.5 py-1 rounded-full border transition-colors ${
+                              active ? "border-[#001A2E] bg-[#001A2E]/10 text-[#001A2E]" : "border-border/60 text-muted-foreground hover:border-[#001A2E]/40"
+                            }`}
+                          >
+                            {f.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 

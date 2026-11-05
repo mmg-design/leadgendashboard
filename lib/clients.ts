@@ -1,11 +1,13 @@
 import { getDb } from "./db";
 
-export type ConversionType = "pageview" | "event" | "click" | "form_submit" | "scroll_depth" | "time_on_page";
+export type ConversionType = "pageview" | "event" | "click" | "form_submit" | "scroll_depth" | "time_on_page" | "ghl_form";
 
 // Trigger types the dashboard owns end-to-end (fired by our own snippet, no
 // pre-existing GA4/GTM setup required). "pageview" and "event" are the two
 // exceptions: pageview uses GA4's automatic page_view, and "event" reads back
 // a real event a client already had instrumented before this system existed.
+// "ghl_form" isn't GA4 at all: its conversionValue is a GoHighLevel form ID,
+// counted from GHL's own submission records (see lib/ghl.ts).
 export const SNIPPET_TRIGGER_TYPES: ConversionType[] = ["click", "form_submit", "scroll_depth", "time_on_page"];
 
 export interface GoalConfig {
@@ -58,6 +60,17 @@ export interface ClientConfig {
       enabled: boolean;
       siteId: string;
       siteName?: string;
+      apiToken?: string;
+      hasApiToken?: boolean;
+    };
+    // GoHighLevel sub-account Private Integration token, for "ghl_form" lead
+    // events. Never reaches the browser (swapped for hasApiToken); the name and
+    // timezone are looked up from the sub-account when the token is saved.
+    gohighlevel?: {
+      enabled: boolean;
+      locationId: string;
+      locationName?: string;
+      timezone?: string;
       apiToken?: string;
       hasApiToken?: boolean;
     };

@@ -3,6 +3,7 @@ import { getClient } from "@/lib/clients";
 import { getDb } from "@/lib/db";
 import { getAnalyticsClient, conversionFilterFor } from "@/lib/ga-client";
 import { GA_LAG_DAYS } from "@/lib/data-lag";
+import { ghlAuth, ghlGoalResult, GhlError } from "@/lib/ghl";
 
 export async function GET(req: NextRequest) {
   const client = req.nextUrl.searchParams.get("client");
@@ -118,8 +119,21 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
+    const ghl = ghlAuth(config);
     const goalResults = await Promise.all(
       goals.map(async (goal) => {
+        if (goal.conversionType === "ghl_form") {
+          const base = { id: goal.id, page: goal.conversionValue, label: goal.label };
+          if (!ghl) return { ...base, count: 0, previousCount: 0, change: null, daily: [], sources: [], error: "Connect GoHighLevel in Settings." };
+          try {
+            return { ...base, ...(await ghlGoalResult(ghl, goal.conversionValue, days, GA_LAG_DAYS)) };
+          } catch (err) {
+            console.error("GHL submissions error:", err);
+            const error = err instanceof GhlError ? err.message : "Couldn't reach GoHighLevel.";
+            return { ...base, count: 0, previousCount: 0, change: null, daily: [], sources: [], error };
+          }
+        }
+
         const [summary, daily, sourceBreakdown] = await Promise.all([
           analyticsClient.runReport({
             property: `properties/${propertyId}`,

@@ -9,6 +9,7 @@ import {
   type ClientConfig,
 } from "@/lib/clients";
 import { tokenSites, WebflowError } from "@/lib/webflow";
+import { getLocation, GhlError } from "@/lib/ghl";
 
 function toSlug(name: string): string {
   return name
@@ -23,7 +24,7 @@ export async function GET() {
   return NextResponse.json({ clients: clients.map(withoutSecrets) });
 }
 
-// Replace the Clarity and Webflow tokens with yes/no flags before anything reaches the browser.
+// Replace the Clarity, Webflow, and GoHighLevel tokens with yes/no flags before anything reaches the browser.
 function withoutSecrets(client: ClientConfig): ClientConfig {
   const integrations = { ...client.integrations };
   if (integrations.clarity) {
@@ -33,6 +34,10 @@ function withoutSecrets(client: ClientConfig): ClientConfig {
   if (integrations.webflow) {
     const { apiToken, ...rest } = integrations.webflow;
     integrations.webflow = { ...rest, hasApiToken: !!apiToken };
+  }
+  if (integrations.gohighlevel) {
+    const { apiToken, ...rest } = integrations.gohighlevel;
+    integrations.gohighlevel = { ...rest, hasApiToken: !!apiToken };
   }
   return { ...client, integrations };
 }
@@ -151,6 +156,27 @@ export async function PATCH(req: NextRequest) {
         integrations.webflow = { enabled: false, siteId: "" }; // disconnect
       } else {
         integrations.webflow = current.integrations.webflow ?? { enabled: false, siteId: "" };
+      }
+    }
+
+    // Same for GoHighLevel: a newly pasted token is checked against the
+    // sub-account, whose name and timezone are stored with it.
+    if (integrations?.gohighlevel) {
+      const newToken = typeof integrations.gohighlevel.apiToken === "string" ? integrations.gohighlevel.apiToken.trim() : "";
+      const locationId = typeof integrations.gohighlevel.locationId === "string" ? integrations.gohighlevel.locationId.trim() : "";
+      if (newToken) {
+        if (!locationId) return NextResponse.json({ error: "Add the GoHighLevel Location ID along with the token." }, { status: 400 });
+        try {
+          const location = await getLocation(newToken, locationId);
+          integrations.gohighlevel = { enabled: true, locationId, locationName: location.name, timezone: location.timezone || undefined, apiToken: newToken };
+        } catch (err) {
+          const message = err instanceof GhlError ? err.message : "Couldn't reach GoHighLevel to check the token.";
+          return NextResponse.json({ error: message }, { status: 400 });
+        }
+      } else if (integrations.gohighlevel.enabled === false) {
+        integrations.gohighlevel = { enabled: false, locationId: "" }; // disconnect
+      } else {
+        integrations.gohighlevel = current.integrations.gohighlevel ?? { enabled: false, locationId: "" };
       }
     }
 

@@ -135,6 +135,12 @@ interface ClientConfig {
       siteName?: string;
       hasApiToken?: boolean;
     };
+    gohighlevel?: {
+      enabled: boolean;
+      locationId: string;
+      locationName?: string;
+      hasApiToken?: boolean;
+    };
     clickup?: {
       enabled: boolean;
       listIds: string[];
@@ -160,6 +166,7 @@ type SettingsIntegrations = {
   posthog: { enabled: boolean; projectId: string; host?: string };
   // Only sent with a newly pasted token or to disconnect; otherwise the saved one is kept.
   webflow?: { enabled: boolean; siteId: string; apiToken?: string };
+  gohighlevel?: { enabled: boolean; locationId: string; apiToken?: string };
 };
 
 type ClientsResponse = {
@@ -228,6 +235,8 @@ export default function ClientDashboard() {
     posthogProjectId: "",
     posthogHost: "",
     webflowApiToken: "", // only ever holds a newly pasted token
+    ghlLocationId: "",
+    ghlApiToken: "", // only ever holds a newly pasted token
   });
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -258,6 +267,8 @@ export default function ClientDashboard() {
         posthogProjectId: clientConfig.integrations?.posthog?.projectId || "",
         posthogHost: clientConfig.integrations?.posthog?.host || "",
         webflowApiToken: "",
+        ghlLocationId: clientConfig.integrations?.gohighlevel?.locationId || "",
+        ghlApiToken: "",
       });
     }
   }, [clientConfig]);
@@ -314,7 +325,7 @@ export default function ClientDashboard() {
     uploadIcon(e.dataTransfer.files?.[0]);
   }
 
-  async function handleSaveSettings(webflowDisconnect = false) {
+  async function handleSaveSettings(disconnect?: "webflow" | "gohighlevel") {
     setSaving(true);
     setSaveSuccess(false);
     setSaveError(null);
@@ -352,10 +363,15 @@ export default function ClientDashboard() {
         posthog: settingsForm.posthogProjectId
           ? { enabled: true, projectId: settingsForm.posthogProjectId, host: settingsForm.posthogHost || undefined }
           : { enabled: false, projectId: "" },
-        ...(webflowDisconnect
+        ...(disconnect === "webflow"
           ? { webflow: { enabled: false, siteId: "" } }
           : settingsForm.webflowApiToken.trim()
           ? { webflow: { enabled: true, siteId: "", apiToken: settingsForm.webflowApiToken.trim() } }
+          : {}),
+        ...(disconnect === "gohighlevel"
+          ? { gohighlevel: { enabled: false, locationId: "" } }
+          : settingsForm.ghlApiToken.trim()
+          ? { gohighlevel: { enabled: true, locationId: settingsForm.ghlLocationId.trim(), apiToken: settingsForm.ghlApiToken.trim() } }
           : {}),
       };
 
@@ -377,7 +393,7 @@ export default function ClientDashboard() {
       }
       if (res.ok) {
         setSaveSuccess(true);
-        setSettingsForm((f) => ({ ...f, webflowApiToken: "" }));
+        setSettingsForm((f) => ({ ...f, webflowApiToken: "", ghlApiToken: "" }));
         setClientName(settingsForm.name);
         const data = await fetch("/api/clients").then((r) => r.json()) as ClientsResponse;
         const match = data.clients?.find((c) => c.slug === clientSlug);
@@ -816,7 +832,42 @@ export default function ClientDashboard() {
                     {clientConfig?.integrations?.webflow?.hasApiToken && (
                       <>
                         {" "}
-                        <button type="button" onClick={() => handleSaveSettings(true)} className="underline hover:text-[#001A2E]">Disconnect</button>
+                        <button type="button" onClick={() => handleSaveSettings("webflow")} className="underline hover:text-[#001A2E]">Disconnect</button>
+                      </>
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">GoHighLevel Location ID</label>
+                  <input
+                    type="text"
+                    value={settingsForm.ghlLocationId}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, ghlLocationId: e.target.value })}
+                    placeholder="ve9EPM428h8vShlRW1KT"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                  />
+                  <p className="text-[12px] text-[#097388]/75 mt-0.5">The ID after /location/ in the sub-account&apos;s GoHighLevel URL</p>
+                </div>
+                <div>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">GoHighLevel Private Integration Token</label>
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    value={settingsForm.ghlApiToken}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, ghlApiToken: e.target.value })}
+                    placeholder={
+                      clientConfig?.integrations?.gohighlevel?.hasApiToken
+                        ? `Connected to ${clientConfig.integrations.gohighlevel.locationName || "GoHighLevel"}. Paste a new token to replace it.`
+                        : "Counts GoHighLevel form submissions as leads"
+                    }
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                  />
+                  <p className="text-[12px] text-[#097388]/75 mt-0.5">
+                    In the sub-account: Settings → Private Integrations → Create new integration, with the Forms (read) and Locations (read) scopes.
+                    {clientConfig?.integrations?.gohighlevel?.hasApiToken && (
+                      <>
+                        {" "}
+                        <button type="button" onClick={() => handleSaveSettings("gohighlevel")} className="underline hover:text-[#001A2E]">Disconnect</button>
                       </>
                     )}
                   </p>
