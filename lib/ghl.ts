@@ -102,9 +102,10 @@ function shiftDay(day: string, by: number) {
 
 // Submissions per day between two days, inclusive, in the sub-account's timezone.
 export async function dailySubmissions(auth: NonNullable<ReturnType<typeof ghlAuth>>, formId: string, from: string, to: string) {
-  // GHL doesn't say which timezone startAt/endAt use, so ask for a day either
-  // side and bucket by the local day ourselves.
-  const rows = await formSubmissions(auth.token, auth.locationId, formId, shiftDay(from, -1), shiftDay(to, 1));
+  // GHL reads startAt/endAt as UTC midnight, and endAt excludes its own day, so
+  // a US evening submission on `to` lands after endAt = to + 1. Ask for two
+  // days past the end (and one before the start) and bucket by local day ourselves.
+  const rows = await formSubmissions(auth.token, auth.locationId, formId, shiftDay(from, -1), shiftDay(to, 2));
   const byDay = new Map<string, { count: number; sources: Map<string, number> }>();
   for (const row of rows) {
     const day = dayIn(auth.timezone, new Date(row.createdAt));
