@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DASHBOARD_SESSION_COOKIE, isTeamSession } from "@/lib/dashboard-auth";
-import { clientForToken, createFeedback, getFeedback, isClientHost, listFeedback, setSlackTs, type Anchor, type Device } from "@/lib/feedback";
+import { clientForToken, createFeedback, getFeedback, isClientHost, listFeedback, savePhoto, setSlackThread, type Anchor, type Device } from "@/lib/feedback";
+import { photoPath } from "@/lib/feedback-photo";
+import { queueFeedbackEmail, sweepFeedbackEmails } from "@/lib/feedback-email";
 import { notifyNewFeedback } from "@/lib/slack";
 import { progressPathFor } from "@/lib/portal";
 
 // Public, link-scoped API behind a client's review link: read the comments on
 // their site and leave new ones. The token is the only credential.
+
+// Long enough for the queued feedback email to wait out its quiet period.
+export const maxDuration = 300;
 
 type Params = { params: Promise<{ token: string }> };
 const DEVICES: Device[] = ["desktop", "tablet", "mobile"];
@@ -16,6 +21,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   const client = await clientForToken(token);
   if (!client) return NextResponse.json({ error: "This review link isn't valid anymore." }, { status: 404 });
   const isTeam = await isTeamSession(req.cookies.get(DASHBOARD_SESSION_COOKIE)?.value);
+  sweepFeedbackEmails();
   return NextResponse.json({
     client: { name: client.name, domain: client.domain, iconUrl: client.iconUrl || null, slug: client.slug },
     isTeam,
@@ -57,6 +63,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     : null;
   const isTeam = await isTeamSession(req.cookies.get(DASHBOARD_SESSION_COOKIE)?.value);
 
+  const authorEmail = clip(input.authorEmail, 160) || null;
+  if (typeof input.authorPhoto === "string") await savePhoto(client.slug, { name: authorName, email: authorEmail }, input.authorPhoto);
+
   const id = await createFeedback(client.slug, {
     kind,
     pageUrl: pageUrl.href,
@@ -67,15 +76,20 @@ export async function POST(req: NextRequest, { params }: Params) {
     anchor,
     body: body || "Approved this page",
     authorName,
-    authorEmail: clip(input.authorEmail, 160) || null,
+    authorEmail,
     isTeam,
     browser: browserLabel(req.headers.get("user-agent") || ""),
   });
 
   const created = await getFeedback(client.slug, id);
   if (created) {
-    const ts = await notifyNewFeedback(created, client.name, `${req.nextUrl.origin}/review/${token}?c=${id}`);
-    if (ts) await setSlackTs(id, ts);
+    const openUrl = `${req.nextUrl.origin}/review/${token}?c=${id}`;
+    const photoUrl = created.authorPhoto ? `${req.nextUrl.origin}${photoPath(token, created.authorPhoto)}` : null;
+    const thread = await notifyNewFeedback(created, client.name, openUrl, { channel: client.integrations.feedbackAlerts?.slackChannel, photoUrl });
+    if (thread) await setSlackThread(id, thread);
+    if (!isTeam) {
+      await queueFeedbackEmail({ clientSlug: client.slug, feedbackId: id, audience: "team", event: kind, actor: authorName, body: kind === "comment" ? body : null, link: openUrl });
+    }
   }
   return NextResponse.json({ ok: true, comment: created });
 }

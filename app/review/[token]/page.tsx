@@ -4,10 +4,11 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
-  BarChart3, Check, CheckCircle2, ChevronLeft, Hand, Link2, Loader2, MessageCircle, Monitor, PanelLeftClose,
+  BarChart3, Camera, Check, CheckCircle2, ChevronLeft, Hand, Link2, Loader2, MessageCircle, Monitor, PanelLeftClose,
   PanelLeftOpen, RefreshCw, RotateCcw, Send, Smartphone, Tablet, X,
 } from "lucide-react";
 import type { Anchor, Device, Feedback } from "@/lib/feedback";
+import { photoPath } from "@/lib/feedback-photo";
 
 interface ReviewData {
   client: { name: string; domain: string; iconUrl: string | null; slug: string };
@@ -16,6 +17,8 @@ interface ReviewData {
   progressPath: string | null;
 }
 type Rect = { x: number; y: number; bottom: number };
+// Who's commenting, remembered in this browser. photo is a small JPEG data URL.
+type Me = { name: string; email: string; photo?: string };
 
 const DEVICES: { key: Device; label: string; width: number | null; Icon: typeof Monitor }[] = [
   { key: "desktop", label: "Desktop", width: null, Icon: Monitor },
@@ -36,11 +39,58 @@ function when(iso: string) {
 const samePath = (a: string, b: string) => (a.replace(/\/+$/, "") || "/") === (b.replace(/\/+$/, "") || "/");
 const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
-function Avatar({ name, team }: { name: string; team?: boolean }) {
+function Avatar({ name, team, src, size = 28 }: { name: string; team?: boolean; src?: string | null; size?: number }) {
+  // A plain <img>: these are tiny, versioned and already sized.
+  // eslint-disable-next-line @next/next/no-img-element
+  if (src || team) return <img src={src || "/mmg-icon.png"} alt="" width={size} height={size} className="shrink-0 rounded-full object-cover bg-[#001A2E]" style={{ width: size, height: size }} />;
   return (
-    <span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${team ? "bg-[#001A2E] text-white" : "bg-[#0CA4C3]/15 text-[#01384C]"}`}>
+    <span className="flex shrink-0 items-center justify-center rounded-full font-semibold bg-[#0CA4C3]/15 text-[#01384C]" style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }}>
       {initials(name) || "?"}
     </span>
+  );
+}
+
+// Center-crops and shrinks a picked photo to a ~128px JPEG (a few KB).
+async function resizePhoto(file: File, size = 128): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new window.Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("That file isn't an image we can read."));
+      i.src = url;
+    });
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Couldn't process that photo.");
+    ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+    return canvas.toDataURL("image/jpeg", 0.85);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function PhotoPicker({ photo, name, onPick, size = 32 }: { photo?: string; name: string; onPick: (photo: string) => void; size?: number }) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <button type="button" onClick={() => input.current?.click()} title={photo ? "Change your photo" : "Add a photo"} className="group relative shrink-0 rounded-full">
+      {photo ? <Avatar name={name} src={photo} size={size} /> : (
+        <span className="flex items-center justify-center rounded-full border border-dashed border-[#0CA4C3]/60 text-[#0394B2] bg-[#0CA4C3]/[0.06] group-hover:bg-[#0CA4C3]/12" style={{ width: size, height: size }}>
+          <Camera size={Math.round(size * 0.45)} />
+        </span>
+      )}
+      <input
+        ref={input} type="file" accept="image/*" hidden
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file) return;
+          try { onPick(await resizePhoto(file)); } catch (err) { alert((err as Error).message); }
+        }}
+      />
+    </button>
   );
 }
 
@@ -71,7 +121,7 @@ function ReviewPage() {
   const [scope, setScope] = useState<"page" | "all">("page");
   const [filter, setFilter] = useState<"open" | "resolved" | "all">("open");
   const [panelOpen, setPanelOpen] = useState(true);
-  const [me, setMe] = useState<{ name: string; email: string }>({ name: "", email: "" });
+  const [me, setMe] = useState<Me>({ name: "", email: "" });
   const [copied, setCopied] = useState(false);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -97,7 +147,7 @@ function ReviewPage() {
   useEffect(() => {
     load().then((d) => {
       if (!d) return;
-      let saved: { name: string; email: string } | null = null;
+      let saved: Me | null = null;
       try { saved = JSON.parse(localStorage.getItem(ME_KEY) || "null"); } catch { /* private mode */ }
       if (saved?.name) setMe(saved);
       else if (d.isTeam) setMe({ name: "MMG Studio", email: "" });
@@ -193,19 +243,33 @@ function ReviewPage() {
     }
   }
 
-  function saveMe(next: { name: string; email: string }) {
+  function saveMe(next: Me) {
     setMe(next);
     try { localStorage.setItem(ME_KEY, JSON.stringify(next)); } catch { /* private mode */ }
   }
 
-  async function submitComment(body: string, who: { name: string; email: string }) {
+  // A photo picked from the panel footer applies to past comments too.
+  async function changePhoto(photo: string) {
+    saveMe({ ...me, photo });
+    if (!me.name) return;
+    await fetch(`/api/review/${token}/avatar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ authorName: me.name, authorEmail: me.email, photo }),
+    });
+    load();
+  }
+
+  const photoSrc = (ref: string | null) => (ref ? photoPath(token, ref) : null);
+
+  async function submitComment(body: string, who: Me) {
     if (!draft || !page) return;
     saveMe(who);
     const res = await fetch(`/api/review/${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        body, authorName: who.name, authorEmail: who.email, anchor: draft.anchor, viewportWidth: draft.viewportWidth,
+        body, authorName: who.name, authorEmail: who.email, authorPhoto: who.photo, anchor: draft.anchor, viewportWidth: draft.viewportWidth,
         device, pageUrl: page.url, pageTitle: page.title,
       }),
     });
@@ -221,7 +285,7 @@ function ReviewPage() {
     const res = await fetch(`/api/review/${token}/${id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ authorName: me.name, authorEmail: me.email, ...payload }),
+      body: JSON.stringify({ authorName: me.name, authorEmail: me.email, authorPhoto: me.photo, ...payload }),
     });
     if (res.ok) await load();
     return res.ok;
@@ -231,11 +295,11 @@ function ReviewPage() {
     if (!page) return;
     const name = me.name || window.prompt("Your name, so MMG knows who approved this page:")?.trim();
     if (!name) return;
-    saveMe({ name, email: me.email });
+    saveMe({ ...me, name });
     await fetch(`/api/review/${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "approval", body: "", authorName: name, authorEmail: me.email, device, pageUrl: page.url, pageTitle: page.title }),
+      body: JSON.stringify({ kind: "approval", body: "", authorName: name, authorEmail: me.email, authorPhoto: me.photo, device, pageUrl: page.url, pageTitle: page.title }),
     });
     load();
   }
@@ -359,6 +423,7 @@ function ReviewPage() {
                   <button key={c.id} onClick={() => openComment(c)} className={`w-full text-left px-4 py-3.5 border-b border-border/70 hover:bg-[#0CA4C3]/[0.04] ${activeId === c.id ? "bg-[#0CA4C3]/[0.07]" : ""}`}>
                     <div className="flex items-center gap-2">
                       <span className={`flex size-6 items-center justify-center rounded-full text-[11px] font-semibold text-white ${c.status === "resolved" ? "bg-slate-400" : "bg-[#0CA4C3]"}`}>{c.number}</span>
+                      <Avatar name={c.authorName} team={c.isTeam} src={photoSrc(c.authorPhoto)} size={20} />
                       <span className="text-[13px] font-semibold truncate">{c.authorName}</span>
                       {c.isTeam && <span className="rounded bg-[#001A2E] px-1.5 py-0.5 text-[10px] font-semibold text-white">MMG</span>}
                       <span className="ml-auto flex items-center gap-1 text-[12px] text-muted-foreground"><DIcon size={12} /> {when(c.createdAt)}</span>
@@ -374,9 +439,10 @@ function ReviewPage() {
                 );
               })}
             </div>
-            <div className="px-4 py-3 border-t border-border text-[12px] text-muted-foreground flex items-center justify-between">
-              <span>{me.name ? <>Commenting as <span className="font-medium text-[#001A2E]">{me.name}</span></> : "Feedback goes straight to MMG Studio"}</span>
-              {me.name && <button onClick={() => saveMe({ name: "", email: "" })} className="underline hover:text-[#001A2E]">Change</button>}
+            <div className="px-4 py-3 border-t border-border text-[12px] text-muted-foreground flex items-center gap-2.5">
+              {me.name && <PhotoPicker photo={me.photo} name={me.name} onPick={changePhoto} size={26} />}
+              <span className="min-w-0 truncate">{me.name ? <>Commenting as <span className="font-medium text-[#001A2E]">{me.name}</span></> : "Feedback goes straight to MMG Studio"}</span>
+              {me.name && <button onClick={() => saveMe({ name: "", email: "" })} className="ml-auto underline hover:text-[#001A2E]">Change</button>}
             </div>
           </aside>
         ) : (
@@ -415,7 +481,7 @@ function ReviewPage() {
           {/* Thread popover */}
           {active && (() => {
             const style = popoverStyle(rects[String(active.id)]);
-            return style ? <Thread key={active.id} c={active} style={style} me={me} isTeam={!!data?.isTeam} onClose={() => setActiveId(null)} act={act} saveMe={saveMe} /> : null;
+            return style ? <Thread key={active.id} c={active} style={style} me={me} isTeam={!!data?.isTeam} photoSrc={photoSrc} onClose={() => setActiveId(null)} act={act} saveMe={saveMe} /> : null;
           })()}
           {draft && (() => {
             const style = popoverStyle(rects.draft);
@@ -429,18 +495,22 @@ function ReviewPage() {
   );
 }
 
-function NameFields({ who, setWho }: { who: { name: string; email: string }; setWho: (w: { name: string; email: string }) => void }) {
+function NameFields({ who, setWho }: { who: Me; setWho: (w: Me) => void }) {
   return (
-    <div className="grid grid-cols-2 gap-2 mb-2">
-      <input value={who.name} onChange={(e) => setWho({ ...who, name: e.target.value })} placeholder="Your name" className="rounded-lg border border-border px-2.5 py-1.5 text-[13px] outline-none focus:border-[#0CA4C3]/50" />
-      <input value={who.email} onChange={(e) => setWho({ ...who, email: e.target.value })} placeholder="Email (optional)" type="email" className="rounded-lg border border-border px-2.5 py-1.5 text-[13px] outline-none focus:border-[#0CA4C3]/50" />
+    <div className="mb-2">
+      <div className="flex items-center gap-2">
+        <PhotoPicker photo={who.photo} name={who.name} onPick={(photo) => setWho({ ...who, photo })} />
+        <input value={who.name} onChange={(e) => setWho({ ...who, name: e.target.value })} placeholder="Your name" className="min-w-0 flex-1 rounded-lg border border-border px-2.5 py-1.5 text-[13px] outline-none focus:border-[#0CA4C3]/50" />
+        <input value={who.email} onChange={(e) => setWho({ ...who, email: e.target.value })} placeholder="Email" type="email" className="min-w-0 flex-1 rounded-lg border border-border px-2.5 py-1.5 text-[13px] outline-none focus:border-[#0CA4C3]/50" />
+      </div>
+      <p className="mt-1 text-[11.5px] text-muted-foreground">Add your email to hear back when MMG replies. The photo is optional.</p>
     </div>
   );
 }
 
 function Composer({ style, me, onCancel, onSubmit }: {
-  style: React.CSSProperties; me: { name: string; email: string };
-  onCancel: () => void; onSubmit: (body: string, who: { name: string; email: string }) => Promise<void>;
+  style: React.CSSProperties; me: Me;
+  onCancel: () => void; onSubmit: (body: string, who: Me) => Promise<void>;
 }) {
   const [body, setBody] = useState("");
   const [who, setWho] = useState(me);
@@ -449,7 +519,7 @@ function Composer({ style, me, onCancel, onSubmit }: {
   async function submit() {
     if (!body.trim() || !who.name.trim()) return;
     setBusy(true); setErr(null);
-    try { await onSubmit(body.trim(), { name: who.name.trim(), email: who.email.trim() }); } catch (e) { setErr((e as Error).message); }
+    try { await onSubmit(body.trim(), { ...who, name: who.name.trim(), email: who.email.trim() }); } catch (e) { setErr((e as Error).message); }
     setBusy(false);
   }
   return (
@@ -471,9 +541,9 @@ function Composer({ style, me, onCancel, onSubmit }: {
   );
 }
 
-function Thread({ c, style, me, isTeam, onClose, act, saveMe }: {
-  c: Feedback; style: React.CSSProperties; me: { name: string; email: string }; isTeam: boolean;
-  onClose: () => void; act: (id: number, payload: Record<string, unknown>) => Promise<boolean>; saveMe: (w: { name: string; email: string }) => void;
+function Thread({ c, style, me, isTeam, photoSrc, onClose, act, saveMe }: {
+  c: Feedback; style: React.CSSProperties; me: Me; isTeam: boolean; photoSrc: (ref: string | null) => string | null;
+  onClose: () => void; act: (id: number, payload: Record<string, unknown>) => Promise<boolean>; saveMe: (w: Me) => void;
 }) {
   const [body, setBody] = useState("");
   const [who, setWho] = useState(me);
@@ -483,7 +553,7 @@ function Thread({ c, style, me, isTeam, onClose, act, saveMe }: {
     if (!body.trim() || !who.name.trim()) return;
     setBusy(true);
     saveMe(who);
-    if (await act(c.id, { action: "reply", body: body.trim(), authorName: who.name.trim(), authorEmail: who.email })) setBody("");
+    if (await act(c.id, { action: "reply", body: body.trim(), authorName: who.name.trim(), authorEmail: who.email, authorPhoto: who.photo })) setBody("");
     setBusy(false);
   }
   return (
@@ -506,9 +576,9 @@ function Thread({ c, style, me, isTeam, onClose, act, saveMe }: {
         </div>
       </div>
       <div className="overflow-y-auto px-3 py-2 space-y-3">
-        {[{ id: 0, authorName: c.authorName, isTeam: c.isTeam, body: c.body, createdAt: c.createdAt }, ...c.replies].map((r) => (
+        {[{ id: 0, authorName: c.authorName, isTeam: c.isTeam, authorPhoto: c.authorPhoto, body: c.body, createdAt: c.createdAt }, ...c.replies].map((r) => (
           <div key={r.id} className="flex gap-2.5">
-            <Avatar name={r.authorName} team={r.isTeam} />
+            <Avatar name={r.authorName} team={r.isTeam} src={photoSrc(r.authorPhoto)} />
             <div className="min-w-0">
               <p className="text-[13px]"><span className="font-semibold">{r.authorName}</span> <span className="text-muted-foreground">{when(r.createdAt)}</span></p>
               <p className="text-[14px] leading-relaxed text-[#001A2E]/85 whitespace-pre-line break-words">{r.body}</p>

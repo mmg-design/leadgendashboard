@@ -25,6 +25,8 @@ export interface Reply {
   body: string;
   authorName: string;
   isTeam: boolean;
+  // Profile photo, as "<id>?v=<version>" under /api/review/<token>/avatar/.
+  authorPhoto: string | null;
   createdAt: string;
 }
 
@@ -43,6 +45,7 @@ export interface Feedback {
   authorName: string;
   authorEmail: string | null;
   isTeam: boolean;
+  authorPhoto: string | null;
   browser: string | null;
   status: FeedbackStatus;
   createdAt: string;
@@ -88,7 +91,52 @@ export async function clientForToken(token: string): Promise<ClientConfig | null
   return getClient(res.rows[0].client_slug as string);
 }
 
-function rowToFeedback(row: Record<string, unknown>, number: number, replies: Reply[]): Feedback {
+// Photos are looked up by email first, then by name.
+const emailKey = (email: unknown) => (typeof email === "string" && email.trim() ? `email:${email.trim().toLowerCase()}` : null);
+const nameKey = (name: unknown) => (typeof name === "string" && name.trim() ? `name:${name.trim().toLowerCase()}` : null);
+
+async function photoRefs(slug: string) {
+  const db = await getDb();
+  const res = await db.execute({ sql: "SELECT id, author_key, updated_at FROM feedback_avatars WHERE client_slug = ?", args: [slug] });
+  const refs = new Map(res.rows.map((r) => [r.author_key as string, `${r.id}?v=${encodeURIComponent(String(r.updated_at))}`]));
+  return (email: unknown, name: unknown) => refs.get(emailKey(email) || "") || refs.get(nameKey(name) || "") || null;
+}
+
+const PHOTO_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+export const MAX_PHOTO_CHARS = 80_000; // the browser sends ~128px JPEGs, a few KB
+
+// Saves a commenter's photo under their email and name. Unchanged photos keep
+// their version so browsers keep the cached copy.
+export async function savePhoto(slug: string, who: { name: string; email?: string | null }, image: string) {
+  if (image.length > MAX_PHOTO_CHARS || !PHOTO_RE.test(image)) return false;
+  const keys = [emailKey(who.email), nameKey(who.name)].filter((k): k is string => !!k);
+  const db = await getDb();
+  for (const key of keys) {
+    await db.execute({
+      sql: `INSERT INTO feedback_avatars (client_slug, author_key, image) VALUES (?, ?, ?)
+            ON CONFLICT(client_slug, author_key) DO UPDATE SET image = excluded.image, updated_at = datetime('now')
+            WHERE feedback_avatars.image != excluded.image`,
+      args: [slug, key, image],
+    });
+  }
+  return keys.length > 0;
+}
+
+export async function removePhoto(slug: string, who: { name: string; email?: string | null }) {
+  const keys = [emailKey(who.email), nameKey(who.name)].filter((k): k is string => !!k);
+  if (keys.length === 0) return;
+  const db = await getDb();
+  await db.execute({ sql: `DELETE FROM feedback_avatars WHERE client_slug = ? AND author_key IN (${keys.map(() => "?").join(", ")})`, args: [slug, ...keys] });
+}
+
+export async function getPhoto(slug: string, id: number): Promise<{ type: string; bytes: Buffer } | null> {
+  const db = await getDb();
+  const res = await db.execute({ sql: "SELECT image FROM feedback_avatars WHERE id = ? AND client_slug = ?", args: [id, slug] });
+  const m = (res.rows[0]?.image as string | undefined)?.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+  return m ? { type: m[1], bytes: Buffer.from(m[2], "base64") } : null;
+}
+
+function rowToFeedback(row: Record<string, unknown>, number: number, replies: Reply[], authorPhoto: string | null): Feedback {
   return {
     id: Number(row.id),
     number,
@@ -104,6 +152,7 @@ function rowToFeedback(row: Record<string, unknown>, number: number, replies: Re
     authorName: row.author_name as string,
     authorEmail: (row.author_email as string) || null,
     isTeam: Number(row.is_team) === 1,
+    authorPhoto,
     browser: (row.browser as string) || null,
     status: row.status as FeedbackStatus,
     createdAt: row.created_at as string,
@@ -114,12 +163,13 @@ function rowToFeedback(row: Record<string, unknown>, number: number, replies: Re
 
 export async function listFeedback(slug: string): Promise<Feedback[]> {
   const db = await getDb();
-  const [items, replies] = await Promise.all([
+  const [items, replies, photoFor] = await Promise.all([
     db.execute({ sql: "SELECT * FROM feedback WHERE client_slug = ? ORDER BY id", args: [slug] }),
     db.execute({
       sql: `SELECT r.* FROM feedback_replies r JOIN feedback f ON f.id = r.feedback_id WHERE f.client_slug = ? ORDER BY r.id`,
       args: [slug],
     }),
+    photoRefs(slug),
   ]);
   const byFeedback = new Map<number, Reply[]>();
   for (const r of replies.rows) {
@@ -129,11 +179,14 @@ export async function listFeedback(slug: string): Promise<Feedback[]> {
       body: r.body as string,
       authorName: r.author_name as string,
       isTeam: Number(r.is_team) === 1,
+      authorPhoto: photoFor(r.author_email, r.author_name),
       createdAt: r.created_at as string,
     });
     byFeedback.set(Number(r.feedback_id), list);
   }
-  return items.rows.map((row, i) => rowToFeedback(row as Record<string, unknown>, i + 1, byFeedback.get(Number(row.id)) || []));
+  return items.rows.map((row, i) =>
+    rowToFeedback(row as Record<string, unknown>, i + 1, byFeedback.get(Number(row.id)) || [], photoFor(row.author_email, row.author_name))
+  );
 }
 
 export async function getFeedback(slug: string, id: number): Promise<Feedback | null> {
@@ -197,15 +250,17 @@ export async function setFeedbackStatus(feedbackId: number, status: FeedbackStat
   await db.execute({ sql: "UPDATE feedback SET status = ?, updated_at = datetime('now') WHERE id = ?", args: [status, feedbackId] });
 }
 
-export async function setSlackTs(feedbackId: number, ts: string) {
+export async function setSlackThread(feedbackId: number, thread: { ts: string; channel: string }) {
   const db = await getDb();
-  await db.execute({ sql: "UPDATE feedback SET slack_ts = ? WHERE id = ?", args: [ts, feedbackId] });
+  await db.execute({ sql: "UPDATE feedback SET slack_ts = ?, slack_channel = ? WHERE id = ?", args: [thread.ts, thread.channel, feedbackId] });
 }
 
-export async function slackTsFor(feedbackId: number): Promise<string | null> {
+// Comments posted before per-client channels all went to SLACK_CHANNEL_ID.
+export async function slackThreadFor(feedbackId: number): Promise<{ ts: string; channel: string } | null> {
   const db = await getDb();
-  const res = await db.execute({ sql: "SELECT slack_ts FROM feedback WHERE id = ?", args: [feedbackId] });
-  return (res.rows[0]?.slack_ts as string) || null;
+  const res = await db.execute({ sql: "SELECT slack_ts, slack_channel FROM feedback WHERE id = ?", args: [feedbackId] });
+  const ts = res.rows[0]?.slack_ts as string | undefined;
+  return ts ? { ts, channel: (res.rows[0]?.slack_channel as string) || process.env.SLACK_CHANNEL_ID || "" } : null;
 }
 
 export async function openFeedbackCounts(): Promise<Record<string, number>> {

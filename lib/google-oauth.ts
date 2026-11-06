@@ -2,8 +2,9 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypt
 import { getDb } from "./db";
 
 // "Connect Gmail": a Google sign-in that lets MMG Pulse save drafts in the
-// team member's own Gmail (gmail.compose, which can't read the inbox).
-// Nothing is sent; drafts wait in Gmail until a person sends them.
+// team member's own Gmail (gmail.compose, which can't read the inbox). The
+// monthly update only ever becomes a draft; the one thing sent directly is
+// client feedback notifications (lib/feedback-email.ts).
 //
 // Needs an OAuth client (Web application) in Google Cloud with the Gmail API
 // enabled and the consent screen set to Internal, plus GOOGLE_OAUTH_CLIENT_ID
@@ -138,4 +139,46 @@ export async function createDraft(input: { to: string; subject: string; body: st
     throw new Error(json.error?.message || "Gmail didn't accept the draft.");
   }
   return { id: json.id as string, messageId: json.message?.id as string | undefined };
+}
+
+// base64 body lines, as MIME wants them.
+const b64 = (text: string) => Buffer.from(text.replace(/\r?\n/g, "\r\n"), "utf8").toString("base64").replace(/.{76}/g, "$&\r\n");
+
+// Sends from the connected account, with plain text and HTML versions.
+export async function sendEmail(input: { to: string; subject: string; text: string; html: string; fromName?: string }) {
+  const token = await accessToken();
+  const connection = await getConnection();
+  if (!connection) throw new Error("Gmail isn't connected.");
+  const boundary = `mmg-${randomBytes(12).toString("hex")}`;
+  const clean = (v: string) => v.replace(/[\r\n"]/g, " ").trim();
+  const mime = [
+    ...(input.fromName ? [`From: ${header(clean(input.fromName))} <${connection.email}>`] : []),
+    `To: ${input.to.replace(/[\r\n]/g, "")}`,
+    `Subject: ${header(input.subject.replace(/[\r\n]/g, " "))}`,
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    b64(input.text),
+    `--${boundary}`,
+    "Content-Type: text/html; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    b64(input.html),
+    `--${boundary}--`,
+    "",
+  ].join("\r\n");
+  const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ raw: Buffer.from(mime).toString("base64url") }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.error?.message || "Gmail didn't send the email.");
+  }
 }

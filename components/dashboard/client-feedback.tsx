@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Check, CheckCircle2, ChevronDown, ExternalLink, FileText, Link2, Loader2, MessageSquare, Monitor, RefreshCw, RotateCcw,
+  Bell, Check, CheckCircle2, ChevronDown, ExternalLink, FileText, Link2, Loader2, Mail, MessageSquare, Monitor, RefreshCw, RotateCcw,
   Search, Smartphone, Tablet, Wrench,
 } from "lucide-react";
 import type { Device, Feedback, FeedbackStatus } from "@/lib/feedback";
+import { photoPath } from "@/lib/feedback-photo";
 
 // A client's own feedback page: everything they've left through their review
 // link, grouped by page and timestamped. Clicking a comment opens the review
@@ -16,6 +17,14 @@ interface FeedbackData {
   link: string;
   token: string;
   slack: boolean;
+  notify: {
+    slackChannel: string;
+    defaultChannel: boolean;
+    botToken: boolean;
+    emailClients: boolean;
+    gmail: string | null;
+    digestTo: string | null;
+  };
   comments: Feedback[];
 }
 
@@ -39,6 +48,80 @@ function ago(iso: string) {
   return `${Math.round(mins / 1440)}d ago`;
 }
 
+function Photo({ name, team, src, size = 20 }: { name: string; team: boolean; src: string | null; size?: number }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  if (src || team) return <img src={src || "/mmg-icon.png"} alt="" className="shrink-0 rounded-full object-cover bg-[#001A2E]" style={{ width: size, height: size }} />;
+  const letters = name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
+  return <span className="flex shrink-0 items-center justify-center rounded-full bg-[#0CA4C3]/15 font-semibold text-[#01384C]" style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }}>{letters}</span>;
+}
+
+// Where this client's feedback is announced: their Slack channel, the team's
+// email digest (from the connected Gmail) and emails back to commenters.
+function NotifySettings({ clientSlug, clientName, notify, onSaved }: { clientSlug: string; clientName: string; notify: FeedbackData["notify"]; onSaved: () => void }) {
+  const [channel, setChannel] = useState(notify.slackChannel);
+  const [emailClients, setEmailClients] = useState(notify.emailClients);
+  const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
+  const [err, setErr] = useState<string | null>(null);
+  const dirty = channel.trim() !== notify.slackChannel || emailClients !== notify.emailClients;
+
+  async function save() {
+    setState("saving"); setErr(null);
+    const res = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client: clientSlug, notify: { slackChannel: channel.trim(), emailClients } }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) { setErr(json.error || "Couldn't save."); setState("idle"); return; }
+    setState("saved");
+    onSaved();
+    setTimeout(() => setState("idle"), 1500);
+  }
+
+  return (
+    <Card>
+      <CardContent className="grid gap-5 md:grid-cols-2">
+        <div>
+          <p className={eyebrow}>Slack channel</p>
+          <input
+            value={channel} onChange={(e) => setChannel(e.target.value)} placeholder={notify.defaultChannel ? "Default feedback channel" : "#client-name"}
+            disabled={!notify.botToken}
+            className="mt-2 w-full rounded-lg border border-border bg-white px-3 py-2 text-[14px] outline-none focus:border-[#0CA4C3]/50 disabled:bg-muted/40"
+          />
+          <p className="mt-1.5 text-[12.5px] text-muted-foreground">
+            {notify.botToken
+              ? <>A channel name or ID for {clientName}&apos;s comments, replies and status changes. Invite the MMG Pulse bot to it first. Blank uses the default channel.</>
+              : "Per-client channels need SLACK_BOT_TOKEN in Vercel."}
+          </p>
+        </div>
+        <div>
+          <p className={eyebrow}>Email</p>
+          {notify.gmail ? (
+            <>
+              <p className="mt-2 flex items-start gap-2 text-[14px] text-[#001A2E]">
+                <Mail size={15} className="mt-0.5 shrink-0 text-[#0394B2]" />
+                <span>New comments are batched into one email to <span className="font-medium">{notify.digestTo}</span> a couple of minutes after {clientName} stops commenting.</span>
+              </p>
+              <label className="mt-3 flex items-start gap-2 text-[14px] text-[#001A2E] cursor-pointer">
+                <input type="checkbox" checked={emailClients} onChange={(e) => setEmailClients(e.target.checked)} className="mt-1 accent-[#0CA4C3]" />
+                <span>Email commenters when we reply or change a comment&apos;s status <span className="block text-[12.5px] text-muted-foreground">Sent from {notify.gmail}, to the email they gave with their comment.</span></span>
+              </label>
+            </>
+          ) : (
+            <p className="mt-2 text-[14px] text-muted-foreground">Connect Gmail on the Client Page tab to send feedback emails. Until then, only Slack is notified.</p>
+          )}
+        </div>
+        <div className="md:col-span-2 flex items-center justify-end gap-3">
+          {err && <span className="text-[13px] text-red-600">{err}</span>}
+          <button onClick={save} disabled={!dirty || state === "saving"} className="inline-flex items-center gap-1.5 rounded-lg bg-[#001A2E] px-3.5 py-2 text-[13px] font-semibold text-white disabled:opacity-40">
+            {state === "saving" ? <Loader2 size={13} className="animate-spin" /> : state === "saved" ? <Check size={13} /> : null} {state === "saved" ? "Saved" : "Save"}
+          </button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function Stat({ label, value, tone }: { label: string; value: string | number; tone?: string }) {
   return (
     <div className="rounded-2xl border border-border bg-white p-4">
@@ -57,6 +140,7 @@ export function ClientFeedback({ clientSlug, clientName }: { clientSlug: string;
   const [expanded, setExpanded] = useState<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showNotify, setShowNotify] = useState(false);
 
   function load() {
     return fetch(`/api/feedback?client=${clientSlug}`, { cache: "no-store" })
@@ -111,6 +195,7 @@ export function ClientFeedback({ clientSlug, clientName }: { clientSlug: string;
     .sort((a, b) => b.items[0].id - a.items[0].id);
   const lastComment = comments.length ? comments.reduce((a, b) => (a.id > b.id ? a : b)) : null;
   const openAt = (c: Feedback) => (data ? `${data.link}?c=${c.id}` : "#");
+  const photoSrc = (ref: string | null) => (ref && data ? photoPath(data.token, ref) : null);
 
   return (
     <div className="space-y-7">
@@ -154,10 +239,18 @@ export function ClientFeedback({ clientSlug, clientName }: { clientSlug: string;
 
           <div className="flex flex-wrap items-center gap-2 px-1 text-[13px]">
             <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${data.slack ? "border-border bg-white text-[#001A2E]" : "border-dashed border-border text-muted-foreground"}`}>
-              {data.slack ? <Check size={12} className="text-emerald-600" /> : <MessageSquare size={12} />} {data.slack ? "Posting to Slack" : "Slack not connected"}
+              {data.slack ? <Check size={12} className="text-emerald-600" /> : <MessageSquare size={12} />} {data.slack ? `Posting to Slack${data.notify.slackChannel ? ` · ${data.notify.slackChannel}` : ""}` : "Slack not connected"}
             </span>
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${data.notify.gmail ? "border-border bg-white text-[#001A2E]" : "border-dashed border-border text-muted-foreground"}`}>
+              {data.notify.gmail ? <Check size={12} className="text-emerald-600" /> : <Mail size={12} />} {data.notify.gmail ? `Emails on${data.notify.emailClients ? "" : " (team only)"}` : "Emails off"}
+            </span>
+            <button onClick={() => setShowNotify((v) => !v)} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium ${showNotify ? "bg-[#001A2E] text-white" : "text-[#0394B2] hover:bg-white"}`}>
+              <Bell size={12} /> Notifications
+            </button>
             <code className="truncate max-w-[480px] rounded-full bg-white border border-border px-2.5 py-1 text-[12px] text-muted-foreground">{data.link}</code>
           </div>
+
+          {showNotify && <NotifySettings key={`${data.notify.slackChannel}:${data.notify.emailClients}`} clientSlug={clientSlug} clientName={clientName} notify={data.notify} onSaved={load} />}
 
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-2">
@@ -213,6 +306,7 @@ export function ClientFeedback({ clientSlug, clientName }: { clientSlug: string;
                         </a>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px]">
+                            <Photo name={c.authorName} team={c.isTeam} src={photoSrc(c.authorPhoto)} />
                             <span className="font-semibold text-[#001A2E]">{c.authorName}</span>
                             {c.isTeam && <span className="rounded bg-[#001A2E] px-1.5 py-0.5 text-[10px] font-semibold text-white">MMG</span>}
                             <time dateTime={toDate(c.createdAt).toISOString()} className="text-muted-foreground">{stamp(c.createdAt)}</time>
@@ -231,6 +325,7 @@ export function ClientFeedback({ clientSlug, clientName }: { clientSlug: string;
                             <div className="mt-2 space-y-2 border-l-2 border-[#0CA4C3]/25 pl-3">
                               {c.replies.map((r) => (
                                 <div key={r.id} className="text-[13.5px]">
+                                  <span className="inline-block align-middle mr-1.5"><Photo name={r.authorName} team={r.isTeam} src={photoSrc(r.authorPhoto)} size={18} /></span>
                                   <span className="font-semibold text-[#001A2E]">{r.authorName}</span>{" "}
                                   {r.isTeam && <span className="rounded bg-[#001A2E] px-1 py-0.5 text-[9px] font-semibold text-white align-middle">MMG</span>}{" "}
                                   <span className="text-muted-foreground">{stamp(r.createdAt)}</span>

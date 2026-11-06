@@ -489,7 +489,7 @@ function MonthlyEmail({ clientSlug, clientName, shared, version, onContactSaved 
               Saving to Gmail drafts turns on once Google sign-in is set up (an OAuth client plus GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET in Vercel). Until then, use Copy email.
             </p>
           ) : (
-            <p className="text-[12.5px] text-muted-foreground">Connect Gmail lets MMG Pulse save drafts to your account. It can&apos;t read your inbox or send anything.</p>
+            <p className="text-[12.5px] text-muted-foreground">Connect Gmail lets MMG Pulse save drafts to your account and send client feedback notifications from it. It can&apos;t read your inbox.</p>
           )}
         </div>
       )}

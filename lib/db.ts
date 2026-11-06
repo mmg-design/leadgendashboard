@@ -119,6 +119,36 @@ async function initSchema(db: Client) {
     );
     CREATE INDEX IF NOT EXISTS idx_feedback_replies ON feedback_replies(feedback_id);
 
+    -- Commenter profile photos (small JPEGs as data URLs), keyed by email and
+    -- by name so comments left before an email was added still match.
+    CREATE TABLE IF NOT EXISTS feedback_avatars (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_slug TEXT NOT NULL,
+      author_key TEXT NOT NULL,
+      image TEXT NOT NULL,
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(client_slug, author_key)
+    );
+
+    -- Feedback emails waiting to go out: client activity for the team's
+    -- digest, team replies and status changes for the commenters. Sent in
+    -- batches once activity goes quiet; claim stops two senders doubling up.
+    CREATE TABLE IF NOT EXISTS feedback_outbox (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_slug TEXT NOT NULL,
+      feedback_id INTEGER NOT NULL,
+      audience TEXT NOT NULL,
+      event TEXT NOT NULL,
+      actor TEXT NOT NULL,
+      body TEXT,
+      link TEXT NOT NULL,
+      claim TEXT,
+      claimed_at TEXT,
+      sent_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_feedback_outbox_pending ON feedback_outbox(sent_at);
+
     -- Change timeline: everything done to a client's site (agent work going
     -- live, new or removed pages, Webflow publishes, resolved feedback, notes),
     -- shown as markers on the charts. ref makes automatic events idempotent.
@@ -224,6 +254,17 @@ async function initSchema(db: Client) {
     await db.execute("SELECT display_prefs FROM clients LIMIT 1");
   } catch {
     await db.execute("ALTER TABLE clients ADD COLUMN display_prefs TEXT");
+  }
+
+  // Migration: the Slack channel a comment was posted to, so replies thread
+  // there even after the client's channel changes.
+  // Two cold requests can race here; the loser's "duplicate column" is fine.
+  try {
+    await db.execute("SELECT slack_channel FROM feedback LIMIT 1");
+  } catch {
+    await db.execute("ALTER TABLE feedback ADD COLUMN slack_channel TEXT").catch((err) => {
+      if (!/duplicate column/i.test(String(err))) throw err;
+    });
   }
 
   // Migration: add action_items_state column if missing (existing DBs)

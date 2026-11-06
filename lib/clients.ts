@@ -89,6 +89,13 @@ export interface ClientConfig {
       projectId: string;
       host?: string; // defaults to https://us.posthog.com
     };
+    // Client feedback alerts: the Slack channel this client's comments post to
+    // (blank uses SLACK_CHANNEL_ID), and whether commenters are emailed when
+    // the team replies or changes a comment's status (on unless turned off).
+    feedbackAlerts?: {
+      slackChannel?: string;
+      emailClients?: boolean;
+    };
   };
   goals: GoalConfig[];
   actionItemsState: ActionItemsState;

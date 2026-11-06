@@ -3,13 +3,16 @@ import { getClient } from "@/lib/clients";
 import { lastScan, listTasks, saveScan, scanClient, scanIsStale, updateTask, type TaskStatus } from "@/lib/agent-tasks";
 import { agentModelName } from "@/lib/agent-llm";
 import { feedbackIdFromKey, syncFeedbackTasks } from "@/lib/feedback-tasks";
-import { getFeedback, getReviewLink, setFeedbackStatus, slackTsFor } from "@/lib/feedback";
+import { getFeedback, getReviewLink, setFeedbackStatus, slackThreadFor } from "@/lib/feedback";
+import { queueFeedbackEmail } from "@/lib/feedback-email";
 import { notifyStatus } from "@/lib/slack";
 import { recordEvent } from "@/lib/site-events";
 import { getTask } from "@/lib/agent-tasks";
 import { stageFromTask } from "@/lib/link-prospects";
 
-export const maxDuration = 120;
+// Scans take up to ~2 minutes; resolving client feedback also waits out the
+// email quiet period (lib/feedback-email.ts) after responding.
+export const maxDuration = 300;
 
 // The Agents tab's task list. Scans automatically when the last scan is more
 // than 12 hours old, or on demand with ?scan=1.
@@ -63,16 +66,20 @@ export async function PATCH(req: NextRequest) {
     if (task) await recordEvent(slug, { kind: "agent_task", title: task.title, pages: task.path ? [task.path] : [], source: "Agents", ref: `task:${key}` });
   }
 
-  // Done on a client-feedback task resolves the comment itself (and tells Slack);
-  // reopening the task reopens the comment.
+  // Done on a client-feedback task resolves the comment itself (and tells Slack
+  // and the commenter); reopening the task reopens the comment.
   const feedbackId = feedbackIdFromKey(key);
   if (feedbackId && (status === "done" || status === "open")) {
     const item = await getFeedback(slug, feedbackId);
     const next = status === "done" ? "resolved" : "open";
     const client = await getClient(slug);
-    if (item && item.status !== next && client && (await getReviewLink(slug, false))) {
+    const token = await getReviewLink(slug, false);
+    if (item && item.status !== next && client && token) {
       await setFeedbackStatus(feedbackId, next);
-      await notifyStatus(await slackTsFor(feedbackId), item, client.name, next, "MMG Studio");
+      await notifyStatus(await slackThreadFor(feedbackId), item, client.name, next, "MMG Studio", client.integrations.feedbackAlerts?.slackChannel);
+      if (client.integrations.feedbackAlerts?.emailClients !== false) {
+        await queueFeedbackEmail({ clientSlug: slug, feedbackId, audience: "client", event: "status", actor: "MMG Studio", body: next, link: `${req.nextUrl.origin}/review/${token}?c=${feedbackId}` });
+      }
       if (next === "resolved") {
         await recordEvent(slug, { kind: "feedback_resolved", title: `Client feedback resolved: “${item.body.slice(0, 80)}”`, pages: [item.pagePath], source: "Client feedback", ref: `feedback:${item.id}` });
       }
