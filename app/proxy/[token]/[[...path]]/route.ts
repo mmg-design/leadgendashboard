@@ -1,12 +1,14 @@
 import { NextRequest } from "next/server";
 import { clientForToken, isClientHost, siteOrigin } from "@/lib/feedback";
 import { REVIEW_OVERLAY_JS } from "@/lib/review-overlay";
+import { assetPath, rewriteHtmlAssets } from "@/lib/review-assets";
 
 // Shows a client's live page inside the review tool without installing
 // anything on their site. We fetch the page, point its relative URLs back at
 // the real site (<base>), strip analytics so reviews don't count as visits,
 // and add the comment layer. Assets still load straight from the client's
-// site; only page navigations come through here.
+// site, except its fonts and stylesheets, which go through the asset route so
+// the fonts aren't blocked (lib/review-assets.ts).
 //
 // The response carries a CSP sandbox, so the page runs with an opaque origin:
 // its scripts (chat widgets, embeds) can't read MMG Pulse cookies or call its
@@ -32,8 +34,9 @@ function escapeAttr(s: string) {
   return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
-function rewrite(html: string, pageUrl: URL, appOrigin: string, token: string) {
-  let out = html
+function rewrite(html: string, pageUrl: URL, appOrigin: string, token: string, domain: string) {
+  const isClient = (u: URL) => /^https?:$/.test(u.protocol) && isClientHost(u.hostname, domain);
+  let out = rewriteHtmlAssets(html, pageUrl, isClient, (u) => assetPath(appOrigin, token, u))
     // The page's own CSP/base would fight ours.
     .replace(/<meta[^>]+http-equiv=["']?content-security-policy["']?[^>]*>/gi, "")
     .replace(/<base\b[^>]*>/gi, "")
@@ -94,7 +97,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   // Anything that isn't a page (PDFs, images) opens directly rather than through the proxy.
   if (!type.includes("text/html")) return Response.redirect(finalUrl.href, 302);
 
-  const html = rewrite(await res.text(), finalUrl, req.nextUrl.origin, token);
+  const html = rewrite(await res.text(), finalUrl, req.nextUrl.origin, token, client.domain);
   return new Response(html, {
     status: res.status,
     headers: {
