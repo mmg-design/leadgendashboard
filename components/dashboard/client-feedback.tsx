@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Bell, Check, CheckCircle2, ChevronDown, ExternalLink, FileText, Link2, Loader2, Mail, MessageSquare, Monitor, RefreshCw, RotateCcw,
+  Bell, Check, CheckCircle2, ChevronDown, Copy, ExternalLink, FileText, Files, Link2, Loader2, Mail, MessageSquare, Monitor, RefreshCw, RotateCcw,
   Search, Smartphone, Tablet, Wrench,
 } from "lucide-react";
 import type { Device, Feedback, FeedbackStatus } from "@/lib/feedback";
@@ -122,6 +122,87 @@ function NotifySettings({ clientSlug, clientName, notify, onSaved }: { clientSlu
   );
 }
 
+interface ReviewPage { path: string; name: string; link: string }
+
+// One review link per page, for sending a client straight to each page.
+// They all use the same review link underneath, so everything still lands
+// here. Unticked pages are left out of "Copy for email" (remembered per client).
+function PageLinks({ clientSlug }: { clientSlug: string }) {
+  const [pages, setPages] = useState<ReviewPage[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const skipKey = `mmg-page-links-skip:${clientSlug}`;
+  // Only rendered after a click, so localStorage is there to read.
+  const [skipped, setSkipped] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(skipKey) || "[]"); } catch { return []; }
+  });
+  const [copied, setCopied] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/feedback/pages?client=${clientSlug}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((json) => (json.pages ? setPages(json.pages) : setError(json.error || "Couldn't read the site's pages.")))
+      .catch(() => setError("Couldn't read the site's pages."));
+  }, [clientSlug]);
+
+  function toggle(path: string) {
+    const next = skipped.includes(path) ? skipped.filter((p) => p !== path) : [...skipped, path];
+    setSkipped(next);
+    try { localStorage.setItem(skipKey, JSON.stringify(next)); } catch { /* private mode */ }
+  }
+  function copy(text: string, key: string) {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 1500);
+  }
+
+  const chosen = (pages || []).filter((p) => !skipped.includes(p.path));
+  return (
+    <Card>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className={eyebrow}>Page links</p>
+            <p className="mt-1 text-[13.5px] text-muted-foreground">
+              Each link opens the review tool on that page. Comments from any of them land in this tab, Slack and the email digest like any other.
+            </p>
+          </div>
+          {pages && (
+            <button
+              onClick={() => copy(chosen.map((p) => `${p.name}: ${p.link}`).join("\n"), "all")}
+              disabled={chosen.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#0CA4C3] px-3.5 py-2 text-[13px] font-semibold text-white hover:bg-[#0394B2] disabled:opacity-50"
+            >
+              {copied === "all" ? <Check size={14} /> : <Files size={14} />} {copied === "all" ? "Copied" : `Copy ${chosen.length} for email`}
+            </button>
+          )}
+        </div>
+        {error ? <p className="text-[14px] text-red-600">{error}</p> : !pages ? (
+          <p className="flex items-center gap-2 text-[14px] text-muted-foreground"><Loader2 size={15} className="animate-spin" /> Reading the site&apos;s pages…</p>
+        ) : (
+          <div className="max-h-[420px] overflow-y-auto rounded-xl border border-border divide-y divide-border/60">
+            {pages.map((p) => {
+              const on = !skipped.includes(p.path);
+              return (
+                <div key={p.path} className={`flex items-center gap-3 px-3 py-2 text-[14px] ${on ? "" : "opacity-50"}`}>
+                  <input type="checkbox" checked={on} onChange={() => toggle(p.path)} title={on ? "Leave out of Copy for email" : "Include in Copy for email"} className="accent-[#0CA4C3]" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-[#001A2E] truncate">{p.name}</p>
+                    <p className="text-[12px] text-muted-foreground truncate">{p.path}</p>
+                  </div>
+                  <a href={p.link} target="_blank" rel="noreferrer" title="Open" className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted/50"><ExternalLink size={14} /></a>
+                  <button onClick={() => copy(p.link, p.path)} title="Copy link" className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted/50">
+                    {copied === p.path ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function Stat({ label, value, tone }: { label: string; value: string | number; tone?: string }) {
   return (
     <div className="rounded-2xl border border-border bg-white p-4">
@@ -141,6 +222,7 @@ export function ClientFeedback({ clientSlug, clientName }: { clientSlug: string;
   const [busy, setBusy] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showNotify, setShowNotify] = useState(false);
+  const [showPages, setShowPages] = useState(false);
 
   function load() {
     return fetch(`/api/feedback?client=${clientSlug}`, { cache: "no-store" })
@@ -247,9 +329,13 @@ export function ClientFeedback({ clientSlug, clientName }: { clientSlug: string;
             <button onClick={() => setShowNotify((v) => !v)} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium ${showNotify ? "bg-[#001A2E] text-white" : "text-[#0394B2] hover:bg-white"}`}>
               <Bell size={12} /> Notifications
             </button>
+            <button onClick={() => setShowPages((v) => !v)} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium ${showPages ? "bg-[#001A2E] text-white" : "text-[#0394B2] hover:bg-white"}`}>
+              <Files size={12} /> Page links
+            </button>
             <code className="truncate max-w-[480px] rounded-full bg-white border border-border px-2.5 py-1 text-[12px] text-muted-foreground">{data.link}</code>
           </div>
 
+          {showPages && <PageLinks clientSlug={clientSlug} />}
           {showNotify && <NotifySettings key={`${data.notify.slackChannel}:${data.notify.emailClients}`} clientSlug={clientSlug} clientName={clientName} notify={data.notify} onSaved={load} />}
 
           {/* Filters */}

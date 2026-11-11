@@ -102,8 +102,13 @@ export async function fetchPage(url: string): Promise<PageSnapshot> {
 }
 
 // URLs listed in the site's sitemap (follows one level of sitemap index).
+// Tries /sitemap.xml, then whatever robots.txt points to, then
+// /sitemap-index.xml (Astro's default). A sitemap on another host (a staging
+// site whose sitemap already names the launch domain) is read from this site
+// at the same path. URLs are returned as the sitemap lists them.
 export async function sitemapUrls(origin: string, limit = 300): Promise<string[]> {
-  const get = async (u: string) => {
+  const base = origin.replace(/\/$/, "");
+  const fetchText = async (u: string) => {
     try {
       const r = await fetch(u, { headers: { "User-Agent": UA }, cache: "no-store", signal: AbortSignal.timeout(10000) });
       return r.ok ? await r.text() : "";
@@ -111,8 +116,28 @@ export async function sitemapUrls(origin: string, limit = 300): Promise<string[]
       return "";
     }
   };
+  const get = async (u: string) => {
+    const text = await fetchText(u);
+    if (text) return text;
+    try {
+      const url = new URL(u);
+      return url.origin === new URL(base).origin ? "" : await fetchText(`${base}${url.pathname}${url.search}`);
+    } catch {
+      return "";
+    }
+  };
   const locs = (xml: string) => [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)].map((m) => decode(m[1]));
-  const root = await get(`${origin.replace(/\/$/, "")}/sitemap.xml`);
+  let root = await get(`${base}/sitemap.xml`);
+  if (!/<(urlset|sitemapindex)/i.test(root)) root = ""; // a 200 HTML page, not a sitemap
+  if (!root) {
+    const robots = await fetchText(`${base}/robots.txt`);
+    const listed = [...robots.matchAll(/^\s*sitemap:\s*(\S+)/gim)].map((m) => m[1]);
+    for (const u of [...listed, `${base}/sitemap-index.xml`]) {
+      root = await get(u);
+      if (/<(urlset|sitemapindex)/i.test(root)) break;
+      root = "";
+    }
+  }
   if (!root) return [];
   if (/<sitemapindex/i.test(root)) {
     const children = locs(root).slice(0, 10);

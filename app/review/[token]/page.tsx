@@ -143,7 +143,8 @@ function ReviewPage() {
       .catch((err) => { setError(err.message); return null; });
   }, [token]);
 
-  // First load: open the linked comment (?c=), else the homepage.
+  // First load: open the linked comment (?c=), else the linked page (?page=,
+  // the per-page links on the Feedback tab), else the homepage.
   useEffect(() => {
     load().then((d) => {
       if (!d) return;
@@ -160,7 +161,8 @@ function ReviewPage() {
         setScope("page");
         setFilter(linked.status === "resolved" ? "resolved" : "open");
       } else {
-        setSrc(`/proxy/${token}`);
+        const path = search.get("page") || "";
+        setSrc(/^\/(?!\/)/.test(path) && path !== "/" ? `/proxy/${token}${path}` : `/proxy/${token}`);
       }
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
