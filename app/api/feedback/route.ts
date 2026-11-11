@@ -3,7 +3,7 @@ import { getClient, updateClient } from "@/lib/clients";
 import { getReviewLink, listFeedback, rotateReviewLink } from "@/lib/feedback";
 import { sweepFeedbackEmails } from "@/lib/feedback-email";
 import { getConnection } from "@/lib/google-oauth";
-import { slackConfigured } from "@/lib/slack";
+import { slackConfigured, slackTest } from "@/lib/slack";
 
 // Team-only (behind the dashboard password): a client's review link, its
 // feedback queue and where feedback notifications go, for the Feedback tab.
@@ -32,13 +32,17 @@ export async function GET(req: NextRequest) {
 
 // { client, rotate: true } replaces the link; the old one stops working.
 // { client, notify: { slackChannel, emailClients } } saves notification settings.
+// { client, testSlack: true } posts a test message and reports what Slack said.
 export async function POST(req: NextRequest) {
-  const { client: slug, rotate, notify } = (await req.json()) as {
+  const { client: slug, rotate, notify, testSlack } = (await req.json()) as {
     client?: string;
     rotate?: boolean;
     notify?: { slackChannel?: string; emailClients?: boolean };
+    testSlack?: boolean;
   };
-  if (!slug || !(await getClient(slug))) return NextResponse.json({ error: "Missing client" }, { status: 400 });
+  const client = slug ? await getClient(slug) : null;
+  if (!slug || !client) return NextResponse.json({ error: "Missing client" }, { status: 400 });
+  if (testSlack) return NextResponse.json(await slackTest(client.name, client.integrations.feedbackAlerts?.slackChannel));
   if (notify) {
     const slackChannel = (notify.slackChannel || "").trim().slice(0, 80);
     if (slackChannel && !/^(#?[a-z0-9][a-z0-9._-]*|[CG][A-Z0-9]{6,})$/.test(slackChannel)) {

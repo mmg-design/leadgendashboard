@@ -111,3 +111,49 @@ export async function notifyStatus(thread: SlackThread | null, f: Feedback, clie
     text: `${by} ${label} ${clientName} #${f.number}`,
   }, thread?.channel || channel);
 }
+
+// "Send test to Slack" on the Feedback tab: posts to the channel this client's
+// feedback would use and reports exactly what happened, so a wrong channel or
+// a bot that wasn't invited shows up as a plain answer instead of silence.
+export async function slackTest(clientName: string, clientChannel?: string | null) {
+  const token = process.env.SLACK_BOT_TOKEN;
+  const channel = clientChannel || process.env.SLACK_CHANNEL_ID || "";
+  const source = clientChannel ? "this client's channel" : "the default channel (SLACK_CHANNEL_ID)";
+  if (!token) return { ok: false, channel, source, bot: null, channelName: null, error: "no_token", hint: "SLACK_BOT_TOKEN isn't set in Vercel." };
+  if (!channel) return { ok: false, channel, source, bot: null, channelName: null, error: "no_channel", hint: "No channel is set: add SLACK_CHANNEL_ID in Vercel or a channel for this client." };
+
+  const call = async (method: string, body: Record<string, unknown>) => {
+    const res = await fetch(`https://slack.com/api/${method}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify(body),
+    });
+    return (await res.json()) as Record<string, unknown> & { ok: boolean; error?: string };
+  };
+  const auth = await call("auth.test", {});
+  const bot = auth.ok ? `${auth.user}` : null;
+  // Needs channels:read; without it we just show the ID.
+  const info = await call("conversations.info", { channel: channel.replace(/^#/, "") });
+  const channelName = info.ok ? `#${(info.channel as { name?: string })?.name}` : channel.startsWith("#") ? channel : null;
+  const post = auth.ok
+    ? await call("chat.postMessage", { channel, text: `✅ MMG Pulse test: client feedback for ${clientName} will post here.` })
+    : auth;
+
+  const hints: Record<string, string> = {
+    not_in_channel: `The bot${bot ? ` (@${bot})` : ""} isn't in this channel. Open ${channelName || `the channel with ID ${channel}`} in Slack and type /invite @${bot || "your-bot"}.`,
+    channel_not_found: `Slack can't find channel ${channel}. It may be private (invite the bot first) or the ID is wrong.`,
+    invalid_auth: "The Slack bot token isn't valid. Copy a fresh Bot User OAuth Token into SLACK_BOT_TOKEN in Vercel.",
+    token_revoked: "The Slack bot token was revoked. Reinstall the app and update SLACK_BOT_TOKEN in Vercel.",
+    account_inactive: "The Slack app was uninstalled. Reinstall it and update SLACK_BOT_TOKEN in Vercel.",
+    missing_scope: "The Slack app needs the chat:write permission (OAuth & Permissions), then a reinstall.",
+  };
+  return {
+    ok: post.ok,
+    channel,
+    source,
+    bot,
+    channelName,
+    error: post.ok ? null : post.error || "unknown_error",
+    hint: post.ok ? null : hints[post.error || ""] || `Slack said: ${post.error}.`,
+  };
+}

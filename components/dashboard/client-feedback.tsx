@@ -63,6 +63,15 @@ function NotifySettings({ clientSlug, clientName, notify, onSaved }: { clientSlu
   const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
   const [err, setErr] = useState<string | null>(null);
   const dirty = channel.trim() !== notify.slackChannel || emailClients !== notify.emailClients;
+  const [test, setTest] = useState<{ ok: boolean; channel: string; channelName: string | null; source: string; bot: string | null; hint: string | null } | "running" | null>(null);
+
+  // Tests the saved setting, which is what real feedback uses.
+  async function testSlack() {
+    setTest("running");
+    const res = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client: clientSlug, testSlack: true }) });
+    const json = await res.json().catch(() => null);
+    setTest(json && "ok" in json ? json : { ok: false, channel: "", channelName: null, source: "", bot: null, hint: "Couldn't run the test." });
+  }
 
   async function save() {
     setState("saving"); setErr(null);
@@ -93,6 +102,18 @@ function NotifySettings({ clientSlug, clientName, notify, onSaved }: { clientSlu
               ? <>A channel name or ID for {clientName}&apos;s comments, replies and status changes. Invite the MMG Pulse bot to it first. Blank uses the default channel.</>
               : "Per-client channels need SLACK_BOT_TOKEN in Vercel."}
           </p>
+          <button onClick={testSlack} disabled={test === "running"} className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-[13px] font-medium hover:bg-muted/50 disabled:opacity-50">
+            {test === "running" ? <Loader2 size={13} className="animate-spin" /> : <MessageSquare size={13} />} Send test to Slack
+          </button>
+          {test && test !== "running" && (
+            <div className={`mt-2 rounded-lg px-3 py-2 text-[13px] ${test.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"}`}>
+              <p className="font-medium">{test.ok ? `Posted to ${test.channelName || test.channel}. Check Slack for the test message.` : "Slack didn't accept the test."}</p>
+              {test.hint && <p className="mt-0.5">{test.hint}</p>}
+              <p className="mt-1 text-[12px] opacity-80">
+                Tried {test.source}: {test.channelName ? `${test.channelName} (${test.channel})` : test.channel || "none"}{test.bot ? ` · bot @${test.bot}` : ""}
+              </p>
+            </div>
+          )}
         </div>
         <div>
           <p className={eyebrow}>Email</p>
