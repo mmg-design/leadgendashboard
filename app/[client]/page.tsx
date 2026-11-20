@@ -175,6 +175,20 @@ type ClientsResponse = {
   clients?: ClientConfig[];
 };
 
+const SECTIONS = [
+  ["overview", "Overview", LayoutDashboard],
+  ["attribution", "Lead Funnel", Route],
+  ["ai-visibility", "AI Visibility", Sparkles],
+  ["keyword-map", "Keyword Map", MapIcon],
+  ["links", "Links", Link2],
+  ["agents", "Agents", Bot],
+  ["report-generator", "Custom Reports", FileChartColumn],
+  ["feedback", "Client Feedback", MessageSquare],
+  ["portal", "Client Page", Presentation],
+] as const;
+
+type Section = (typeof SECTIONS)[number][0];
+
 const MAX_ICON_BYTES = 15 * 1024 * 1024;
 const NONE_HIDDEN: string[] = [];
 const ICON_FILE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif", "svg"];
@@ -194,9 +208,15 @@ export default function ClientDashboard() {
   // ?section=portal lands back on the Client Page tab (e.g. after Connect Gmail);
   // ?section=keyword-map opens the Keyword Map.
   const searchParams = useSearchParams();
-  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "ai-visibility" | "keyword-map" | "links" | "agents" | "report-generator" | "feedback" | "portal">(
+  const [activeSection, setActiveSection] = useState<Section>(
     searchParams.get("section") === "portal" ? "portal" : searchParams.get("section") === "keyword-map" ? "keyword-map" : "overview"
   );
+  // On phones, keep the active section visible in the horizontal tab strip
+  // (e.g. when landing on ?section=portal or jumping from Links to Agents).
+  const activeTabRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeSection]);
   // "Open in Agents" from the Links tab lands on Agents filtered to link tasks.
   const [agentsCategory, setAgentsCategory] = useState<"all" | "links">("all");
   const [clientName, setClientName] = useState(
@@ -575,15 +595,16 @@ export default function ClientDashboard() {
       <header
         className="bg-white border-b border-[#001A2E]/[0.08]"
       >
-        <div className="max-w-[1680px] mx-auto px-6 md:px-12 2xl:px-16 py-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="max-w-[1680px] mx-auto px-4 md:px-12 2xl:px-16 py-4 md:py-6 flex flex-wrap md:flex-nowrap items-center justify-between max-md:gap-3">
+          <div className="flex items-center gap-3 md:gap-4 max-md:min-w-0">
             <Link
               href="/"
-              className="text-[15px] text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="All Clients"
+              className="max-md:shrink-0 text-[15px] text-muted-foreground hover:text-foreground transition-colors"
             >
-              &larr; All Clients
+              &larr;<span className="hidden md:inline"> All Clients</span>
             </Link>
-            <div className="w-px h-4 bg-border" />
+            <div className="w-px h-4 bg-border max-md:shrink-0" />
             {clientConfig?.iconUrl ? (
               <span className="relative size-8 overflow-hidden rounded-lg shrink-0">
                 <Image
@@ -600,11 +621,11 @@ export default function ClientDashboard() {
                 <Building2 size={16} className="text-[#001A2E]/40" />
               </div>
             )}
-            <h1 className="text-[clamp(2rem,3vw,2.75rem)] font-headline font-normal tracking-tight text-[#001A2E]">
+            <h1 className="max-md:min-w-0 max-md:truncate text-[1.625rem] md:text-[clamp(2rem,3vw,2.75rem)] font-headline font-normal tracking-tight text-[#001A2E]">
               {clientName}
             </h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 max-md:shrink-0">
             <Tabs value={range} onValueChange={setRange}>
               <TabsList className="h-8">
                 <TabsTrigger value="7d" className="text-xs px-3 h-7">7d</TabsTrigger>
@@ -630,7 +651,7 @@ export default function ClientDashboard() {
       {/* Settings Panel */}
       {settingsOpen && (
         <div className="bg-white border-b border-[#001A2E]/[0.08] shadow-sm">
-          <div className="max-w-[1680px] mx-auto px-6 md:px-12 2xl:px-16 py-6">
+          <div className="max-w-[1680px] mx-auto px-4 md:px-12 2xl:px-16 py-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-[17px] font-semibold text-[#001A2E] tracking-tight">
                 Client Settings
@@ -898,7 +919,7 @@ export default function ClientDashboard() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 mt-6 pt-4 border-t border-border/50">
+            <div className="flex flex-wrap items-center gap-3 mt-6 pt-4 border-t border-border/50">
               <button
                 onClick={() => handleSaveSettings()}
                 disabled={saving}
@@ -926,28 +947,44 @@ export default function ClientDashboard() {
       )}
 
       {/* Dashboard */}
-      <main className="max-w-[1680px] mx-auto px-6 md:px-12 2xl:px-16 py-10 md:py-14">
+      <main className="max-w-[1680px] mx-auto px-4 md:px-12 2xl:px-16 py-6 md:py-14">
         {gaError && (
           <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg text-[15px] border border-red-100">
             {gaError}
           </div>
         )}
 
-        <div className="flex gap-8 items-start">
+        {/* ── Phone section strip (below md) ── */}
+        <nav
+          aria-label="Dashboard sections"
+          className="md:hidden -mx-4 mb-6 px-4 flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {SECTIONS.map(([key, label, Icon]) => {
+            const active = activeSection === key;
+            return (
+              <button
+                key={key}
+                ref={active ? activeTabRef : undefined}
+                onClick={() => { setActiveSection(key); setAgentsCategory("all"); }}
+                aria-current={active ? "page" : undefined}
+                className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-[14px] font-medium whitespace-nowrap transition-colors ${
+                  active
+                    ? "bg-white text-[#001A2E] border border-border shadow-[0_1px_2px_rgba(0,26,46,0.04),0_4px_16px_rgba(0,26,46,0.05)]"
+                    : "border border-transparent text-muted-foreground hover:text-[#001A2E] hover:bg-white/70"
+                }`}
+              >
+                <Icon size={15} className={active ? "text-[#0CA4C3]" : ""} />
+                {label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="md:flex md:gap-8 md:items-start">
           {/* ── Sidebar ── */}
-          <aside className="w-[190px] shrink-0">
+          <aside className="hidden md:block w-[190px] shrink-0">
             <nav className="space-y-1.5 xl:sticky xl:top-8">
-              {([
-                ["overview", "Overview", LayoutDashboard],
-                ["attribution", "Lead Funnel", Route],
-                ["ai-visibility", "AI Visibility", Sparkles],
-                ["keyword-map", "Keyword Map", MapIcon],
-                ["links", "Links", Link2],
-                ["agents", "Agents", Bot],
-                ["report-generator", "Custom Reports", FileChartColumn],
-                ["feedback", "Client Feedback", MessageSquare],
-                ["portal", "Client Page", Presentation],
-              ] as const).map(([key, label, Icon]) => {
+              {SECTIONS.map(([key, label, Icon]) => {
                 const active = activeSection === key;
                 return (
                   <button
@@ -969,7 +1006,7 @@ export default function ClientDashboard() {
           </aside>
 
           {/* ── Main content ── */}
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 md:flex-1">
             {activeSection === "portal" ? (
               <ClientPortal clientSlug={clientSlug} clientName={clientName} />
             ) : activeSection === "feedback" ? (
@@ -1072,8 +1109,8 @@ export default function ClientDashboard() {
 
               {/* Sources (+ device split) + Top Pages */}
               {(ga?.topSources || ga?.topPages) && (
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-6">
+                <div className="grid max-md:grid-cols-1 gap-6 md:grid-cols-2">
+                  <div className="max-md:min-w-0 space-y-6">
                     {ga?.topSources && (
                       <SourceBars
                         data={ga.topSources}

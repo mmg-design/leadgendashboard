@@ -49,7 +49,7 @@ function ProspectRow({ p, rank, onStage, onNotes }: { p: LinkProspect; rank: num
     <li className="py-3.5">
       <div className="flex flex-wrap items-start gap-x-4 gap-y-2.5">
         <span className="mt-0.5 w-5 shrink-0 text-right text-[14px] font-semibold tabular-nums text-muted-foreground">{rank ?? ""}</span>
-        <button className="min-w-[220px] flex-1 text-left" onClick={() => setOpen(!open)}>
+        <button className="min-w-0 sm:min-w-[220px] flex-1 text-left" onClick={() => setOpen(!open)}>
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[15px] font-semibold text-[#001A2E]">{p.name}</span>
             <span className="text-[13px] text-muted-foreground">{p.domain}</span>
@@ -62,7 +62,7 @@ function ProspectRow({ p, rank, onStage, onNotes }: { p: LinkProspect; rank: num
           </div>
           <p className="mt-1.5 text-[14px] text-[#001A2E]/75">{p.why}</p>
         </button>
-        <div className="flex shrink-0 items-center gap-2 pl-9 sm:pl-0">
+        <div className="flex shrink-0 max-sm:shrink max-sm:min-w-0 max-sm:flex-wrap items-center gap-2 pl-9 sm:pl-0">
           <a href={p.nextStepUrl} target="_blank" rel="noreferrer" className={btnSecondary} title={p.nextStepUrl}>
             {p.nextStepLabel} <ExternalLink size={13} className="opacity-60" />
           </a>

@@ -58,7 +58,7 @@ function Authority({ value }: { value: number }) {
 
 function Site({ domain }: { domain: string }) {
   return (
-    <a href={`https://${domain}`} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1 truncate font-medium text-[#001A2E] hover:text-[#0394B2]">
+    <a href={`https://${domain}`} target="_blank" rel="noreferrer" className="inline-flex min-w-0 max-md:max-w-full items-center gap-1 truncate font-medium text-[#001A2E] hover:text-[#0394B2]">
       <span className="truncate">{domain}</span> <ExternalLink size={11} className="shrink-0 opacity-50" />
     </a>
   );
@@ -172,15 +172,15 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
   return (
     <div className="space-y-7">
       <div className="flex flex-wrap items-end justify-between gap-4 px-1">
-        <div>
+        <div className="max-md:min-w-0">
           <div className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#0394B2] mb-1.5">Links</div>
           <h2 className="font-headline text-[28px] text-[#001A2E]">Backlinks for {clientName}</h2>
-          <p className="mt-1 max-w-[720px] text-[15px] text-muted-foreground">
+          <p className="mt-1 max-w-[720px] text-[15px] text-muted-foreground max-md:break-words">
             Who links to {report.domain}, what changed, and the sites worth a link next. Prospects and fixes are also in Agents, under Links.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className={`text-[13px] ${refreshError ? "text-red-600" : "text-muted-foreground"}`} title={refreshError || `${sourceName} charges per lookup, so the report refreshes every 14 days`}>
+        <div className="flex max-md:flex-wrap items-center gap-3">
+          <span className={`max-md:w-full text-[13px] ${refreshError ? "text-red-600" : "text-muted-foreground"}`} title={refreshError || `${sourceName} charges per lookup, so the report refreshes every 14 days`}>
             {refreshing ? "Updating from DataForSEO…" : refreshError ? `Refresh failed. Showing the report from ${timeAgo(report.fetchedAt)}` : `From ${sourceName}, ${timeAgo(report.fetchedAt)}`}
           </span>
           <div className="relative">
@@ -188,7 +188,7 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
               <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Refreshing…" : "Refresh"}
             </button>
             {confirmRefresh && (
-              <div role="dialog" aria-label="Refresh costs money" className="absolute right-0 top-full z-30 mt-2 w-[320px] rounded-xl border border-border bg-white p-4 text-left shadow-[0_4px_12px_rgba(0,26,46,0.08),0_16px_48px_rgba(0,26,46,0.12)]">
+              <div role="dialog" aria-label="Refresh costs money" className="absolute right-0 max-md:left-0 max-md:right-auto top-full z-30 mt-2 w-[320px] max-w-[calc(100vw-32px)] rounded-xl border border-border bg-white p-4 text-left shadow-[0_4px_12px_rgba(0,26,46,0.08),0_16px_48px_rgba(0,26,46,0.12)]">
                 <div className="flex items-start gap-2.5">
                   <AlertTriangle size={17} className="mt-0.5 shrink-0 text-[#B7791F]" />
                   <div>
@@ -239,7 +239,7 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
 
       <LinkProspects clientSlug={clientSlug} clientName={clientName} />
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_420px] items-start">
+      <div className="grid max-md:grid-cols-1 gap-6 xl:grid-cols-[1fr_420px] items-start">
         <Section title="Backlinks over the last year" note={`Every link ${sourceName} can find, junk included, so a sudden jump is usually a link farm.`}>
           <div className="h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -278,7 +278,7 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
       <Section
         title="Fixes and lost links"
         note={`${linkTasks.length} ${linkTasks.length === 1 ? "task" : "tasks"}: redirects for missing pages, links to win back, and checks. Run an agent for the redirect or the email. Nothing is sent for you.`}
-        action={<button className="inline-flex items-center gap-1 text-[14px] font-medium text-[#0394B2] hover:underline" onClick={onOpenAgents}>All link tasks <ArrowRight size={14} /></button>}
+        action={<button className="inline-flex max-md:shrink-0 items-center gap-1 max-md:whitespace-nowrap text-[14px] font-medium text-[#0394B2] hover:underline" onClick={onOpenAgents}>All link tasks <ArrowRight size={14} /></button>}
       >
         {!agents ? (
           <p className="flex items-center gap-2 text-[14px] text-muted-foreground"><Loader2 size={14} className="animate-spin" /> Loading tasks…</p>
@@ -298,16 +298,16 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
         )}
       </Section>
 
-      <div className="grid gap-6 xl:grid-cols-2 items-start">
+      <div className="grid max-md:grid-cols-1 gap-6 xl:grid-cols-2 items-start">
         <Section title="Links your competitors have" note="Sites linking to rivals but not to you. Two or more rivals on the same site is the warmest lead.">
           {report.gap.length === 0 ? <p className="text-[14px] text-muted-foreground">No gaps found among the closest competitors.</p> : (
-            <table className="w-full text-[14px]">
-              <thead><tr className={`${eyebrow} text-left`}><th className="pb-2 font-semibold">Site</th><th className="pb-2 font-semibold">Links to</th><th className="pb-2 font-semibold text-right">Authority</th></tr></thead>
+            <table className="w-full max-md:table-fixed text-[14px]">
+              <thead><tr className={`${eyebrow} text-left`}><th className="pb-2 font-semibold">Site</th><th className="pb-2 font-semibold max-md:w-[32%]">Links to</th><th className="pb-2 font-semibold text-right max-md:w-[92px]">Authority</th></tr></thead>
               <tbody className="divide-y divide-border/60">
                 {report.gap.slice(0, 12).map((g) => (
                   <tr key={g.domain}>
                     <td className="max-w-[200px] py-2 pr-3"><Site domain={g.domain} /></td>
-                    <td className="py-2 pr-3 text-[13px] text-muted-foreground">{g.competitors.length > 1 ? `${g.competitors.length} rivals` : g.competitors[0]}</td>
+                    <td className="py-2 pr-3 text-[13px] text-muted-foreground max-md:[overflow-wrap:anywhere]">{g.competitors.length > 1 ? `${g.competitors.length} rivals` : g.competitors[0]}</td>
                     <td className="py-2 text-right"><Authority value={g.authority} /></td>
                   </tr>
                 ))}
@@ -317,8 +317,8 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
         </Section>
 
         <Section title="Your strongest links" note="Real sites linking to you, strongest first.">
-          <table className="w-full text-[14px]">
-            <thead><tr className={`${eyebrow} text-left`}><th className="pb-2 font-semibold">Site</th><th className="pb-2 font-semibold">Since</th><th className="pb-2 font-semibold text-right">Authority</th></tr></thead>
+          <table className="w-full max-md:table-fixed text-[14px]">
+            <thead><tr className={`${eyebrow} text-left`}><th className="pb-2 font-semibold">Site</th><th className="pb-2 font-semibold max-md:w-[76px]">Since</th><th className="pb-2 font-semibold text-right max-md:w-[92px]">Authority</th></tr></thead>
             <tbody className="divide-y divide-border/60">
               {report.best.slice(0, 12).map((b) => (
                 <tr key={b.domain}>
