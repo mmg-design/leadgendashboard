@@ -1010,7 +1010,7 @@ export default function ClientDashboard() {
             />
 
             {/* Website Performance */}
-            <div className="space-y-6">
+            <div className="@container space-y-6">
               <div className="flex items-center justify-between px-1">
                 <div>
                   <div className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#0394B2] mb-1.5">Analytics overview</div>
@@ -1026,8 +1026,9 @@ export default function ClientDashboard() {
                 </button>
               </div>
 
-              {/* Stat cards */}
-              <div className="grid gap-5 grid-cols-2 md:grid-cols-4 auto-rows-fr items-stretch">
+              {/* Stat cards: four across only when the column is wide enough for the
+                  numbers (it's squeezed by the sidebar, and by the work summary at xl) */}
+              <div className="grid gap-5 grid-cols-2 @min-[40rem]:grid-cols-4 auto-rows-fr items-stretch">
                 <StatCard
                   title="Sessions"
                   value={ga?.summary.sessions?.toLocaleString() || "-"}
