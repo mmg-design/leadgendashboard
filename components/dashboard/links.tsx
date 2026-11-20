@@ -15,6 +15,9 @@ const eyebrow = "text-[12px] font-semibold uppercase tracking-[0.06em] text-mute
 const btnSecondary = "inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[14px] font-medium text-[#001A2E] hover:bg-muted/50 disabled:opacity-50 transition-colors";
 const axisTick = { fill: "#365f6d", fontSize: 12 };
 const IMPACT_RANK = { high: 0, medium: 1, low: 2 };
+// Fixed table columns: the Authority bar and number need 88px. In an auto
+// layout the Site column grows to fit a long domain and runs into the others.
+const AUTHORITY_COL = "w-[96px]";
 
 interface AgentsData { tasks: StoredTask[]; webflow: { connected: boolean }; clickup: boolean }
 
@@ -58,7 +61,7 @@ function Authority({ value }: { value: number }) {
 
 function Site({ domain }: { domain: string }) {
   return (
-    <a href={`https://${domain}`} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1 truncate font-medium text-[#001A2E] hover:text-[#0394B2]">
+    <a href={`https://${domain}`} target="_blank" rel="noreferrer" title={domain} className="inline-flex min-w-0 max-w-full items-center gap-1 font-medium text-[#001A2E] hover:text-[#0394B2]">
       <span className="truncate">{domain}</span> <ExternalLink size={11} className="shrink-0 opacity-50" />
     </a>
   );
@@ -301,13 +304,14 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
       <div className="grid gap-6 xl:grid-cols-2 items-start">
         <Section title="Links your competitors have" note="Sites linking to rivals but not to you. Two or more rivals on the same site is the warmest lead.">
           {report.gap.length === 0 ? <p className="text-[14px] text-muted-foreground">No gaps found among the closest competitors.</p> : (
-            <table className="w-full text-[14px]">
+            <table className="w-full table-fixed text-[14px]">
+              <colgroup><col /><col className="w-[38%]" /><col className={AUTHORITY_COL} /></colgroup>
               <thead><tr className={`${eyebrow} text-left`}><th className="pb-2 font-semibold">Site</th><th className="pb-2 font-semibold">Links to</th><th className="pb-2 font-semibold text-right">Authority</th></tr></thead>
               <tbody className="divide-y divide-border/60">
                 {report.gap.slice(0, 12).map((g) => (
                   <tr key={g.domain}>
-                    <td className="max-w-[200px] py-2 pr-3"><Site domain={g.domain} /></td>
-                    <td className="py-2 pr-3 text-[13px] text-muted-foreground">{g.competitors.length > 1 ? `${g.competitors.length} rivals` : g.competitors[0]}</td>
+                    <td className="py-2 pr-3"><Site domain={g.domain} /></td>
+                    <td className="truncate py-2 pr-3 text-[13px] text-muted-foreground" title={g.competitors.join(", ")}>{g.competitors.length > 1 ? `${g.competitors.length} rivals` : g.competitors[0]}</td>
                     <td className="py-2 text-right"><Authority value={g.authority} /></td>
                   </tr>
                 ))}
@@ -317,13 +321,14 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
         </Section>
 
         <Section title="Your strongest links" note="Real sites linking to you, strongest first.">
-          <table className="w-full text-[14px]">
+          <table className="w-full table-fixed text-[14px]">
+            <colgroup><col /><col className="w-[100px]" /><col className={AUTHORITY_COL} /></colgroup>
             <thead><tr className={`${eyebrow} text-left`}><th className="pb-2 font-semibold">Site</th><th className="pb-2 font-semibold">Since</th><th className="pb-2 font-semibold text-right">Authority</th></tr></thead>
             <tbody className="divide-y divide-border/60">
               {report.best.slice(0, 12).map((b) => (
                 <tr key={b.domain}>
-                  <td className="max-w-[220px] py-2 pr-3"><Site domain={b.domain} />{b.dofollow === 0 && <span className="ml-1.5 text-[12px] text-muted-foreground">nofollow</span>}</td>
-                  <td className="py-2 pr-3 text-[13px] text-muted-foreground">{b.firstSeen ? new Date(`${b.firstSeen}T12:00:00`).toLocaleDateString([], { month: "short", year: "numeric" }) : "—"}</td>
+                  <td className="py-2 pr-3"><span className="flex min-w-0 items-center gap-1.5"><Site domain={b.domain} />{b.dofollow === 0 && <span className="shrink-0 text-[12px] text-muted-foreground">nofollow</span>}</span></td>
+                  <td className="whitespace-nowrap py-2 pr-3 text-[13px] text-muted-foreground">{b.firstSeen ? new Date(`${b.firstSeen}T12:00:00`).toLocaleDateString([], { month: "short", year: "numeric" }) : "—"}</td>
                   <td className="py-2 text-right"><Authority value={b.authority} /></td>
                 </tr>
               ))}
