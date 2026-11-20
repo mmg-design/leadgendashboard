@@ -41,6 +41,37 @@ function useTooltipAlign() {
   return { ref, alignRight };
 }
 
+const VALUE_SIZE = 36; // px, the size every value uses when it fits
+const MIN_VALUE_SIZE = 16;
+
+// Big numbers (12,345,678 sessions) can be wider than a narrow card. Rather
+// than run into the next card, the value scales down until it fits. Values
+// that already fit keep the full size, so normal cards look the same.
+function useFitValue(value: string | number) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    const text = textRef.current;
+    if (!box || !text) return;
+    const fit = () => {
+      text.style.fontSize = "";
+      const natural = text.getBoundingClientRect().width;
+      const available = box.clientWidth;
+      text.style.fontSize = natural > available
+        ? `${Math.max(MIN_VALUE_SIZE, Math.floor((VALUE_SIZE * available * 10) / natural) / 10)}px`
+        : "";
+    };
+    fit();
+    // Refit when the card resizes, and once web fonts load (they change the text width).
+    const ro = new ResizeObserver(fit);
+    ro.observe(box);
+    document.fonts?.ready.then(fit).catch(() => {});
+    return () => ro.disconnect();
+  }, [value]);
+  return { boxRef, textRef };
+}
+
 const healthColors = {
   good: "border-emerald-400",
   warning: "border-amber-400",
@@ -50,6 +81,7 @@ const healthColors = {
 // the metric, and the icon was crowding the title on narrow cards.
 export function StatCard({ title, value, subtitle, tooltip, health }: StatCardProps) {
   const { ref: tipRef, alignRight } = useTooltipAlign();
+  const { boxRef, textRef } = useFitValue(value);
   return (
     <Card className={`h-full min-w-0 overflow-visible relative hover:z-50 ${health ? `border-[2px] ${healthColors[health]}` : ""}`}>
       <CardContent className="h-full flex flex-col">
@@ -72,8 +104,9 @@ export function StatCard({ title, value, subtitle, tooltip, health }: StatCardPr
             )}
           </div>
         </div>
-        <div className="text-[36px] font-semibold tracking-[-0.02em] leading-none tabular-nums text-[#001A2E]">
-          {value}
+        {/* The div keeps the full-size line height, so a scaled-down value still lines up with its row */}
+        <div ref={boxRef} className="text-[36px] font-semibold tracking-[-0.02em] leading-none tabular-nums text-[#001A2E]">
+          <span ref={textRef} className="inline-block whitespace-nowrap tracking-[-0.02em]">{value}</span>
         </div>
         {subtitle && (
           <p className="text-[13px] text-muted-foreground mt-auto pt-3">
