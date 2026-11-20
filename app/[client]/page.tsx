@@ -23,6 +23,7 @@ import { CustomReportGenerator } from "@/components/dashboard/custom-report-gene
 import { AiVisibilityTab } from "@/components/dashboard/ai-visibility";
 import { AgentsTab } from "@/components/dashboard/agents";
 import { LinksTab } from "@/components/dashboard/links";
+import { KeywordMapTab } from "@/components/dashboard/keyword-map";
 import { ClientFeedback } from "@/components/dashboard/client-feedback";
 import { ClientPortal } from "@/components/dashboard/client-portal";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
@@ -50,6 +51,7 @@ import {
   Bot,
   MessageSquare,
   Presentation,
+  Map as MapIcon,
 } from "lucide-react";
 
 interface GAData {
@@ -189,10 +191,11 @@ export default function ClientDashboard() {
   const clientSlug = params.client as string;
 
   const [range, setRange] = useState("7d");
-  // ?section=portal lands back on the Client Page tab (e.g. after Connect Gmail).
+  // ?section=portal lands back on the Client Page tab (e.g. after Connect Gmail);
+  // ?section=keyword-map opens the Keyword Map.
   const searchParams = useSearchParams();
-  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "ai-visibility" | "links" | "agents" | "report-generator" | "feedback" | "portal">(
-    searchParams.get("section") === "portal" ? "portal" : "overview"
+  const [activeSection, setActiveSection] = useState<"overview" | "attribution" | "ai-visibility" | "keyword-map" | "links" | "agents" | "report-generator" | "feedback" | "portal">(
+    searchParams.get("section") === "portal" ? "portal" : searchParams.get("section") === "keyword-map" ? "keyword-map" : "overview"
   );
   // "Open in Agents" from the Links tab lands on Agents filtered to link tasks.
   const [agentsCategory, setAgentsCategory] = useState<"all" | "links">("all");
@@ -938,6 +941,7 @@ export default function ClientDashboard() {
                 ["overview", "Overview", LayoutDashboard],
                 ["attribution", "Lead Funnel", Route],
                 ["ai-visibility", "AI Visibility", Sparkles],
+                ["keyword-map", "Keyword Map", MapIcon],
                 ["links", "Links", Link2],
                 ["agents", "Agents", Bot],
                 ["report-generator", "Custom Reports", FileChartColumn],
@@ -972,6 +976,8 @@ export default function ClientDashboard() {
               <ClientFeedback clientSlug={clientSlug} clientName={clientName} />
             ) : activeSection === "agents" ? (
               <AgentsTab key={agentsCategory} clientSlug={clientSlug} clientName={clientName} initialCategory={agentsCategory} />
+            ) : activeSection === "keyword-map" ? (
+              <KeywordMapTab clientSlug={clientSlug} clientName={clientName} />
             ) : activeSection === "links" ? (
               <LinksTab clientSlug={clientSlug} clientName={clientName} onOpenAgents={() => { setAgentsCategory("links"); setActiveSection("agents"); }} />
             ) : activeSection === "ai-visibility" ? (
