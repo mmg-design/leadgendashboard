@@ -1,7 +1,7 @@
 // The review layer that runs inside proxied client pages, inlined into each
 // page by the /proxy route (a separate <script src> request from the
 // sandboxed page gets blocked by some browsers). Plain ES5 on purpose.
-export const REVIEW_OVERLAY_JS = String.raw`/* MMG Pulse review layer. Runs inside the proxied client page (sandboxed,
+export const REVIEW_OVERLAY_JS = String.raw`/* MMG Studio review layer. Runs inside the proxied client page (sandboxed,
    opaque origin) and talks to the review page via postMessage. It draws the
    comment pins, highlights elements in Comment mode, reports where a click
    landed (element selector + offset, so the pin survives layout changes),

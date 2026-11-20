@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-// Every AI call in MMG Pulse goes through Claude. runStructured returns JSON
+// Every AI call in MMG Studio goes through Claude. runStructured returns JSON
 // matching `schema`; runText returns plain text for free-form replies.
 
 export type JsonSchema =

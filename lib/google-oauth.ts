@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 import { getDb } from "./db";
 
-// "Connect Gmail": a Google sign-in that lets MMG Pulse save drafts in the
+// "Connect Gmail": a Google sign-in that lets MMG Studio save drafts in the
 // team member's own Gmail (gmail.compose, which can't read the inbox). The
 // monthly update only ever becomes a draft; the one thing sent directly is
 // client feedback notifications (lib/feedback-email.ts).

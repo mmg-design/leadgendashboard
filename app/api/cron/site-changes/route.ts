@@ -5,7 +5,7 @@ import { checkSiteChanges } from "@/lib/site-watch";
 export const maxDuration = 120;
 
 // Daily Vercel cron (vercel.json): checks every client's sitemap and Webflow
-// publish date for changes made outside MMG Pulse. Needs CRON_SECRET, like the
+// publish date for changes made outside MMG Studio. Needs CRON_SECRET, like the
 // Clarity snapshot cron.
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;

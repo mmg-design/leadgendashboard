@@ -305,7 +305,6 @@ export default function ProgressPage() {
       <footer className="bg-white border-t border-[#dde8ec]">
         <div className={`max-w-[1040px] mx-auto px-4 md:px-6 py-5 flex gap-4 justify-between flex-wrap text-[13px] text-[#6b8591] ${guide ? "pb-24" : ""}`}>
           <span>Prepared by your team at MMG Studio · Updated {new Date(report.generatedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
-          <span>Powered by MMG Pulse</span>
         </div>
       </footer>
       {guide && <GuideVideo guide={guide} />}

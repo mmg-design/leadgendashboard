@@ -99,7 +99,7 @@ function NotifySettings({ clientSlug, clientName, notify, onSaved }: { clientSlu
           />
           <p className="mt-1.5 text-[12.5px] text-muted-foreground">
             {notify.botToken
-              ? <>A channel name or ID for {clientName}&apos;s comments, replies and status changes. Invite the MMG Pulse bot to it first. Blank uses the default channel.</>
+              ? <>A channel name or ID for {clientName}&apos;s comments, replies and status changes. Invite the MMG Studio bot to it first. Blank uses the default channel.</>
               : "Per-client channels need SLACK_BOT_TOKEN in Vercel."}
           </p>
           <button onClick={testSlack} disabled={test === "running"} className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-[13px] font-medium hover:bg-muted/50 disabled:opacity-50">

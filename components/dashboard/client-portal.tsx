@@ -332,7 +332,7 @@ interface EmailData {
 
 // The monthly update, for the team only: drafted from the client page's
 // data, edited here, then copied or saved to the team member's own Gmail
-// drafts. Nothing is ever sent from MMG Pulse.
+// drafts. Nothing is ever sent from MMG Studio.
 function MonthlyEmail({ clientSlug, clientName, shared, version, onContactSaved }: {
   clientSlug: string; clientName: string; shared: boolean; version: string; onContactSaved: (s: PortalSettings) => void;
 }) {
@@ -406,7 +406,7 @@ function MonthlyEmail({ clientSlug, clientName, shared, version, onContactSaved 
   }
 
   async function disconnect() {
-    if (!confirm("Disconnect Gmail? MMG Pulse will no longer be able to save drafts until you connect again.")) return;
+    if (!confirm("Disconnect Gmail? MMG Studio will no longer be able to save drafts until you connect again.")) return;
     setBusy("disconnect");
     await fetch("/api/google", { method: "DELETE" });
     await draft();
@@ -423,7 +423,7 @@ function MonthlyEmail({ clientSlug, clientName, shared, version, onContactSaved 
         <span className="text-[12px] font-semibold rounded-full px-2.5 py-0.5 bg-muted text-muted-foreground">Only you see this</span>
       </div>
       <p className="text-[13.5px] text-muted-foreground mb-4">
-        A draft for you to send {clientName} yourself, written from this month&apos;s numbers, wins, and work (hidden items are left out). Edit it here, then copy it or save it to your Gmail drafts. MMG Pulse never sends it.
+        A draft for you to send {clientName} yourself, written from this month&apos;s numbers, wins, and work (hidden items are left out). Edit it here, then copy it or save it to your Gmail drafts. MMG Studio never sends it.
       </p>
 
       {!email ? (
@@ -489,7 +489,7 @@ function MonthlyEmail({ clientSlug, clientName, shared, version, onContactSaved 
               Saving to Gmail drafts turns on once Google sign-in is set up (an OAuth client plus GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET in Vercel). Until then, use Copy email.
             </p>
           ) : (
-            <p className="text-[12.5px] text-muted-foreground">Connect Gmail lets MMG Pulse save drafts to your account and send client feedback notifications from it. It can&apos;t read your inbox.</p>
+            <p className="text-[12.5px] text-muted-foreground">Connect Gmail lets MMG Studio save drafts to your account and send client feedback notifications from it. It can&apos;t read your inbox.</p>
           )}
         </div>
       )}

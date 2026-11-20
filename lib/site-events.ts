@@ -6,10 +6,10 @@ import { getDb } from "./db";
 
 export type EventKind =
   | "agent_task" // an Agents task marked done
-  | "published" // an agent's change published to the live site from MMG Pulse
+  | "published" // an agent's change published to the live site from MMG Studio
   | "page_added"
   | "page_removed"
-  | "site_published" // a Webflow publish made outside MMG Pulse
+  | "site_published" // a Webflow publish made outside MMG Studio
   | "feedback_resolved"
   | "sitemap" // sitemap resubmitted to Google
   | "note" // added by hand

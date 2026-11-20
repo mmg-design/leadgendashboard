@@ -6,7 +6,7 @@ import Image from "next/image";
 import { ArrowRight, BarChart3, Bot, Loader2, ShieldCheck, Sparkles } from "lucide-react";
 
 // What the product does, framed for healthcare teams. Compliance wording stays
-// to what MMG Pulse actually provides (approvals, change history, tracking
+// to what MMG Studio actually provides (approvals, change history, tracking
 // removed from review sessions); no certification claims.
 const POINTS = [
   { Icon: Sparkles, title: "Search & AI visibility", text: "See how Google, ChatGPT, and Perplexity rank and recommend you." },
@@ -53,7 +53,7 @@ export default function LoginPage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,rgba(12,164,195,0.28),transparent_36%),radial-gradient(circle_at_90%_85%,rgba(3,148,178,0.2),transparent_34%),linear-gradient(150deg,#001A2E_0%,#01384C_60%,#072732_100%)]" />
         <div className="relative flex items-center gap-3">
           <Image src="/mmg-icon.png" alt="MMG" width={38} height={38} className="rounded-lg" />
-          <span className="font-headline text-[24px] tracking-tight text-white">MMG Pulse</span>
+          <span className="font-headline text-[24px] tracking-tight text-white">MMG Studio</span>
         </div>
         <div className="relative my-auto py-14 max-w-2xl">
           <div className="text-[13px] font-medium uppercase tracking-[0.14em] text-[#45D7DF] mb-5">Built for healthcare websites</div>
@@ -83,13 +83,13 @@ export default function LoginPage() {
             ))}
           </div>
         </div>
-        <p className="relative text-[13px] text-white/40">© {new Date().getFullYear()} MMG Pulse · Made by MMG Studio</p>
+        <p className="relative text-[13px] text-white/40">© {new Date().getFullYear()} MMG Studio</p>
       </section>
 
       {/* Sign in */}
       <section className="order-first lg:order-none flex items-center justify-center bg-[#F6F8F9] px-6 py-14 lg:rounded-l-[28px]">
         <div className="w-full max-w-[400px]">
-          <h2 className="font-headline text-[34px] tracking-tight text-[#001A2E]">Sign in to MMG Pulse</h2>
+          <h2 className="font-headline text-[34px] tracking-tight text-[#001A2E]">Sign in to MMG Studio</h2>
           <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">Welcome back. Enter your workspace password to continue.</p>
           <form onSubmit={submit} className="mt-8 space-y-4">
             <div>

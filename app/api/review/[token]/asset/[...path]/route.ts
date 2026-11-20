@@ -21,7 +21,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 
   let res: Response;
   try {
-    res = await fetch(url, { headers: { "User-Agent": req.headers.get("user-agent") || "Mozilla/5.0 MMG Pulse review" }, signal: AbortSignal.timeout(15000) });
+    res = await fetch(url, { headers: { "User-Agent": req.headers.get("user-agent") || "Mozilla/5.0 MMG Studio review" }, signal: AbortSignal.timeout(15000) });
   } catch {
     return new NextResponse(null, { status: 502 });
   }

@@ -11,7 +11,7 @@ import { assetPath, rewriteHtmlAssets } from "@/lib/review-assets";
 // the fonts aren't blocked (lib/review-assets.ts).
 //
 // The response carries a CSP sandbox, so the page runs with an opaque origin:
-// its scripts (chat widgets, embeds) can't read MMG Pulse cookies or call its
+// its scripts (chat widgets, embeds) can't read MMG Studio cookies or call its
 // API, even though the URL is on data.mmg.studio.
 
 type Params = { params: Promise<{ token: string; path?: string[] }> };
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   try {
     res = await fetch(target, {
       headers: {
-        "User-Agent": req.headers.get("user-agent") || "Mozilla/5.0 MMG Pulse review",
+        "User-Agent": req.headers.get("user-agent") || "Mozilla/5.0 MMG Studio review",
         Accept: "text/html,application/xhtml+xml,*/*;q=0.8",
         "Accept-Language": req.headers.get("accept-language") || "en-US,en;q=0.9",
       },

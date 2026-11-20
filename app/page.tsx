@@ -20,6 +20,7 @@ import {
   GripVertical,
   Trash2,
   X,
+  ArrowRight,
 } from "lucide-react";
 
 type IntegrationConfig = {
@@ -241,41 +242,64 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#001A2E] text-white relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_5%,rgba(12,164,195,0.24),transparent_34%),radial-gradient(circle_at_92%_30%,rgba(3,148,178,0.18),transparent_30%),linear-gradient(145deg,#001A2E_0%,#01384C_55%,#072732_100%)]" />
-      {/* Site nav */}
-      <nav className="relative z-10 border-b border-white/[0.08]">
-        <div className="max-w-[1320px] mx-auto px-5 md:px-10 h-[72px] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Image src="/mmg-icon.png" alt="MMG" width={34} height={34} className="rounded-lg" />
-            <span className="font-headline text-[22px] tracking-tight text-white">MMG Pulse</span>
+    <div className="min-h-screen bg-[#F3FAFB] text-[#1D475E] relative overflow-hidden">
+      {/* Soft ice wash with blue glows, like the mmg.studio hero */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[900px] bg-[radial-gradient(ellipse_60%_50%_at_20%_45%,rgba(74,162,192,0.16),transparent_70%),radial-gradient(ellipse_50%_45%_at_85%_15%,rgba(74,162,192,0.12),transparent_70%),linear-gradient(180deg,#F7FCFD_0%,#EEF7F9_60%,#F3FAFB_100%)]" />
+
+      {/* Floating nav */}
+      <div className="relative z-10 px-4 md:px-8 pt-5">
+        <nav className="max-w-[1240px] mx-auto h-[68px] px-4 md:px-5 flex items-center justify-between rounded-2xl bg-white border border-[#1D475E]/[0.08] shadow-[0_1px_4px_rgba(29,71,94,0.06),0_8px_24px_rgba(29,71,94,0.06)]">
+          <div className="flex items-center gap-2.5">
+            <Image src="/mmg-icon.png" alt="MMG" width={32} height={32} className="rounded-lg" />
+            <span className="text-[21px] font-semibold tracking-[-0.02em] text-[#131B30]">MMG Studio</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             {openFeedback > 0 && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[13px] text-white/80">
-                <MessageSquare size={13} className="text-[#45D7DF]" /> {openFeedback} open client {openFeedback === 1 ? "update" : "updates"}
+              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[14px] font-medium text-[#3E4F5E]">
+                <MessageSquare size={14} className="text-[#4AA2C0]" /> {openFeedback} open client {openFeedback === 1 ? "update" : "updates"}
               </span>
             )}
             <button
               onClick={() => { setFormOpen(true); setSuccess(false); }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#0CA4C3] px-4 py-2 text-[14px] font-semibold text-white hover:bg-[#0394B2] transition-colors"
+              className="inline-flex items-center gap-1.5 btn-mmg-blue px-4 md:px-5 py-2.5 text-[15px]"
             >
-              <Plus size={15} /> New client
+              <Plus size={16} /> New client
             </button>
           </div>
-        </div>
-      </nav>
+        </nav>
+      </div>
 
-      <div className="relative max-w-[1320px] mx-auto pt-16 md:pt-24 pb-24 px-5 md:px-10">
+      <div className="relative max-w-[1240px] mx-auto pt-16 md:pt-24 pb-24 px-4 md:px-8">
         {/* Hero */}
-        <div className="mb-14 md:mb-20 max-w-3xl">
-          <div className="text-[14px] font-medium uppercase tracking-[0.14em] text-[#45D7DF] mb-5">MMG Studio</div>
-          <h1 className="text-[clamp(2.75rem,6vw,4.75rem)] leading-[1.02] font-headline font-normal tracking-[-0.03em] text-white">
-            Every client&apos;s growth, in one place.
+        <div className="mb-16 md:mb-24 max-w-4xl mx-auto text-center">
+          <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+            <span className="inline-flex items-center gap-2 rounded-lg bg-white border border-[#1D475E]/[0.08] px-3.5 py-2 text-[14px] text-[#3E4F5E] shadow-[0_1px_4px_rgba(29,71,94,0.06)]">
+              <Building2 size={15} className="text-[#4AA2C0]" /> {clients.length} client {clients.length === 1 ? "site" : "sites"}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-lg bg-white border border-[#1D475E]/[0.08] px-3.5 py-2 text-[14px] text-[#3E4F5E] shadow-[0_1px_4px_rgba(29,71,94,0.06)]">
+              <MessageSquare size={15} className="text-[#4AA2C0]" /> {openFeedback} open client {openFeedback === 1 ? "update" : "updates"}
+            </span>
+          </div>
+          <h1 className="text-[clamp(2.75rem,6.5vw,5.25rem)] text-balance leading-[1.04] font-headline font-normal tracking-[-0.03em] text-[#1D475E]">
+            Every number that grows your website, <span className="text-[#2B97B5]">in one view.</span>
           </h1>
-          <p className="mt-6 max-w-2xl text-[18px] md:text-[20px] leading-relaxed text-white/70">
-            Live performance, search and AI visibility, agent tasks, and client feedback for every site MMG builds and grows.
+          <p className="mt-7 mx-auto max-w-2xl text-balance text-[18px] md:text-[20px] leading-relaxed text-[#3E4F5E]">
+            Track search rankings, AI visibility, traffic and leads, then see what to fix next.
           </p>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => { setFormOpen(true); setSuccess(false); }}
+              className="inline-flex items-center gap-2 btn-mmg-blue px-7 py-3.5 text-[16px]"
+            >
+              Add a client <ArrowRight size={17} />
+            </button>
+            <a
+              href="#clients"
+              className="inline-flex items-center btn-mmg-white px-7 py-3.5 text-[16px]"
+            >
+              See all clients
+            </a>
+          </div>
         </div>
 
         {/* Add client (modal) */}
@@ -457,7 +481,7 @@ export default function Home() {
                     <button
                       type="submit"
                       disabled={submitting || !name || !domain}
-                      className="w-full py-2.5 text-[14px] font-semibold rounded-lg bg-[#0CA4C3] text-white hover:bg-[#0394B2] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="btn-mmg-blue w-full py-2.5 text-[14px] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {submitting ? (
                         <>
@@ -479,7 +503,7 @@ export default function Home() {
         )}
 
         {/* Client cards */}
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div id="clients" className="scroll-mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {clients.map((client) => {
             const enabledSources = integrationMeta.filter(
               (integration) => client.integrations[integration.key]?.enabled
@@ -497,7 +521,7 @@ export default function Home() {
                 onClick={() => !isPendingDelete && router.push(`/${client.slug}`)}
                 className={`transition-opacity ${dragSlug === client.slug ? "opacity-40" : ""}`}
               >
-                <Card className="relative group bg-white pt-0 hover:-translate-y-1 hover:shadow-[0_22px_55px_rgba(0,0,0,0.22)] hover:border-[#0CA4C3]/30 transition-all duration-300 cursor-pointer">
+                <Card className="relative group h-full bg-white pt-0 rounded-xl border-[#1D475E]/[0.06] shadow-[0_2px_8px_rgba(29,71,94,0.06),0_8px_24px_rgba(29,71,94,0.08)] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(29,71,94,0.08),0_16px_48px_rgba(29,71,94,0.12)] transition-all duration-300 cursor-pointer">
                   <div
                     className="absolute left-2 top-2 z-10 rounded-md bg-white/90 p-1 text-[#097388]/60 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Drag to reorder"
@@ -539,12 +563,12 @@ export default function Home() {
                   </div>
 
                   {/* Homepage screenshot, refreshed daily on the server */}
-                  <div className="relative aspect-[16/9] overflow-hidden border-b border-border bg-[#001A2E]/[0.04]">
+                  <div className="relative aspect-[16/9] overflow-hidden border-b border-[#1D475E]/[0.08] bg-[#EAF5F7]">
                     <Image
                       src={`/api/clients/preview?slug=${client.slug}`}
                       alt={`${client.domain} homepage`}
                       fill
-                      sizes="(min-width: 768px) 50vw, 100vw"
+                      sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                       unoptimized
                       className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.02]"
                       onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
@@ -552,7 +576,7 @@ export default function Home() {
                   </div>
 
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-3 text-[24px] font-headline font-normal text-[#001A2E]">
+                    <CardTitle className="flex items-center gap-3 text-[24px] font-headline font-normal text-[#1D475E]">
                       {client.iconUrl ? (
                         <span className="relative size-7 overflow-hidden rounded-md shrink-0">
                           <Image
@@ -574,7 +598,7 @@ export default function Home() {
                   </CardHeader>
                   <CardContent className="pb-6">
                     <div className="mb-4 flex items-center justify-between gap-3">
-                      <p className="text-[15px] text-muted-foreground truncate">{client.domain}</p>
+                      <p className="text-[15px] text-[#5F7A8A] truncate">{client.domain}</p>
                       {(feedbackCounts[client.slug] || 0) > 0 && (
                         <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[#E87BA4]/12 px-2.5 py-1 text-[12px] font-semibold text-[#9C2F5A]">
                           <MessageSquare size={12} /> {feedbackCounts[client.slug]} open
@@ -588,9 +612,9 @@ export default function Home() {
                           return (
                             <span
                               key={source.key}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-[#0CA4C3]/20 bg-[#0CA4C3]/10 px-2.5 py-1 text-[11px] font-semibold tracking-[0.08em] text-[#01384C] uppercase"
+                              className="inline-flex items-center gap-1.5 rounded-full bg-[#EAF5F7] px-2.5 py-1 text-[11px] font-semibold tracking-[0.08em] text-[#1D475E] uppercase"
                             >
-                              <Icon size={12} strokeWidth={2} className="text-[#0394B2]" />
+                              <Icon size={12} strokeWidth={2} className="text-[#4AA2C0]" />
                               {source.badge}
                             </span>
                           );
@@ -606,7 +630,7 @@ export default function Home() {
           {clients.length === 0 && (
             <Card className="col-span-full">
               <CardContent className="py-12 text-center text-muted-foreground text-[14px]">
-                No clients configured yet. Use the form above to add your first client.
+                No clients yet. Use New client to add your first one.
               </CardContent>
             </Card>
           )}

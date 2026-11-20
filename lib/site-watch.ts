@@ -5,7 +5,7 @@ import { normalizePath } from "./page-behavior";
 import { siteInfo } from "./webflow";
 import { recordEvent } from "./site-events";
 
-// Daily check for changes made to a client's site outside MMG Pulse: pages
+// Daily check for changes made to a client's site outside MMG Studio: pages
 // added to or dropped from the sitemap, and Webflow publishes. The first run
 // only records a baseline; history starts from there.
 

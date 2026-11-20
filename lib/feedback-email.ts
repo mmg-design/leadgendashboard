@@ -311,7 +311,7 @@ function buildTeamDigest(sections: Section[], origin: string) {
     ${s.items.map((i) => itemHtml(origin, i, false)).join("")}`).join("");
   const title = all.length === 1 ? "New client feedback" : `${all.length} new pieces of client feedback`;
   const intro = sections.length === 1 ? `From ${esc(sections[0].name)} since the last update.` : `From ${sections.length} clients since the last update.`;
-  const html = layout(origin, { title, intro, body, footer: "Sent by MMG Pulse. Reply in the review tool so the client gets an email too." });
+  const html = layout(origin, { title, intro, body, footer: "Sent by MMG Studio. Reply in the review tool so the client gets an email too." });
   const text = [title, ...sections.map((s) => [s.name.toUpperCase(), ...s.items.map((i) => itemText(i, false))].join("\n"))].join("\n\n");
   return { subject, html, text };
 }
@@ -345,7 +345,7 @@ async function sendTeamDigest(rows: OutboxRow[], clients: Map<string, ClientConf
     sections.push({ client, name: client?.name || slug, items, logo });
   }
   const email = buildTeamDigest(sections, new URL(rows[0].link).origin);
-  await sendEmail({ to, ...email, fromName: "MMG Pulse" });
+  await sendEmail({ to, ...email, fromName: "MMG Studio" });
   return 1;
 }
 

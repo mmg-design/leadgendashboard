@@ -163,3 +163,42 @@
     font: inherit;
   }
 }
+
+/* Buttons copied from mmg.studio: solid blue with a layered "glass" shadow,
+   white with a hairline ring. Hover presses in slightly (scale .98); the
+   colour never changes. */
+@layer components {
+  .btn-mmg-blue,
+  .btn-mmg-white {
+    border-radius: 8px;
+    transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+  }
+  .btn-mmg-blue {
+    background-color: #09809a;
+    color: #fff;
+    font-weight: 600;
+    box-shadow:
+      0 0 0 1px #0e91ac,
+      0 -1px 1px 0 rgba(7, 39, 50, 0.67),
+      inset 0 1px 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 4px 12px 0 rgba(255, 255, 255, 0.3),
+      0 2px 3px 0 rgba(10, 112, 133, 0.15),
+      0 3px 5px 0 rgba(10, 112, 133, 0.15),
+      0 4px 10px 0 rgba(10, 112, 133, 0.14),
+      0 8px 12px 0 rgba(27, 121, 140, 0.12);
+  }
+  .btn-mmg-white {
+    background-color: #fff;
+    color: #072732;
+    font-weight: 500;
+    box-shadow:
+      0 0 0 1px rgba(9, 38, 72, 0.08),
+      0 1px 2px 0 rgba(7, 61, 143, 0.08),
+      0 4px 10px 0 rgba(7, 61, 143, 0.08),
+      0 8px 12px 0 rgba(7, 61, 143, 0.04);
+  }
+  .btn-mmg-blue:hover:not(:disabled),
+  .btn-mmg-white:hover {
+    transform: scale(0.98);
+  }
+}

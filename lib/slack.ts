@@ -136,7 +136,7 @@ export async function slackTest(clientName: string, clientChannel?: string | nul
   const info = await call("conversations.info", { channel: channel.replace(/^#/, "") });
   const channelName = info.ok ? `#${(info.channel as { name?: string })?.name}` : channel.startsWith("#") ? channel : null;
   const post = auth.ok
-    ? await call("chat.postMessage", { channel, text: `✅ MMG Pulse test: client feedback for ${clientName} will post here.` })
+    ? await call("chat.postMessage", { channel, text: `✅ MMG Studio test: client feedback for ${clientName} will post here.` })
     : auth;
 
   const hints: Record<string, string> = {

@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
         const publishedAt = new Date().toISOString();
         result.webflow = { ...applied, published: true, publishedAt };
         await updateTask(slug, key, { status: "done", result });
-        await recordEvent(slug, { kind: "published", title: `Published: ${task.title}`, detail: "Applied by an agent and published to the live site from MMG Pulse.", pages: task.path ? [task.path] : [], source: "Agents", ref: `publish:${key}:${publishedAt}`, occurredAt: publishedAt });
+        await recordEvent(slug, { kind: "published", title: `Published: ${task.title}`, detail: "Applied by an agent and published to the live site from MMG Studio.", pages: task.path ? [task.path] : [], source: "Agents", ref: `publish:${key}:${publishedAt}`, occurredAt: publishedAt });
         return NextResponse.json({ ok: true, result });
       }
 
