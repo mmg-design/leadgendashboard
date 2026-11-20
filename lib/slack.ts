@@ -50,6 +50,12 @@ async function post(payload: Record<string, unknown>, channel?: string | null): 
   return null;
 }
 
+// A plain team message to the default channel (SLACK_CHANNEL_ID or the
+// webhook), e.g. the daily data-API budget check.
+export async function postTeamUpdate(text: string) {
+  return post({ text });
+}
+
 const quote = (s: string) => s.split("\n").map((l) => `>${l}`).join("\n").slice(0, 2800);
 
 // The commenter's photo as a small image beside the context line.

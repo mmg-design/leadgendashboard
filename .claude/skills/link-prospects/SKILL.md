@@ -112,7 +112,7 @@ Write a JSON array of objects with exactly these fields:
 `podcast`, `community`, `competitor_gap`.
 
 Run `npx jiti scripts/link-prospects.ts add <slug> <file>`. It skips
-duplicates and dead next-step links, looks up authority in SE Ranking, and
+duplicates and dead next-step links, looks up authority in DataForSEO, and
 syncs the Agents queue. If it skipped some and the client is still short of
 5 not started, research replacements.
 

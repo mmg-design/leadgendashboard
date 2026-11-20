@@ -847,7 +847,7 @@ export function AgentsTab({ clientSlug, clientName, initialCategory = "all" }: {
           <div className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#0394B2] mb-1.5">Agents</div>
           <h2 className="font-headline text-[28px] text-[#001A2E]">Work queue for {clientName}</h2>
           <p className="mt-1 max-w-[720px] text-[15px] text-muted-foreground">
-            Agents scan Search Console, SE Ranking (rankings and backlinks), the AI tracker, Clarity and the live site, then turn what they find into tasks.
+            Agents scan Search Console, SE Ranking rankings, DataForSEO backlinks, the AI tracker, Clarity and the live site, then turn what they find into tasks.
             Run an agent to get a ready-to-ship draft; nothing changes on the site until you apply and publish it.
           </p>
         </div>

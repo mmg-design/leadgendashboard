@@ -7,6 +7,7 @@
 //   npx jiti scripts/link-prospects.ts profile <slug> <file>  save Claude's profile draft (never over a team edit)
 //   npx jiti scripts/link-prospects.ts add <slug> <file>      add researched prospects
 //   npx jiti scripts/link-prospects.ts list <slug>            the ranked list
+//   npx jiti scripts/link-prospects.ts rescore [slug]         re-score saved prospects' authority from DataForSEO (all clients if no slug)
 //
 // Reads keys from .env.local. Variables already set win, so
 // TURSO_DATABASE_URL=file:./data/clarity-test.db points it at a test database.
@@ -15,7 +16,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { getAllClients, getClient } from "../lib/clients";
 import { cachedBacklinkReport } from "../lib/backlinks";
 import {
-  addProspects, BACKLOG_TARGET, EFFORT_LABEL, getProfile, listProspects, saveProfile, STAGE_LABEL, type LinkProfile, type ProspectInput,
+  addProspects, BACKLOG_TARGET, rescoreAuthority, EFFORT_LABEL, getProfile, listProspects, saveProfile, STAGE_LABEL, type LinkProfile, type ProspectInput,
 } from "../lib/link-prospects";
 
 if (existsSync(".env.local")) process.loadEnvFile(".env.local");
@@ -86,6 +87,14 @@ async function main() {
     for (const [i, p] of (await listProspects(config.slug)).entries()) {
       console.log(`${String(i + 1).padStart(2)}. [${STAGE_LABEL[p.stage]}] ${EFFORT_LABEL[p.effort]} · fit ${p.fit} · authority ${p.authority} · ${p.domain} — ${p.nextStepLabel} ${p.nextStepUrl}${p.nextStepStatus && p.nextStepStatus >= 400 ? ` (${p.nextStepStatus})` : p.nextStepStatus === null ? " (didn't load)" : ""}`);
     }
+    return;
+  }
+
+  if (cmd === "rescore") {
+    const slugs = slug ? [(await client(slug)).slug] : (await getAllClients()).map((c) => c.slug);
+    const { checked, changed, changes } = await rescoreAuthority(slugs);
+    for (const c of changes) console.log(`${c.slug} · ${c.domain}: ${c.from} → ${c.to}`);
+    console.log(`Checked ${checked} prospects, updated ${changed}.`);
     return;
   }
 

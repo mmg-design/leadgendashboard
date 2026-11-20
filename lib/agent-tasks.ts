@@ -9,6 +9,7 @@ import { normalizePath, type ClarityPage } from "./page-behavior";
 import { fetchPage, sitemapUrls } from "./page-fetch";
 import { brandTerms, classifyKeyword, type RankedKeyword } from "./keyword-insights";
 import { cachedBacklinkReport, type BacklinkReport } from "./backlinks";
+import { dataForSeoConnected } from "./dataforseo";
 
 // The Agents tab's task list. A scan reads every connected source for one
 // client and turns what it finds into concrete tasks, each with the evidence
@@ -329,7 +330,7 @@ function linkTasks(r: BacklinkReport, name: string): AgentTask[] {
       evidence: [
         `Was on: ${l.urlFrom}`,
         `Linked to: ${l.urlTo}${l.anchor ? ` with the words “${l.anchor}”` : ""}`,
-        `Domain authority ${l.authority}${l.reason ? `, SE Ranking reason: ${l.reason.replace(/_/g, " ")}` : ""}`,
+        `Domain authority ${l.authority}${l.reason ? `, ${l.reason.replace(/_/g, " ")}` : ""}`,
       ],
       impact: impactFrom(l.authority, 80, 40),
       score: l.authority,
@@ -442,7 +443,7 @@ export async function scanClient(slug: string, config: ClientConfig): Promise<{ 
   const tasks: AgentTask[] = [];
   const note = (name: string, ok: boolean, msg?: string) => sources.push({ name, ok, note: msg });
 
-  // Search Console + SE Ranking + AI tracker + Clarity load in parallel.
+  // Search Console + SE Ranking + AI tracker + Clarity + backlinks load in parallel.
   const property = await resolveProperty(config).catch(() => null);
   const siteId = config.integrations.seRanking?.enabled ? config.integrations.seRanking.projectId : "";
   const [gscRes, srRes, aiRes, clarityRes, linksRes] = await Promise.allSettled([
@@ -452,11 +453,11 @@ export async function scanClient(slug: string, config: ClientConfig): Promise<{ 
     config.integrations.clarity?.enabled
       ? ensureClaritySnapshot(slug, config).then((e) => getClaritySummary(slug, config, 30, e))
       : Promise.reject(new Error("Clarity isn't connected")),
-    // The Links tab builds this report weekly (it takes SE Ranking about a
-    // minute); the scan reuses the latest one rather than waiting on it.
-    siteId && process.env.SERANKING_API_KEY
+    // The Links tab builds this report every 14 days from DataForSEO; the scan
+    // reuses the latest one rather than waiting on it.
+    dataForSeoConnected()
       ? cachedBacklinkReport(slug).then((r) => r ?? Promise.reject(new Error("Open the Links tab to pull the first backlink report")))
-      : Promise.reject(new Error("SE Ranking isn't connected")),
+      : Promise.reject(new Error("DataForSEO isn't connected")),
   ]);
 
   const gsc = gscRes.status === "fulfilled" ? gscRes.value : null;

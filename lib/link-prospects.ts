@@ -5,7 +5,7 @@
 // The dashboard only ranks, stages and shows what's stored here.
 
 import { getDb } from "./db";
-import { domainAuthority } from "./backlinks";
+import { domainAuthorities } from "./backlinks";
 import type { AgentTask, Impact, TaskStatus } from "./agent-tasks";
 import { EFFORT_LABEL, KIND_LABEL, PROFILE_FIELDS, STAGE_LABEL, type Effort, type LinkProfile, type ProspectKind, type Stage } from "./link-prospect-labels";
 
@@ -108,7 +108,8 @@ const KINDS = Object.keys(KIND_LABEL) as ProspectKind[];
 // Adds researched prospects. A domain already on the list (in any stage,
 // dismissed included), the client's own domain, and sites that already link
 // to the client are skipped. Each next-step link is checked, and authority
-// comes from SE Ranking (one cheap lookup per new domain).
+// comes from DataForSEO in one bulk lookup for the whole batch (one task
+// covers up to 1,000 domains, so scoring 10 prospects costs the same as 1).
 export async function addProspects(slug: string, clientDomain: string, items: ProspectInput[], alreadyLinking: string[] = []) {
   const db = await getDb();
   const existing = new Set((await listProspects(slug)).map((p) => p.domain));
@@ -117,6 +118,7 @@ export async function addProspects(slug: string, clientDomain: string, items: Pr
   const added: string[] = [];
   const skipped: { domain: string; reason: string }[] = [];
 
+  const valid: { item: ProspectInput; domain: string }[] = [];
   for (const item of items) {
     const domain = rootDomain(item.domain || "");
     const problem =
@@ -130,11 +132,17 @@ export async function addProspects(slug: string, clientDomain: string, items: Pr
       : !item.why?.trim() ? "no reason given"
       : null;
     if (problem) { skipped.push({ domain: domain || item.domain, reason: problem }); continue; }
+    existing.add(domain);
+    valid.push({ item, domain });
+  }
 
-    const [nextStepStatus, authority] = await Promise.all([
-      checkUrl(item.nextStepUrl),
-      domainAuthority(domain).catch(() => 0),
-    ]);
+  const [statuses, scores] = await Promise.all([
+    Promise.all(valid.map(({ item }) => checkUrl(item.nextStepUrl))),
+    valid.length ? domainAuthorities(valid.map((v) => v.domain)).catch(() => new Map<string, number>()) : new Map<string, number>(),
+  ]);
+
+  for (const [i, { item, domain }] of valid.entries()) {
+    const nextStepStatus = statuses[i];
     if (nextStepStatus === 404 || nextStepStatus === 410) { skipped.push({ domain, reason: `next-step link returns ${nextStepStatus}` }); continue; }
 
     const data = {
@@ -151,16 +159,36 @@ export async function addProspects(slug: string, clientDomain: string, items: Pr
       pitchSubject: item.pitchSubject?.trim() || "",
       pitchBody: item.pitchBody?.trim() || "",
       followUp: item.followUp?.trim() || "",
-      authority,
+      authority: scores.get(domain) ?? 0,
       nextStepStatus,
       researchedAt: new Date().toISOString(),
     };
     await db.execute({ sql: "INSERT INTO link_prospects (client_slug, domain, data) VALUES (?, ?, ?)", args: [slug, domain, JSON.stringify(data)] });
-    existing.add(domain);
     added.push(domain);
   }
   await syncProspectTasks(slug);
   return { added, skipped };
+}
+
+// Re-scores every saved prospect's authority from DataForSEO in one bulk
+// lookup, so prospects researched under SE Ranking rank on the same scale as
+// new ones. Stages, notes and dismissed domains are untouched.
+export async function rescoreAuthority(slugs: string[]) {
+  const db = await getDb();
+  const rows = (await db.execute({ sql: "SELECT id, client_slug, domain, data FROM link_prospects", args: [] })).rows
+    .filter((r) => slugs.includes(r.client_slug as string));
+  const scores = await domainAuthorities(rows.map((r) => r.domain as string));
+  const changes: { slug: string; domain: string; from: number; to: number }[] = [];
+  for (const r of rows) {
+    const data = JSON.parse(r.data as string);
+    const to = scores.get(rootDomain(r.domain as string)) ?? 0;
+    if (data.authority === to) continue;
+    changes.push({ slug: r.client_slug as string, domain: r.domain as string, from: data.authority, to });
+    data.authority = to;
+    await db.execute({ sql: "UPDATE link_prospects SET data = ? WHERE id = ?", args: [JSON.stringify(data), r.id] });
+  }
+  for (const slug of new Set(changes.map((c) => c.slug))) await syncProspectTasks(slug);
+  return { checked: rows.length, changed: changes.length, changes };
 }
 
 // ── Link profile ────────────────────────────────────────────────────────────

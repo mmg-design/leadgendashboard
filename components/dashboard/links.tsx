@@ -83,9 +83,18 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
   const [error, setError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [allTasks, setAllTasks] = useState(false);
+  // Refresh costs money, so it asks first and shows what's left to spend.
+  const [confirmRefresh, setConfirmRefresh] = useState(false);
+  const [balance, setBalance] = useState<number | null | undefined>(undefined);
+
+  function askRefresh() {
+    setConfirmRefresh(true);
+    setBalance(undefined);
+    fetch("/api/api-budget").then((r) => r.json()).then((b) => setBalance(b?.dataforseo?.balance ?? null)).catch(() => setBalance(null));
+  }
 
   // The report loads first: the Agents scan reuses it from the cache instead
-  // of asking SE Ranking a second time.
+  // of asking DataForSEO a second time.
   async function load(fresh = false) {
     try {
       const r = await fetch(`/api/backlinks?client=${clientSlug}${fresh ? "&fresh=1" : ""}`).then((res) => res.json());
@@ -94,13 +103,13 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
       setError(null); setRefreshError(null);
       setReport(r);
       setLoading(false);
-      // A week-old report shows at once and refreshes behind it.
+      // A report older than 14 days shows at once and refreshes behind it.
       if (r.stale && !fresh) { setRefreshing(true); return load(true); }
       const a = await fetch(`/api/agents?client=${clientSlug}${fresh ? "&scan=1" : ""}`).then((res) => res.json());
       if (!a.error) setAgents(a);
     } catch {
-      if (fresh) setRefreshError("Couldn't reach SE Ranking. Try again in a minute.");
-      else setError("Couldn't reach SE Ranking. Try again in a minute.");
+      if (fresh) setRefreshError("Couldn't reach DataForSEO. Try again in a minute.");
+      else setError("Couldn't reach DataForSEO. Try again in a minute.");
     } finally {
       setLoading(false);
       if (fresh) setRefreshing(false);
@@ -118,18 +127,18 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
     setAgents((d) => (d ? { ...d, tasks: d.tasks.map((t) => (t.key === updated.key ? updated : t)) } : d));
   }
 
-  // Prospects and the company profile don't depend on SE Ranking, so they show
+  // Prospects and the company profile don't depend on DataForSEO, so they show
   // while the report loads too.
   if (loading) {
     return (
       <div className="space-y-7">
-        <Card><CardContent className="py-10 flex items-center justify-center gap-2 text-[15px] text-muted-foreground"><Loader2 size={17} className="animate-spin" /> Pulling the backlink report from SE Ranking. The first one takes about a minute…</CardContent></Card>
+        <Card><CardContent className="py-10 flex items-center justify-center gap-2 text-[15px] text-muted-foreground"><Loader2 size={17} className="animate-spin" /> Pulling the backlink report from DataForSEO…</CardContent></Card>
         <LinkProspects clientSlug={clientSlug} clientName={clientName} />
       </div>
     );
   }
-  // No report yet (or SE Ranking can't be reached): explain it, and keep the
-  // company profile and link prospects, which don't depend on SE Ranking.
+  // No report yet (or DataForSEO can't be reached): explain it, and keep the
+  // company profile and link prospects, which don't depend on DataForSEO.
   if (error || !report) {
     return (
       <div className="space-y-7">
@@ -141,7 +150,7 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
           <Info size={18} className="mt-0.5 shrink-0 text-[#0394B2]" />
           <div>
             <p className="font-semibold">The backlink report isn&apos;t available yet</p>
-            <p className="mt-0.5 text-[#001A2E]/75">{error || "SE Ranking hasn't returned backlink data for this site yet."} Link prospects below still work.</p>
+            <p className="mt-0.5 text-[#001A2E]/75">{error || "DataForSEO hasn't returned backlink data for this site yet."} Link prospects below still work.</p>
           </div>
         </div>
         <LinkProspects clientSlug={clientSlug} clientName={clientName} />
@@ -150,6 +159,8 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
   }
 
   const t = report.totals;
+  // Reports cached before the switch to DataForSEO carry no source.
+  const sourceName = report.source === "dataforseo" ? "DataForSEO" : "SE Ranking";
   const realRecent = report.recent.filter((r) => !r.junk);
   const gained = realRecent.filter((r) => r.type === "new").length;
   const lost = realRecent.filter((r) => r.type === "lost").length;
@@ -169,12 +180,40 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className={`text-[13px] ${refreshError ? "text-red-600" : "text-muted-foreground"}`} title={refreshError || "SE Ranking charges credits per lookup, so the report refreshes weekly"}>
-            {refreshing ? "Updating from SE Ranking, about a minute…" : refreshError ? `Refresh failed. Showing the report from ${timeAgo(report.fetchedAt)}` : `From SE Ranking, ${timeAgo(report.fetchedAt)}`}
+          <span className={`text-[13px] ${refreshError ? "text-red-600" : "text-muted-foreground"}`} title={refreshError || `${sourceName} charges per lookup, so the report refreshes every 14 days`}>
+            {refreshing ? "Updating from DataForSEO…" : refreshError ? `Refresh failed. Showing the report from ${timeAgo(report.fetchedAt)}` : `From ${sourceName}, ${timeAgo(report.fetchedAt)}`}
           </span>
-          <button className={btnSecondary} disabled={refreshing} onClick={() => { setRefreshing(true); load(true); }}>
-            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Refreshing…" : "Refresh"}
-          </button>
+          <div className="relative">
+            <button className={btnSecondary} disabled={refreshing} onClick={() => (confirmRefresh ? setConfirmRefresh(false) : askRefresh())} aria-expanded={confirmRefresh}>
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Refreshing…" : "Refresh"}
+            </button>
+            {confirmRefresh && (
+              <div role="dialog" aria-label="Refresh costs money" className="absolute right-0 top-full z-30 mt-2 w-[320px] rounded-xl border border-border bg-white p-4 text-left shadow-[0_4px_12px_rgba(0,26,46,0.08),0_16px_48px_rgba(0,26,46,0.12)]">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle size={17} className="mt-0.5 shrink-0 text-[#B7791F]" />
+                  <div>
+                    <p className="text-[14px] font-semibold text-[#001A2E]">This refresh is charged</p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+                      It pulls a new backlink report from DataForSEO, up to about $0.40 each time. Reports already refresh on their own every 14 days.
+                    </p>
+                    <p className="mt-2 text-[13px] text-[#001A2E]">
+                      DataForSEO balance: <span className="font-semibold tabular-nums">{balance === undefined ? "checking…" : balance === null ? "couldn't check" : `$${balance.toFixed(2)}`}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3.5 flex justify-end gap-2">
+                  <button className={btnSecondary} onClick={() => setConfirmRefresh(false)}>Cancel</button>
+                  <button
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#0CA4C3] px-3 py-2 text-[14px] font-semibold text-white hover:bg-[#0394B2] disabled:opacity-50"
+                    disabled={balance !== undefined && balance !== null && balance <= 0}
+                    onClick={() => { setConfirmRefresh(false); setRefreshing(true); load(true); }}
+                  >
+                    <RefreshCw size={14} /> Refresh for ~$0.40
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <button className={btnSecondary} onClick={onOpenAgents}><Bot size={14} /> Open in Agents</button>
         </div>
       </div>
@@ -193,15 +232,15 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
 
       <div className="grid gap-4 grid-cols-2 xl:grid-cols-4">
         <StatCard title="Real linking sites" value={t.realRefdomains.toLocaleString()} subtitle={`of ${t.refdomains.toLocaleString()} in total; ${t.junkRefdomains} look like junk`} tooltip="Different websites linking to the client, after removing automated link farms. One good site counts once however many links it has." />
-        <StatCard title="Domain authority" value={`${t.authority}`} subtitle="SE Ranking's 0-100 score" tooltip="SE Ranking's Domain InLink Rank. It grows as stronger sites link to the domain. Compare it with competitors rather than reading it alone." />
+        <StatCard title="Domain authority" value={`${t.authority}`} subtitle={`${sourceName}'s 0-100 score`} tooltip={`${sourceName}'s domain rank. It grows as stronger sites link to the domain. Compare it with competitors rather than reading it alone.`} />
         <StatCard title="Followed links" value={(t.realFollowed ?? t.dofollowRefdomains).toLocaleString()} subtitle="real sites whose links pass ranking value" tooltip="Real linking sites with at least one followed link. Nofollow links still send visitors but pass little ranking value." />
-        <StatCard title="Last 30 days" value={`+${gained} / −${lost}`} subtitle="real sites gained / lost" tooltip="Referring domains SE Ranking found or lost in the last 30 days, not counting junk." />
+        <StatCard title="Last 30 days" value={`+${gained} / −${lost}`} subtitle="real sites gained / lost" tooltip={`Referring domains ${sourceName} found or lost in the last 30 days, not counting junk.`} />
       </div>
 
       <LinkProspects clientSlug={clientSlug} clientName={clientName} />
 
       <div className="grid gap-6 xl:grid-cols-[1fr_420px] items-start">
-        <Section title="Backlinks over the last year" note="Every link SE Ranking can find, junk included, so a sudden jump is usually a link farm.">
+        <Section title="Backlinks over the last year" note={`Every link ${sourceName} can find, junk included, so a sudden jump is usually a link farm.`}>
           <div className="h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={report.history} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
@@ -231,7 +270,7 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
                 </div>
               </div>
             ))}
-            {report.competitors.length === 0 && <p className="text-[14px] text-muted-foreground">SE Ranking didn&apos;t find organic competitors for this domain yet.</p>}
+            {report.competitors.length === 0 && <p className="text-[14px] text-muted-foreground">{sourceName} didn&apos;t find organic competitors for this domain yet.</p>}
           </div>
         </Section>
       </div>
@@ -244,7 +283,7 @@ export function LinksTab({ clientSlug, clientName, onOpenAgents }: { clientSlug:
         {!agents ? (
           <p className="flex items-center gap-2 text-[14px] text-muted-foreground"><Loader2 size={14} className="animate-spin" /> Loading tasks…</p>
         ) : linkTasks.length === 0 ? (
-          <p className="text-[14px] text-muted-foreground">Nothing to fix. New tasks appear after the weekly refresh.</p>
+          <p className="text-[14px] text-muted-foreground">Nothing to fix. New tasks appear after the next refresh.</p>
         ) : (
           <div className="space-y-4">
             {(allTasks ? linkTasks : linkTasks.slice(0, 6)).map((task) => (

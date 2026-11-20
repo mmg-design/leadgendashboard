@@ -1,20 +1,21 @@
 import type { ClientConfig } from "./clients";
 import { getDb } from "./db";
+import { dfs, dfsDate } from "./dataforseo";
 
 // The backlink report behind the Links tab and the Agents "Links" tasks:
 // who links to the client, what was gained and lost, which links the
 // competitors have that the client doesn't, and pages whose links now land
-// on a 404. Every number comes from SE Ranking's Backlinks API, using the
-// same key as rank tracking. Lookups spend SE Ranking credits, so a report is
-// cached for a week and only refreshed early on request.
+// on a 404. Every number comes from DataForSEO's Backlinks API (competitors
+// from DataForSEO Labs). Lookups are paid per call, so a report is cached for
+// 14 days and only refreshed early on request.
 
-const BASE = "https://api.seranking.com/v1";
-const CACHE_DAYS = 7;
+const CACHE_DAYS = 14;
 const COMPETITORS = 3;
+const SOURCE = "dataforseo";
 
 export interface LinkingDomain {
   domain: string;
-  authority: number; // SE Ranking Domain InLink Rank, 0-100
+  authority: number; // DataForSEO domain rank, 0-100
   backlinks: number;
   dofollow: number;
   firstSeen: string | null;
@@ -23,6 +24,7 @@ export interface LinkingDomain {
 export interface BacklinkReport {
   domain: string;
   fetchedAt: string;
+  source?: "dataforseo" | "seranking"; // reports cached before the switch have none (SE Ranking)
   totals: {
     backlinks: number;
     refdomains: number;
@@ -33,7 +35,7 @@ export interface BacklinkReport {
     authority: number;
     eduGov: number;
   };
-  history: { date: string; backlinks: number }[]; // weekly, last 12 months
+  history: { date: string; backlinks: number }[]; // monthly, last 12 months (weekly in older SE Ranking reports)
   recent: { domain: string; type: "new" | "lost"; date: string; authority: number; junk: boolean }[]; // referring domains, last 30 days
   junkBurst: { count: number; from: string; to: string; sample: string[] } | null;
   best: LinkingDomain[];
@@ -62,48 +64,60 @@ const rootOf = (host: string) => host.toLowerCase().replace(/^www\./, "");
 const hostOf = (url: string) => { try { return rootOf(new URL(url).hostname); } catch { return rootOf(url); } };
 const pathOf = (url: string) => { try { return new URL(url).pathname.replace(/\/+$/, "") || "/"; } catch { return url; } };
 const day = (d: Date) => d.toISOString().slice(0, 10);
+const ymd = (s: string | null | undefined) => (s ? s.slice(0, 10) : null);
 
-// ── SE Ranking ──────────────────────────────────────────────────────────────
+// ── DataForSEO ──────────────────────────────────────────────────────────────
 
-// SE Ranking allows one Data API request per second per key, shared by every
-// report being built, while a single slow lookup can take 20+ seconds. So
-// requests start one per second (slow ones overlap) and a rejected one waits
-// for a later slot.
-const GAP_MS = 1100;
-let nextSlot = 0;
-function slot(): Promise<void> {
-  const now = Date.now();
-  const at = Math.max(now, nextSlot);
-  nextSlot = at + GAP_MS;
-  return new Promise((r) => setTimeout(r, at - now));
+// Authority everywhere is DataForSEO's domain rank on its 0-100 scale, so the
+// thresholds below (gap sites at 50+, prospects at 30+) keep their meaning.
+const SCALE = { rank_scale: "one_hundred" } as const;
+
+type Items<T> = { items?: T[] | null; total_count?: number };
+
+interface RefdomainItem {
+  domain: string;
+  rank: number;
+  backlinks: number;
+  first_seen?: string | null;
+  lost_date?: string | null;
+  referring_pages?: number;
+  referring_pages_nofollow?: number;
+  referring_links_attributes?: Record<string, number> | null;
 }
 
-async function sr<T>(path: string, params: Record<string, string>): Promise<T> {
-  const key = process.env.SERANKING_API_KEY;
-  if (!key) throw new Error("SE Ranking isn't connected");
-  const url = `${BASE}${path}?${new URLSearchParams(params)}`;
-  for (let attempt = 0; ; attempt++) {
-    await slot();
-    const res = await fetch(url, { headers: { Authorization: `Token ${key}` }, cache: "no-store", signal: AbortSignal.timeout(45_000) });
-    if ((res.status === 429 || res.status >= 500) && attempt < 3) continue;
-    if (!res.ok) throw new Error(`SE Ranking ${res.status}: ${(await res.text().catch(() => "")).slice(0, 160)}`);
-    return res.json() as Promise<T>;
-  }
+interface RefdomainRow { refdomain: string; backlinks: number; dofollow_backlinks: number; domain_inlink_rank: number; first_seen?: string }
+
+// Followed links from one referring domain. DataForSEO counts nofollow links
+// per domain; older responses only give pages, so fall back to those.
+function dofollowOf(r: RefdomainItem) {
+  const nofollow = r.referring_links_attributes?.nofollow;
+  if (nofollow != null) return Math.max(0, (r.backlinks || 0) - nofollow);
+  return Math.max(0, (r.referring_pages || 0) - (r.referring_pages_nofollow || 0));
 }
 
-// One domain's SE Ranking authority, for scoring a link prospect.
-export const domainAuthority = (domain: string) =>
-  sr<{ pages: { domain_inlink_rank: number }[] }>("/backlinks/authority", { target: rootOf(domain) }).then((r) => r.pages?.[0]?.domain_inlink_rank ?? 0);
-
-type RefdomainRow = { refdomain: string; backlinks: number; dofollow_backlinks: number; domain_inlink_rank: number; first_seen?: string };
-type SummaryRow = {
-  backlinks: number; refdomains: number; dofollow_refdomains: number; domain_inlink_rank: number; edu_refdomains: number; gov_refdomains: number;
-  top_anchors_by_refdomains?: { anchor: string; refdomains: number }[];
-  top_pages_by_refdomains?: { url: string; refdomains: number }[];
-};
+const toRow = (r: RefdomainItem): RefdomainRow => ({
+  refdomain: r.domain,
+  backlinks: r.backlinks || 0,
+  dofollow_backlinks: dofollowOf(r),
+  domain_inlink_rank: Math.round(r.rank || 0),
+  first_seen: ymd(r.first_seen) || undefined,
+});
 
 const refdomains = (target: string, limit: number) =>
-  sr<{ refdomains: RefdomainRow[] }>("/backlinks/refdomains", { target, mode: "domain", limit: String(limit), order_by: "domain_inlink_rank" }).then((r) => r.refdomains || []);
+  dfs<Items<RefdomainItem>>("/backlinks/referring_domains/live", { target, limit, order_by: ["rank,desc"], ...SCALE })
+    .then((r) => (r?.items || []).map(toRow));
+
+// Domain ranks for up to 1,000 domains in one call; missing domains score 0.
+export async function domainAuthorities(domains: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const roots = [...new Set(domains.map(rootOf))];
+  for (let i = 0; i < roots.length; i += 1000) {
+    const batch = roots.slice(i, i + 1000);
+    const res = await dfs<Items<{ target: string; rank: number }>>("/backlinks/bulk_ranks/live", { targets: batch, ...SCALE });
+    for (const it of res?.items || []) out.set(rootOf(it.target), Math.round(it.rank || 0));
+  }
+  return out;
+}
 
 // Checks whether pages that earned links still load, so links pointing at a
 // removed page can be recovered with a redirect.
@@ -124,38 +138,60 @@ export async function buildBacklinkReport(config: ClientConfig): Promise<Backlin
   const d365 = day(new Date(now.getTime() - 364 * 86_400_000));
   const today = day(now);
 
-  const competitorDomains = await sr<{ domain: string }[]>("/domain/competitors", { source: "us", domain: target, type: "organic" })
-    .then((rows) => (Array.isArray(rows) ? rows : []).map((r) => rootOf(r.domain)).filter((d) => d !== target).slice(0, COMPETITORS))
+  const competitorDomains = await dfs<Items<{ domain: string }>>("/dataforseo_labs/google/competitors_domain/live", {
+    target, location_code: 2840, language_code: "en", exclude_top_domains: true, limit: 10,
+  })
+    .then((r) => (r?.items || []).map((it) => rootOf(it.domain)).filter((d) => d !== target && !isJunkDomain(d)).slice(0, COMPETITORS))
     .catch(() => [] as string[]);
 
   // Everything is requested together and awaited together, so one failure
   // can't leave the others running unobserved.
-  const [summaryRes, mine, cumulative, recentRd, lostLinks, rivalData] = await Promise.all([
-    sr<{ summary: SummaryRow[] }>("/backlinks/summary", { target, mode: "domain" }),
-    refdomains(target, 500),
-    sr<{ backlinks_count: { date: string; backlinks: number }[] }>("/backlinks/history/cumulative", { target, mode: "domain", date_from: d365, date_to: today }),
-    sr<{ new_lost_refdomains: { new_lost_date: string; new_lost_type: "new" | "lost"; refdomain: string; domain_inlink_rank: number }[] }>(
-      "/backlinks/refdomains/history", { target, mode: "domain", date_from: d30, date_to: today, limit: "500" }),
-    sr<{ new_lost_backlinks: { new_lost_date: string; url_from: string; url_to: string; anchor: string | null; title: string | null; reason_lost?: string; domain_inlink_rank: number }[] }>(
-      "/backlinks/history", { target, mode: "domain", date_from: d180, date_to: today, new_lost_type: "lost", limit: "200" }),
+  const [summary, mine, historyRes, recentRd, lostLinks, anchorsRes, pagesRes, rivalRanks, rivalCounts, rivalRows] = await Promise.all([
+    dfs<{
+      backlinks: number; referring_domains: number; referring_domains_nofollow: number; rank: number;
+    }>("/backlinks/summary/live", { target, include_subdomains: true, ...SCALE }),
+    refdomains(target, 1000),
+    dfs<Items<{ date: string; backlinks: number }>>("/backlinks/history/live", { target, date_from: d365, date_to: today }),
+    // Referring domains first seen or lost in the last 30 days. Two lookups:
+    // an "or" across first_seen and lost_date returns nothing.
+    Promise.all([
+      dfs<Items<RefdomainItem>>("/backlinks/referring_domains/live", {
+        target, backlinks_status_type: "live", limit: 500, order_by: ["rank,desc"], ...SCALE,
+        filters: ["first_seen", ">=", dfsDate(d30)],
+      }),
+      dfs<Items<RefdomainItem>>("/backlinks/referring_domains/live", {
+        target, backlinks_status_type: "lost", limit: 500, order_by: ["rank,desc"], ...SCALE,
+        filters: ["lost_date", ">=", dfsDate(d30)],
+      }),
+    ]).then(([gained, lost]) => [...(gained?.items || []), ...(lost?.items || [])]),
+    dfs<Items<{
+      domain_from: string; url_from: string; url_to: string; anchor: string | null; page_from_title: string | null;
+      last_seen: string | null; domain_from_rank: number; url_to_status_code?: number | null;
+    }>>("/backlinks/backlinks/live", {
+      target, mode: "as_is", backlinks_status_type: "lost", limit: 300, order_by: ["domain_from_rank,desc"], ...SCALE,
+      // Backlinks carry no lost date; a lost link's last_seen is when it went.
+      filters: ["last_seen", ">=", dfsDate(d180)],
+    }),
+    dfs<Items<{ anchor: string; referring_domains: number }>>("/backlinks/anchors/live", { target, limit: 10, order_by: ["referring_domains,desc"] }),
+    dfs<Items<{ url: string; referring_domains: number }>>("/backlinks/domain_pages_summary/live", { target, limit: 30, order_by: ["referring_domains,desc"] }),
     // Competitors are best-effort: a failed lookup leaves that rival out.
-    Promise.all(competitorDomains.map(async (c) => {
-      const [metrics, authority, rows] = await Promise.all([
-        sr<{ metrics: { refdomains: number }[] }>("/backlinks/metrics", { target: c, mode: "domain" }).then((r) => r.metrics?.[0] ?? null).catch(() => null),
-        sr<{ pages: { domain_inlink_rank: number }[] }>("/backlinks/authority", { target: c }).then((r) => r.pages?.[0]?.domain_inlink_rank ?? 0).catch(() => 0),
-        refdomains(c, 150).catch(() => [] as RefdomainRow[]),
-      ]);
-      return { domain: c, metrics, authority, rows };
-    })),
+    competitorDomains.length ? domainAuthorities(competitorDomains).catch(() => new Map<string, number>()) : new Map<string, number>(),
+    competitorDomains.length
+      ? dfs<Items<{ target: string; referring_domains: number }>>("/backlinks/bulk_referring_domains/live", { targets: competitorDomains })
+        .then((r) => new Map((r?.items || []).map((it) => [rootOf(it.target), it.referring_domains] as const)))
+        .catch(() => new Map<string, number>())
+      : new Map<string, number>(),
+    Promise.all(competitorDomains.map((c) => refdomains(c, 300).catch(() => [] as RefdomainRow[]))),
   ]);
-  const summary = summaryRes.summary?.[0];
-  if (!summary) throw new Error("SE Ranking has no backlink data for this domain yet");
+  if (!summary || (!summary.referring_domains && !mine.length)) throw new Error("DataForSEO has no backlink data for this domain yet");
 
   const competitors: BacklinkReport["competitors"] = [];
   const theirs = new Map<string, { authority: number; from: Set<string> }>();
-  for (const { domain: c, metrics, authority, rows } of rivalData) {
-    if (!metrics && !rows.length) continue;
-    competitors.push({ domain: c, refdomains: metrics?.refdomains ?? rows.length, authority });
+  competitorDomains.forEach((c, i) => {
+    const rows = rivalRows[i];
+    const count = rivalCounts.get(c);
+    if (count == null && !rows.length) return;
+    competitors.push({ domain: c, refdomains: count ?? rows.length, authority: rivalRanks.get(c) ?? 0 });
     for (const r of rows) {
       const root = rootOf(r.refdomain);
       if (isJunkDomain(root) || root === target) continue;
@@ -163,7 +199,7 @@ export async function buildBacklinkReport(config: ClientConfig): Promise<Backlin
       entry.from.add(c);
       theirs.set(root, entry);
     }
-  }
+  });
 
   const mineRoots = new Set(mine.map((r) => rootOf(r.refdomain)));
   const real = mine.filter((r) => !isJunkDomain(rootOf(r.refdomain)));
@@ -175,9 +211,12 @@ export async function buildBacklinkReport(config: ClientConfig): Promise<Backlin
     .sort((a, b) => b.competitors.length - a.competitors.length || b.authority - a.authority)
     .slice(0, 25);
 
-  const recent = (recentRd.new_lost_refdomains || []).map((r) => ({
-    domain: rootOf(r.refdomain), type: r.new_lost_type, date: r.new_lost_date, authority: r.domain_inlink_rank, junk: isJunkDomain(rootOf(r.refdomain)),
-  }));
+  const recent: BacklinkReport["recent"] = recentRd.map((r) => {
+    const lostOn = ymd(r.lost_date);
+    const isLost = !!lostOn && lostOn >= d30;
+    const domain = rootOf(r.domain);
+    return { domain, type: isLost ? "lost" : "new", date: (isLost ? lostOn : ymd(r.first_seen)) || today, authority: Math.round(r.rank || 0), junk: isJunkDomain(domain) };
+  });
   const junkNew = recent.filter((r) => r.type === "new" && r.junk);
   const junkBurst = junkNew.length >= 20
     ? { count: junkNew.length, from: junkNew.map((r) => r.date).sort()[0], to: junkNew.map((r) => r.date).sort().at(-1)!, sample: junkNew.slice(0, 4).map((r) => r.domain) }
@@ -185,49 +224,61 @@ export async function buildBacklinkReport(config: ClientConfig): Promise<Backlin
 
   // Lost links worth asking back for: real sites, not link farms, one per domain.
   const lostByDomain = new Map<string, BacklinkReport["lost"][number]>();
-  for (const l of lostLinks.new_lost_backlinks || []) {
-    const domain = hostOf(l.url_from);
+  for (const l of lostLinks?.items || []) {
+    const domain = hostOf(l.url_from) || rootOf(l.domain_from);
     if (isJunkDomain(domain) || JUNK_URL.test(l.url_from) || isJunkAnchor(l.anchor || "")) continue;
     // The site still links from another page, so nothing was really lost.
     if (real.some((r) => rootOf(r.refdomain) === domain && r.dofollow_backlinks > 0)) continue;
     if (!lostByDomain.has(domain)) {
-      lostByDomain.set(domain, { domain, urlFrom: l.url_from, urlTo: l.url_to, anchor: l.anchor || "", title: l.title || "", date: l.new_lost_date, reason: l.reason_lost || "", authority: l.domain_inlink_rank });
+      const code = l.url_to_status_code;
+      lostByDomain.set(domain, {
+        domain, urlFrom: l.url_from, urlTo: l.url_to, anchor: l.anchor || "", title: l.page_from_title || "",
+        date: ymd(l.last_seen) || today,
+        reason: code && code >= 400 ? `the linked page returned ${code}` : "",
+        authority: Math.round(l.domain_from_rank || 0),
+      });
     }
   }
 
   // http, https and www versions of one page are listed separately; keep the
   // biggest per path (the same sites mostly link to several versions).
   const byPath = new Map<string, { url: string; refdomains: number }>();
-  for (const p of summary.top_pages_by_refdomains || []) {
+  for (const p of pagesRes?.items || []) {
+    if (!p.url) continue;
     const prev = byPath.get(pathOf(p.url));
-    if (!prev || p.refdomains > prev.refdomains) byPath.set(pathOf(p.url), p);
+    if (!prev || p.referring_domains > prev.refdomains) byPath.set(pathOf(p.url), { url: p.url, refdomains: p.referring_domains });
   }
-  const topPages = [...byPath.values()].slice(0, 10);
+  const topPages = [...byPath.values()].sort((a, b) => b.refdomains - a.refdomains).slice(0, 10);
   const statuses = await Promise.all(topPages.map((p) => statusOf(p.url)));
 
-  // Weekly points keep the chart readable over a year.
-  // SE Ranking lists history newest first.
-  const daily = [...(cumulative.backlinks_count || [])].sort((a, b) => a.date.localeCompare(b.date));
-  const history = daily.filter((_, i) => (daily.length - 1 - i) % 7 === 0);
+  // DataForSEO keeps one point per month.
+  const history = (historyRes?.items || [])
+    .map((h) => ({ date: ymd(h.date)!, backlinks: h.backlinks || 0 }))
+    .filter((h) => h.date)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const dofollowRefdomains = Math.max(0, (summary.referring_domains || 0) - (summary.referring_domains_nofollow || 0));
+  const eduGov = [...mineRoots].filter((d) => /\.(edu|gov)(\.[a-z]{2})?$/.test(d)).length;
 
   return {
     domain: target,
     fetchedAt: now.toISOString(),
+    source: SOURCE,
     totals: {
-      backlinks: summary.backlinks,
-      refdomains: summary.refdomains,
-      dofollowRefdomains: summary.dofollow_refdomains,
+      backlinks: summary.backlinks || 0,
+      refdomains: summary.referring_domains || mine.length,
+      dofollowRefdomains,
       realFollowed: real.filter((r) => r.dofollow_backlinks > 0).length,
-      realRefdomains: Math.max(0, summary.refdomains - (mine.length - real.length)),
+      realRefdomains: Math.max(0, (summary.referring_domains || mine.length) - (mine.length - real.length)),
       junkRefdomains: mine.length - real.length,
-      authority: summary.domain_inlink_rank,
-      eduGov: (summary.edu_refdomains || 0) + (summary.gov_refdomains || 0),
+      authority: Math.round(summary.rank || 0),
+      eduGov,
     },
     history,
     recent,
     junkBurst,
     best: real.slice(0, 15).map((r) => ({ domain: rootOf(r.refdomain), authority: r.domain_inlink_rank, backlinks: r.backlinks, dofollow: r.dofollow_backlinks, firstSeen: r.first_seen || null })),
-    anchors: (summary.top_anchors_by_refdomains || []).slice(0, 10).map((a) => ({ anchor: a.anchor, refdomains: a.refdomains, junk: isJunkAnchor(a.anchor) })),
+    anchors: (anchorsRes?.items || []).slice(0, 10).map((a) => ({ anchor: a.anchor, refdomains: a.referring_domains, junk: isJunkAnchor(a.anchor || "") })),
     pages: topPages.map((p, i) => ({ url: p.url, path: pathOf(p.url), refdomains: p.refdomains, status: statuses[i] })),
     competitors,
     gap,
@@ -247,13 +298,25 @@ export async function cachedBacklinkReport(slug: string): Promise<BacklinkReport
   return res.rows[0] ? (JSON.parse(res.rows[0].data as string) as BacklinkReport) : null;
 }
 
-export const reportIsStale = (r: BacklinkReport | null) => !r || Date.now() - new Date(r.fetchedAt).getTime() > CACHE_DAYS * 86_400_000;
+// A report cached from SE Ranking counts as stale, so each client moves to
+// DataForSEO the next time its Links tab opens.
+export const reportIsStale = (r: BacklinkReport | null) =>
+  !r || r.source !== SOURCE || Date.now() - new Date(r.fetchedAt).getTime() > CACHE_DAYS * 86_400_000;
 
 export async function getBacklinkReport(slug: string, config: ClientConfig, fresh = false): Promise<BacklinkReport> {
   const cached = await cachedBacklinkReport(slug);
   if (cached && !fresh && !reportIsStale(cached)) return cached;
   const report = await buildBacklinkReport(config);
   const db = await getDb();
+  // Keep each client's last SE Ranking report as a before/after record. The
+  // first copy wins, so later refreshes never overwrite it.
+  if (cached && cached.source !== SOURCE) {
+    await db.execute({
+      sql: `INSERT OR IGNORE INTO analytics_cache (client_slug, metric_type, date_range, data, fetched_at)
+            VALUES (?, 'backlinks_seranking', 'all', ?, ?)`,
+      args: [slug, JSON.stringify({ ...cached, source: "seranking" }), cached.fetchedAt],
+    });
+  }
   await db.execute({
     sql: `INSERT OR REPLACE INTO analytics_cache (client_slug, metric_type, date_range, data, fetched_at)
           VALUES (?, 'backlinks', 'all', ?, datetime('now'))`,
