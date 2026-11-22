@@ -54,7 +54,7 @@ function TermRow({ term, targetPath }: { term: MapTerm; targetPath: string }) {
       </span>
       <span className="flex min-w-0 items-center gap-1.5 text-[14.5px] text-[#001A2E]">
         {term.primary && <Star size={13} className="shrink-0 fill-[#F5B70A] text-[#F5B70A]" aria-label="Primary term" />}
-        <span className={term.primary ? "font-semibold" : ""}>{term.keyword}</span>
+        <span className={`min-w-0 [overflow-wrap:anywhere] ${term.primary ? "font-semibold" : ""}`}>{term.keyword}</span>
       </span>
       <span className={`rounded px-1.5 py-px text-[11px] font-semibold tracking-wide ${PRIORITY_STYLE[term.priority]}`}>{term.priority}</span>
       {term.delta != null && term.delta !== 0 && (
@@ -68,8 +68,8 @@ function TermRow({ term, targetPath }: { term: MapTerm; targetPath: string }) {
         const Icon = meta.icon;
         const note = f === "wrong_page" ? `${term.rankingPath} ranks instead of ${targetPath}` : f === "other_site" ? "Another website ranks instead" : meta.label;
         return (
-          <span key={f} className={`inline-flex min-w-0 items-center gap-1 text-[12.5px] font-medium max-md:[overflow-wrap:anywhere] ${meta.tone}`}>
-            <Icon size={12} className="max-md:shrink-0" /> {note}
+          <span key={f} className={`inline-flex min-w-0 items-center gap-1 text-[12.5px] font-medium ${meta.tone}`}>
+            <Icon size={12} className="shrink-0" /> <span className="min-w-0 [overflow-wrap:anywhere]">{note}</span>
           </span>
         );
       })}
@@ -86,11 +86,11 @@ function PageCard({ node }: { node: MapNode }) {
           {page.planned && <CircleDashed size={15} className="shrink-0 text-[#0394B2]" />}
           <span className="max-md:shrink-0 max-md:max-w-full text-[15px] font-semibold text-[#001A2E]">{page.label}</span>
           {page.url ? (
-            <a href={page.url} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1 truncate text-[13px] text-muted-foreground hover:text-[#0394B2]">
-              <span className="max-md:truncate">{page.path}</span> <ExternalLink size={11} className="max-md:shrink-0" />
+            <a href={page.url} target="_blank" rel="noreferrer" title={page.path} className="inline-flex min-w-0 items-center gap-1 text-[13px] text-muted-foreground hover:text-[#0394B2]">
+              <span className="truncate">{page.path}</span> <ExternalLink size={11} className="shrink-0" />
             </a>
           ) : (
-            <span className="rounded bg-[#0CA4C3]/10 px-1.5 py-px text-[11.5px] font-medium text-[#01384C]">{page.plannedNote}</span>
+            <span className="shrink-0 rounded bg-[#0CA4C3]/10 px-1.5 py-px text-[11.5px] font-medium text-[#01384C]">{page.plannedNote}</span>
           )}
         </div>
         {page.impressions > 0 && (
@@ -106,7 +106,7 @@ function PageCard({ node }: { node: MapNode }) {
         <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[12.5px] text-muted-foreground">
           <span className="font-medium">Also ranks for:</span>
           {page.alsoRanks.map((q) => (
-            <span key={q.query} className="rounded-full bg-muted/70 px-2 py-0.5" title={`${q.impressions} impressions, ${q.clicks} clicks, average position ${q.position.toFixed(1)} (30d)`}>
+            <span key={q.query} className="min-w-0 rounded-full bg-muted/70 px-2 py-0.5 [overflow-wrap:anywhere]" title={`${q.impressions} impressions, ${q.clicks} clicks, average position ${q.position.toFixed(1)} (30d)`}>
               {q.query} <span className="tabular-nums opacity-70">~#{Math.round(q.position)}</span>
             </span>
           ))}
@@ -138,8 +138,8 @@ function TreeNode({ node, depth }: { node: MapNode; depth: number }) {
           {showCard ? (
             <PageCard node={node} />
           ) : (
-            <div className="flex max-md:min-w-0 items-center gap-2 py-2 text-[14px] font-semibold text-[#001A2E]">
-              {node.label} <span className="max-md:min-w-0 max-md:truncate font-normal text-muted-foreground">{node.path}</span>
+            <div className="flex min-w-0 items-center gap-2 py-2 text-[14px] font-semibold text-[#001A2E]">
+              <span>{node.label}</span> <span className="min-w-0 truncate font-normal text-muted-foreground" title={node.path}>{node.path}</span>
             </div>
           )}
         </div>
@@ -167,9 +167,9 @@ function FlagItem({ flag }: { flag: MapFlag }) {
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
           {flag.priority && <span className={`rounded px-1.5 py-px text-[11px] font-semibold ${PRIORITY_STYLE[flag.priority]}`}>{flag.priority}</span>}
-          <span className="text-[14px] font-semibold leading-snug text-[#001A2E]">{flag.title}</span>
+          <span className="min-w-0 text-[14px] font-semibold leading-snug text-[#001A2E] [overflow-wrap:anywhere]">{flag.title}</span>
         </div>
-        <p className="mt-0.5 text-[13px] leading-relaxed text-muted-foreground max-md:[overflow-wrap:anywhere]">{flag.detail}</p>
+        <p className="mt-0.5 text-[13px] leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{flag.detail}</p>
       </div>
     </li>
   );
@@ -275,7 +275,7 @@ export function KeywordMapTab({ clientSlug, clientName }: { clientSlug: string; 
         <span className="inline-flex items-center gap-1.5"><CircleDashed size={12} className="text-[#0394B2]" /> planned page</span>
       </div>
 
-      <div className="grid max-md:grid-cols-1 items-start gap-6 xl:grid-cols-[1fr_400px]">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <Card className="overflow-visible">
           <CardContent>
             <TreeNode node={map.tree} depth={0} />
