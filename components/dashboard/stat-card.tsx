@@ -19,7 +19,8 @@ const EDGE_GAP = 8;
 // The tooltip opens to the right of its icon. On a card near the window's right
 // edge that would run past the window, and since a hidden (`invisible`) tooltip
 // still takes up layout, it would add a horizontal scrollbar even at rest. So it
-// opens to the left instead when the right side doesn't fit.
+// opens to the left instead when the right side doesn't fit. Below md it
+// anchors to the card instead, since on a 320px phone neither side fits.
 function useTooltipAlign() {
   const ref = useRef<HTMLDivElement>(null);
   const [alignRight, setAlignRight] = useState(false);
@@ -60,19 +61,19 @@ export function StatCard({ title, value, subtitle, tooltip, health }: StatCardPr
               {title}
             </span>
             {tooltip && (
-              <div ref={tipRef} className="relative group/tip">
+              <div ref={tipRef} className="relative max-md:static group/tip">
                 <span className="p-0.5 rounded-md hover:bg-[#001A2E]/[0.06] transition-colors cursor-help inline-flex">
                   <Info size={12} className="text-[#097388]/55 group-hover/tip:text-[#001A2E]/70 transition-colors" />
                 </span>
-                <div className={`absolute top-full ${alignRight ? "right-0" : "left-0"} mt-2 w-56 px-3 py-2.5 rounded-lg bg-[#001A2E] text-white text-[13px] leading-relaxed shadow-lg opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all duration-200 z-50 pointer-events-none`}>
+                <div className={`absolute top-full ${alignRight ? "right-0" : "left-0"} max-md:inset-x-3 max-md:w-auto mt-2 w-56 px-3 py-2.5 rounded-lg bg-[#001A2E] text-white text-[13px] leading-relaxed shadow-lg opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all duration-200 z-50 pointer-events-none`}>
                   {tooltip}
-                  <div className={`absolute bottom-full ${alignRight ? "right-1" : "left-4"} w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#001A2E]`} />
+                  <div className={`max-md:hidden absolute bottom-full ${alignRight ? "right-1" : "left-4"} w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#001A2E]`} />
                 </div>
               </div>
             )}
           </div>
         </div>
-        <div className="text-[36px] font-semibold tracking-[-0.02em] leading-none tabular-nums text-[#001A2E]">
+        <div className="text-[28px] md:text-[36px] font-semibold tracking-[-0.02em] leading-none tabular-nums text-[#001A2E]">
           {value}
         </div>
         {subtitle && (

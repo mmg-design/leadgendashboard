@@ -82,9 +82,9 @@ function PageCard({ node }: { node: MapNode }) {
   return (
     <div className={`rounded-xl border bg-white px-4 py-3 ${page.planned ? "border-dashed border-[#0CA4C3]/50 bg-[#F2FAFB]" : "border-border shadow-[0_1px_2px_rgba(0,26,46,0.04)]"}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 max-md:flex-wrap items-center gap-x-2 gap-y-0.5">
           {page.planned && <CircleDashed size={15} className="shrink-0 text-[#0394B2]" />}
-          <span className="text-[15px] font-semibold text-[#001A2E]">{page.label}</span>
+          <span className="max-md:shrink-0 max-md:max-w-full text-[15px] font-semibold text-[#001A2E]">{page.label}</span>
           {page.url ? (
             <a href={page.url} target="_blank" rel="noreferrer" title={page.path} className="inline-flex min-w-0 items-center gap-1 text-[13px] text-muted-foreground hover:text-[#0394B2]">
               <span className="truncate">{page.path}</span> <ExternalLink size={11} className="shrink-0" />
@@ -145,7 +145,7 @@ function TreeNode({ node, depth }: { node: MapNode; depth: number }) {
         </div>
       </div>
       {open && (hasChildren || node.hiddenCount > 0) && (
-        <div className="ml-[11px] mt-2 space-y-2 border-l border-border pl-4">
+        <div className="ml-[11px] mt-2 space-y-2 border-l border-border max-md:pl-2 pl-4">
           {node.children.map((c) => <TreeNode key={c.path} node={c} depth={depth + 1} />)}
           {node.hiddenCount > 0 && (
             <p className="py-1 text-[12.5px] text-muted-foreground">
@@ -232,14 +232,14 @@ export function KeywordMapTab({ clientSlug, clientName }: { clientSlug: string; 
   return (
     <div className="space-y-7">
       <div className="flex flex-wrap items-end justify-between gap-4 px-1">
-        <div>
+        <div className="max-md:min-w-0">
           <div className="mb-1.5 text-[13px] font-semibold uppercase tracking-[0.12em] text-[#0394B2]">Keyword Map</div>
           <h2 className="font-headline text-[28px] text-[#001A2E]">Target keywords for {clientName}</h2>
           <p className="mt-1 max-w-[760px] text-[15px] text-muted-foreground">
             Each page's target terms on the site's page tree. Color shows how well a term ranks; P1 to P3 shows how much it matters to the business. Team only.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex max-md:flex-wrap items-center gap-3">
           <span className="text-[13px] text-muted-foreground" title="Rankings refresh hourly, Search Console every 6 hours, the sitemap daily">
             {refreshing ? "Refreshing…" : `Updated ${timeAgo(map.generatedAt)}`}
           </span>
