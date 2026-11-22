@@ -476,11 +476,12 @@ function OutputView({ task, out, post, webflowConnected, onResult, onOutput }: {
   task: StoredTask; out: AgentOutput; post: Post; webflowConnected: boolean; onResult: (r: Record<string, unknown>, status?: StoredTask["status"]) => void;
   onOutput: (o: AgentOutput) => void;
 }) {
-  const showSeoEditor = !!out.seo?.title && task.type !== "missing_page" && !(task.type === "ai_prompt" && out.targetPage === "new");
+  const newPageTask = task.type === "missing_page" || (task.type === "keyword_target" && !!task.data?.planned);
+  const showSeoEditor = !!out.seo?.title && !newPageTask && !(task.type === "ai_prompt" && out.targetPage === "new");
   const [edits, setEdits] = useState<SeoEdits>({ title: out.seo?.title || "", description: out.seo?.metaDescription || "" });
   const plan = out.webflowPlan || null;
   // Drafts made before the plan existed can get one without re-running.
-  const canPlan = !!task.path && ["ctr", "onpage", "striking", "ai_prompt"].includes(task.type) && !(task.type === "ai_prompt" && (!out.targetPage || out.targetPage === "new"));
+  const canPlan = !!task.path && ["ctr", "onpage", "striking", "ai_prompt", "keyword_target"].includes(task.type) && !task.data?.planned && !(task.type === "ai_prompt" && (!out.targetPage || out.targetPage === "new"));
   return (
     <div className="space-y-3">
       <div className="rounded-xl bg-[#0CA4C3]/[0.06] border border-[#0CA4C3]/25 px-4 py-3">
@@ -506,7 +507,7 @@ function OutputView({ task, out, post, webflowConnected, onResult, onOutput }: {
             </div>
           )}
           <div className={`${proseHtml} max-h-[420px] overflow-y-auto rounded-lg border border-border/60 px-4 py-2`} dangerouslySetInnerHTML={{ __html: safeHtml(out.newPage.bodyHtml) }} />
-          {(task.type === "missing_page" || out.targetPage === "new") && (
+          {(task.type === "missing_page" || (task.type === "keyword_target" && !!task.data?.planned) || out.targetPage === "new") && (
             <div className="mt-3"><DraftCreator task={task} out={out} post={post} webflowConnected={webflowConnected} onResult={onResult} /></div>
           )}
         </Block>

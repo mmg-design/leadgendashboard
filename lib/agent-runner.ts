@@ -70,6 +70,16 @@ const SCHEMAS: Record<string, JsonSchema> = {
     steps: STEPS,
   }),
   missing_page: obj({ summary: SUMMARY, seo: SEO, newPage: NEW_PAGE, faq: FAQ, schemaJsonLd: JSONLD, steps: STEPS }),
+  // Keyword Map pushes: the same shape as a striking-distance refresh (an
+  // existing page) or a missing page (a planned one).
+  keyword_target: obj({
+    summary: SUMMARY,
+    seo: SEO,
+    sections: SECTIONS,
+    faq: FAQ,
+    internalLinks: arr(obj({ fromPage: str("Path of an existing page that should link here"), anchorText: str() })),
+    steps: STEPS,
+  }),
   ai_prompt: obj({
     summary: SUMMARY,
     targetPage: str("Existing path to add this content to, or 'new' if it needs its own page"),
@@ -248,6 +258,35 @@ First check the keyword fits what ${config.name} actually offers (from the homep
 Otherwise, write a complete new page that ranks for “${task.keywords?.[0]}” and converts the searcher. Match the search intent (${String(task.data?.intent || "unknown")}). 900-1400 words in bodyHtml, answer-first opening paragraph, scannable H2s, a clear next step that fits the client (contact, quote, consultation, etc.). Don't duplicate an existing page; if one is close, say so in the steps and link to it from the new page. Include FAQs and FAQPage JSON-LD built from them. Steps should cover publishing it in Webflow, linking to it from 2-3 existing pages (name them), and adding it to navigation if it's a core service.`;
       break;
     }
+    case "keyword_target": {
+      const sitemap = (await sitemapUrls(origin).catch(() => [])).slice(0, 80);
+      const terms = (task.data?.terms || []) as { keyword: string; priority: string; primary: boolean; position: number | null }[];
+      const termList = list(terms.map((t) => `${t.primary ? "PRIMARY " : ""}“${t.keyword}” (${t.priority}, ${t.position ? `ranks #${t.position}` : "not in the top 100"})`));
+      if (task.data?.planned) {
+        prompt = `${taskBlock(task)}
+
+Target keywords for this page (the team assigned these in the Keyword Map):
+${termList}
+
+Pages the site already has:
+${list(sitemap.map((u) => u.replace(origin, "") || "/"))}
+
+This page doesn't exist yet. Write it so it can rank for the primary keyword and naturally covers the others: the primary keyword in the title (near the start), the H1 and the opening paragraph; the others in the meta description, the opening paragraph or H2s. 900-1400 words in bodyHtml, answer-first opening paragraph, scannable H2s, a clear next step that fits the client. Follow the team's recommendations in the evidence. Include FAQs and FAQPage JSON-LD built from them. Steps should cover publishing it in Webflow and linking to it from 2-3 existing pages (name them).`;
+      } else {
+        prompt = `${taskBlock(task)}
+
+Target keywords for this page (the team assigned these in the Keyword Map):
+${termList}
+
+${pageBlock("The page", target)}
+
+Other pages on the site:
+${list(sitemap.map((u) => u.replace(origin, "") || "/"))}
+
+Make this page the clear best result for its target keywords. Carry out the team's recommendations in the evidence; they come from the page's live title, meta description, H1 and opening paragraph and from current rankings. The primary keyword belongs in the title (near the start), the H1 and the opening paragraph; the others in the meta description, the opening paragraph or H2s, worded naturally. Return the current title, meta or H1 unchanged if they already do the job. Add 1-4 new sections only for what the page is missing for these searches, 4-6 FAQs people actually ask, and 2-4 internal links from existing pages (real paths from the list) with natural anchor text. Steps should say where each change goes in Webflow, including any rewritten opening paragraph.`;
+      }
+      break;
+    }
     case "ai_prompt": {
       const ref = task.data?.answerRef as { llmId: number; promptLlmId: number | null; date: string | null } | undefined;
       const siteId = config.integrations.seRanking?.projectId || "";
@@ -361,7 +400,7 @@ Microsoft Clarity shows visitors getting frustrated on this page. From the page'
     }
   }
 
-  const schema = SCHEMAS[task.type];
+  const schema = task.type === "keyword_target" && task.data?.planned ? SCHEMAS.missing_page : SCHEMAS[task.type];
   const { output, model } = await runStructured<Omit<AgentOutput, "model" | "generatedAt">>(system(config, about), prompt, schema);
   // Summaries are meant to be two sentences; keep a runaway one readable.
   const summary = output.summary.length > 600 ? `${output.summary.slice(0, 597).replace(/\s+\S*$/, "")}…` : output.summary;

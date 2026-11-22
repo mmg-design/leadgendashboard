@@ -45,7 +45,19 @@ export interface BacklinkReport {
   gap: { domain: string; authority: number; competitors: string[] }[];
   lost: { domain: string; urlFrom: string; urlTo: string; anchor: string; title: string; date: string; reason: string; authority: number }[];
   linking?: string[]; // every site linking to the client, so prospect research skips them
+  // Linking sites per page, for every page DataForSEO returned (the Keyword
+  // Map shows them on each page). Reports from before this field have only
+  // the top 10 in `pages`. When `pageLinksCapped` is true the list hit the
+  // row limit, so a page missing from it has fewer links than the last row,
+  // not necessarily none.
+  pageLinks?: { path: string; refdomains: number }[];
+  pageLinksCapped?: boolean;
 }
+
+// Pages per report in the per-page link counts. DataForSEO bills backlink
+// summaries per request plus a small per-row fee, so 100 rows instead of the
+// old 30 adds a fraction of a cent per report.
+const PAGE_LINKS_LIMIT = 100;
 
 // ── Junk detection ──────────────────────────────────────────────────────────
 // Automated link farms point thousands of throwaway domains at every site.
@@ -173,7 +185,7 @@ export async function buildBacklinkReport(config: ClientConfig): Promise<Backlin
       filters: ["last_seen", ">=", dfsDate(d180)],
     }),
     dfs<Items<{ anchor: string; referring_domains: number }>>("/backlinks/anchors/live", { target, limit: 10, order_by: ["referring_domains,desc"] }),
-    dfs<Items<{ url: string; referring_domains: number }>>("/backlinks/domain_pages_summary/live", { target, limit: 30, order_by: ["referring_domains,desc"] }),
+    dfs<Items<{ url: string; referring_domains: number }>>("/backlinks/domain_pages_summary/live", { target, limit: PAGE_LINKS_LIMIT, order_by: ["referring_domains,desc"] }),
     // Competitors are best-effort: a failed lookup leaves that rival out.
     competitorDomains.length ? domainAuthorities(competitorDomains).catch(() => new Map<string, number>()) : new Map<string, number>(),
     competitorDomains.length
@@ -284,6 +296,8 @@ export async function buildBacklinkReport(config: ClientConfig): Promise<Backlin
     gap,
     lost: [...lostByDomain.values()].sort((a, b) => b.authority - a.authority).slice(0, 12),
     linking: [...mineRoots],
+    pageLinks: [...byPath.entries()].map(([path, p]) => ({ path, refdomains: p.refdomains })).sort((a, b) => b.refdomains - a.refdomains),
+    pageLinksCapped: (pagesRes?.items?.length || 0) >= PAGE_LINKS_LIMIT,
   };
 }
 

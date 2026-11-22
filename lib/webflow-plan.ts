@@ -36,10 +36,10 @@ export interface WebflowPlan {
   ops: PlanOp[];
 }
 
-const PLAN_TYPES = new Set(["ctr", "onpage", "striking", "ai_prompt"]);
+const PLAN_TYPES = new Set(["ctr", "onpage", "striking", "ai_prompt", "keyword_target"]);
 
 export function planApplies(task: StoredTask, out: AgentOutput | null) {
-  if (!out || !task.path || !PLAN_TYPES.has(task.type)) return false;
+  if (!out || !task.path || !PLAN_TYPES.has(task.type) || task.data?.planned) return false;
   return !(task.type === "ai_prompt" && (!out.targetPage || out.targetPage === "new"));
 }
 

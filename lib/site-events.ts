@@ -13,6 +13,8 @@ export type EventKind =
   | "feedback_resolved"
   | "sitemap" // sitemap resubmitted to Google
   | "note" // added by hand
+  | "keyword_plan" // keyword targets moved between pages in the Keyword Map
+  | "agent_queued" // a page's keyword recommendations sent to Agents
   | "google_update"; // Google ranking update (global, not stored per client)
 
 export interface SiteEvent {
