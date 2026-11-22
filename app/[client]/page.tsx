@@ -1014,7 +1014,7 @@ export default function ClientDashboard() {
             ) : activeSection === "agents" ? (
               <AgentsTab key={agentsCategory} clientSlug={clientSlug} clientName={clientName} initialCategory={agentsCategory} />
             ) : activeSection === "keyword-map" ? (
-              <KeywordMapTab clientSlug={clientSlug} clientName={clientName} />
+              <KeywordMapTab clientSlug={clientSlug} clientName={clientName} onOpenAgents={() => { setAgentsCategory("all"); setActiveSection("agents"); }} />
             ) : activeSection === "links" ? (
               <LinksTab clientSlug={clientSlug} clientName={clientName} onOpenAgents={() => { setAgentsCategory("links"); setActiveSection("agents"); }} />
             ) : activeSection === "ai-visibility" ? (

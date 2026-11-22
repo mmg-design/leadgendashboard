@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore, type ReactElement } from "react";
 import { ReferenceLine } from "recharts";
 import {
-  Bot, FilePlus2, FileMinus2, Globe, Loader2, Map as MapIcon, MessageSquare, PencilLine, Rocket, Sparkles,
+  Bot, FilePlus2, FileMinus2, Globe, Loader2, Map as MapIcon, MessageSquare, PencilLine, Rocket, Send, Sparkles, Target,
 } from "lucide-react";
 import type { EventKind, SiteEvent } from "@/lib/site-events";
 import type { EventImpact } from "@/lib/event-impact";
@@ -21,6 +21,8 @@ export const KIND_META: Record<EventKind, { label: string; color: string; Icon: 
   feedback_resolved: { label: "Client feedback resolved", color: "#e87ba4", Icon: MessageSquare },
   sitemap: { label: "Sitemap resubmitted", color: "#eb6834", Icon: MapIcon },
   note: { label: "Note", color: "#001A2E", Icon: PencilLine },
+  keyword_plan: { label: "Keyword targets changed", color: "#0CA4C3", Icon: Target },
+  agent_queued: { label: "Sent to Agents", color: "#7a5af8", Icon: Send },
   google_update: { label: "Google update", color: "#94a3b8", Icon: Sparkles },
 };
 

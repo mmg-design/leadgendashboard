@@ -15,6 +15,7 @@ export interface PageSnapshot {
   canonical: string | null;
   internalLinks: number;
   text: string; // visible text, trimmed to TEXT_LIMIT
+  intro: string; // the opening paragraph of the body copy, under the H1
 }
 
 const TEXT_LIMIT = 8000;
@@ -71,7 +72,7 @@ function jsonLdTypes(html: string): string[] {
 export async function fetchPage(url: string): Promise<PageSnapshot> {
   const empty: PageSnapshot = {
     url, ok: false, status: 0, title: "", metaDescription: "", h1: [], h2: [], jsonLdTypes: [],
-    robotsNoindex: false, canonical: null, internalLinks: 0, text: "",
+    robotsNoindex: false, canonical: null, internalLinks: 0, text: "", intro: "",
   };
   let res: Response;
   try {
@@ -98,7 +99,27 @@ export async function fetchPage(url: string): Promise<PageSnapshot> {
     canonical: html.match(/<link[^>]*rel\s*=\s*["']canonical["'][^>]*href\s*=\s*["']([^"']+)["']/i)?.[1] || null,
     internalLinks,
     text: stripTags(body.match(/<body[\s\S]*<\/body>/i)?.[0] || body).slice(0, TEXT_LIMIT),
+    intro: introParagraph(body),
   };
+}
+
+// The first real paragraph of body copy: the first <p> after the H1 with at
+// least a sentence's worth of words, so nav links, eyebrows and button labels
+// don't count. Falls back to the first such paragraph anywhere in <main> or
+// the body when the page has no H1 before its copy.
+const INTRO_MIN_WORDS = 8;
+function introParagraph(body: string): string {
+  const main = body.match(/<main\b[\s\S]*<\/main>/i)?.[0] || body.match(/<body[\s\S]*<\/body>/i)?.[0] || body;
+  const h1End = main.search(/<\/h1>/i);
+  const firstGood = (html: string) => {
+    for (const m of html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)) {
+      const text = stripTags(m[1]);
+      if (text.split(/\s+/).length >= INTRO_MIN_WORDS) return text;
+    }
+    return "";
+  };
+  const intro = (h1End >= 0 && firstGood(main.slice(h1End))) || firstGood(main);
+  return intro.slice(0, 600);
 }
 
 // URLs listed in the site's sitemap (follows one level of sitemap index).

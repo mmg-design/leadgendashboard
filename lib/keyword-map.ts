@@ -14,6 +14,7 @@ import { cachedPerformance } from "./gsc-cache";
 import { sitemapUrls } from "./page-fetch";
 import { normalizePath } from "./page-behavior";
 import { brandTerms, classifyKeyword, type RankedKeyword } from "./keyword-insights";
+import type { RecEdits } from "./keyword-plan";
 
 export type Priority = "P1" | "P2" | "P3";
 export type RankBand = "top3" | "top10" | "top20" | "top50" | "low" | "none";
@@ -65,6 +66,40 @@ export interface MapFlag {
   keyword: string | null;
 }
 
+// The editable plan behind the canvas: every target term with its page, the
+// tracked terms not assigned anywhere yet, and a light record for every page
+// a term could move to. The canvas recomputes flags and hotspots from these
+// as terms are dragged around, so nothing here depends on the saved layout
+// except `page`.
+export interface PlanTerm {
+  keyword: string;
+  page: string | null; // page key: a path, or a planned page's label; null = unassigned
+  origin: "core" | "parked" | "tracked"; // in the saved core set, taken off every page by the team, or only tracked in SE Ranking
+  priority: Priority;
+  primary: boolean;
+  tracked: boolean;
+  position: number | null;
+  delta: number | null;
+  volume: number | null;
+  band: RankBand;
+  rankingPath: string | null;
+  rankingOtherSite: boolean;
+  competingPaths: string[]; // pages splitting this query's Search Console impressions
+}
+
+export interface PlanPage {
+  key: string; // what PlanTerm.page points at
+  path: string;
+  label: string;
+  url: string | null;
+  planned: boolean;
+  plannedNote: string | null;
+  inSitemap: boolean;
+  impressions: number;
+  clicks: number;
+  alsoRanks: AlsoRanks[];
+}
+
 export interface KeywordMap {
   slug: string;
   domain: string;
@@ -75,9 +110,34 @@ export interface KeywordMap {
   summary: { total: number; top3: number; top10: number; notRanking: number; p1Total: number; p1Top10: number; flags: number };
   tree: MapNode;
   flags: MapFlag[];
+  plan: { terms: PlanTerm[]; candidates: PlanTerm[]; pages: PlanPage[]; maxPerPage: number; recs: Record<string, RecEdits>; version: string | null };
 }
 
-interface CoreSet { approvedAt?: string; terms: { keyword: string; page: string; priority: Priority; primary: boolean }[] }
+// Each page targets at most this many terms, so its title, H1 and opening
+// copy can actually feature all of them.
+export const MAX_TERMS_PER_PAGE = 3;
+
+export interface CoreTerm { keyword: string; page: string; priority: Priority; primary: boolean }
+export interface CoreSet { approvedAt?: string; updatedAt?: string; terms: CoreTerm[] }
+
+export interface ParkedTerm { keyword: string; priority: Priority }
+export interface PlanExtras { parked: ParkedTerm[]; recs: Record<string, RecEdits> }
+// The version a save is based on, so two people editing at once can't
+// silently overwrite each other.
+export const planVersion = (core: CoreSet | null) => core?.updatedAt || core?.approvedAt || null;
+
+export async function getPlanExtras(slug: string): Promise<PlanExtras> {
+  const db = await getDb();
+  const row = (await db.execute({
+    sql: "SELECT data FROM analytics_cache WHERE client_slug = ? AND metric_type = 'keyword_plan' AND date_range = 'current'",
+    args: [slug],
+  })).rows[0];
+  if (!row) return { parked: [], recs: {} };
+  const d = JSON.parse(row.data as string) as Partial<PlanExtras>;
+  return { parked: d.parked || [], recs: d.recs || {} };
+}
+
+
 
 const SITEMAP_CACHE_HOURS = 24;
 const ALSO_RANKS_PER_PAGE = 3;
@@ -299,6 +359,56 @@ export async function buildKeywordMap(slug: string, config: ClientConfig, fresh 
   const severity: Record<FlagType, number> = { slipping: 0, wrong_page: 1, other_site: 2, competing: 3, missing_page: 4, off_plan: 5 };
   flags.sort((a, b) => (a.priority ? PRIORITY_RANK[a.priority] : 3) - (b.priority ? PRIORITY_RANK[b.priority] : 3) || severity[a.type] - severity[b.type]);
 
+  // ── The editable plan ──
+  const planTerm = (keyword: string, page: string | null, priority: Priority, primary: boolean, origin: PlanTerm["origin"]): PlanTerm => {
+    const k = byKeyword.get(norm(keyword));
+    const position = k && k.position > 0 ? k.position : null;
+    const competing = isBrand(keyword) ? [] : (pagesForQuery.get(norm(keyword)) || []).filter((x) => x.impressions >= COMPETING_MIN_IMPRESSIONS);
+    return {
+      keyword,
+      page,
+      origin,
+      priority,
+      primary,
+      tracked: !!k,
+      position,
+      delta: k?.delta ?? null,
+      volume: k?.volume ?? null,
+      band: bandFor(position),
+      rankingPath: k?.landingPath ? normalizePath(k.landingPath) : null,
+      rankingOtherSite: !!(position && !k?.landingPath && k?.landingUrl),
+      competingPaths: competing.length >= 2 ? competing.sort((a, b) => b.impressions - a.impressions).map((x) => x.path) : [],
+    };
+  };
+  const planTerms = core.terms.map((t) => {
+    const key = t.page.startsWith("/") ? normalizePath(t.page) : t.page;
+    return planTerm(t.keyword, key, t.priority, t.primary, "core");
+  });
+  // Unassigned: terms the team took off every page (kept with their priority),
+  // then terms tracked in SE Ranking but not in the core set, biggest first.
+  // Either can be dragged onto a page. Brand searches aren't targets.
+  const extras = await getPlanExtras(slug);
+  const parkedNames = new Set(extras.parked.map((p) => norm(p.keyword)));
+  const parked = extras.parked.filter((p) => !coreNames.has(norm(p.keyword))).map((p) => planTerm(p.keyword, null, p.priority, false, "parked"));
+  const candidates = [...parked, ...(ranked || [])
+    .filter((k) => !coreNames.has(norm(k.keyword)) && !parkedNames.has(norm(k.keyword)) && !isBrand(k.keyword))
+    .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0) || (a.position || 999) - (b.position || 999))
+    .slice(0, 200)
+    .map((k) => planTerm(k.keyword, null, "P3", false, "tracked"))];
+
+  const planPages = new Map<string, PlanPage>();
+  const lightPage = (path: string): PlanPage => {
+    const g = gscPages.get(path);
+    return {
+      key: path, path, label: labelFor(path), url: origin + (path === "/" ? "/" : path), planned: false, plannedNote: null,
+      inSitemap: inSitemap.has(path), impressions: g?.impressions ?? 0, clicks: g?.clicks ?? 0, alsoRanks: [],
+    };
+  };
+  for (const path of ["/", ...sitemapPaths]) planPages.set(path, lightPage(path));
+  for (const [key, p] of pages) {
+    planPages.set(key, { key, path: p.path, label: p.label, url: p.url, planned: p.planned, plannedNote: p.plannedNote, inSitemap: p.inSitemap, impressions: p.impressions, clicks: p.clicks, alsoRanks: p.alsoRanks });
+  }
+
   return {
     slug,
     domain: config.domain,
@@ -317,6 +427,7 @@ export async function buildKeywordMap(slug: string, config: ClientConfig, fresh 
     },
     tree,
     flags,
+    plan: { terms: planTerms, candidates, pages: [...planPages.values()], maxPerPage: MAX_TERMS_PER_PAGE, recs: extras.recs, version: planVersion(core) },
   };
 }
 

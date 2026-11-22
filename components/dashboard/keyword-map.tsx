@@ -1,31 +1,29 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronRight, CircleDashed, ExternalLink, FilePlus2,
   GitFork, Globe, Info, Loader2, RefreshCw, Search, Star, TrendingDown,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/dashboard/stat-card";
-import type { FlagType, KeywordMap, MapFlag, MapNode, MapTerm, Priority, RankBand } from "@/lib/keyword-map";
+import type { FlagType, KeywordMap, MapFlag, MapNode, MapTerm, RankBand } from "@/lib/keyword-map";
+import { BAND, PRIORITY_STYLE, btnSecondary } from "@/components/dashboard/keyword-styles";
+import { KeywordCanvas } from "@/components/dashboard/keyword-canvas";
 
-const btnSecondary = "inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[14px] font-medium text-[#001A2E] hover:bg-muted/50 disabled:opacity-50 transition-colors";
+// The canvas needs a mouse and room; phones get the list.
+function useIsDesktop() {
+  return useSyncExternalStore(
+    (cb) => { const m = window.matchMedia("(min-width: 768px)"); m.addEventListener("change", cb); return () => m.removeEventListener("change", cb); },
+    () => window.matchMedia("(min-width: 768px)").matches,
+    () => true,
+  );
+}
 
-// Color shows ranking only; priority is its own tag.
-const BAND: Record<RankBand, { label: string; pill: string; dot: string }> = {
-  top3: { label: "1–3", pill: "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]", dot: "bg-[#16A34A]" },
-  top10: { label: "4–10", pill: "bg-[#ECFCCB] text-[#3F6212] border-[#BEF264]", dot: "bg-[#65A30D]" },
-  top20: { label: "11–20", pill: "bg-[#FEF3C7] text-[#92400E] border-[#FCD34D]", dot: "bg-[#D97706]" },
-  top50: { label: "21–50", pill: "bg-[#FFEDD5] text-[#9A3412] border-[#FDBA74]", dot: "bg-[#EA580C]" },
-  low: { label: "51–100", pill: "bg-[#FEE2E2] text-[#991B1B] border-[#FCA5A5]", dot: "bg-[#DC2626]" },
-  none: { label: "Not ranking", pill: "bg-[#FEE2E2]/60 text-[#991B1B] border-[#FECACA]", dot: "bg-[#FCA5A5]" },
-};
-
-const PRIORITY_STYLE: Record<Priority, string> = {
-  P1: "bg-[#001A2E] text-white",
-  P2: "bg-[#0CA4C3]/15 text-[#01384C]",
-  P3: "bg-muted text-muted-foreground",
-};
+const VIEW_KEY = "keyword-map-view";
+function readView(): "canvas" | "list" {
+  try { return localStorage.getItem(VIEW_KEY) === "list" ? "list" : "canvas"; } catch { return "canvas"; }
+}
 
 const FLAG_META: Record<FlagType, { label: string; icon: typeof AlertTriangle; tone: string }> = {
   slipping: { label: "Slipping", icon: TrendingDown, tone: "text-[#B91C1C]" },
@@ -175,7 +173,13 @@ function FlagItem({ flag }: { flag: MapFlag }) {
   );
 }
 
-export function KeywordMapTab({ clientSlug, clientName }: { clientSlug: string; clientName: string }) {
+export function KeywordMapTab({ clientSlug, clientName, onOpenAgents }: { clientSlug: string; clientName: string; onOpenAgents?: () => void }) {
+  const isDesktop = useIsDesktop();
+  const [view, setView] = useState<"canvas" | "list">("canvas");
+  useEffect(() => { setView(readView()); }, []);
+  const chooseView = (v: "canvas" | "list") => { setView(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* per-viewer convenience only */ } };
+  const showCanvas = isDesktop && view === "canvas";
+  const [dirty, setDirty] = useState(false);
   const [map, setMap] = useState<KeywordMap | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -229,6 +233,25 @@ export function KeywordMapTab({ clientSlug, clientName }: { clientSlug: string; 
   const s = map.summary;
   const flags = showAllFlags ? map.flags : map.flags.slice(0, 8);
 
+  const statCards = (
+    <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          <StatCard title="In the top 3" value={`${s.top3} / ${s.total}`} subtitle="target terms ranking 1–3" tooltip="Core terms where the site ranks in Google's top three, from SE Ranking." />
+          <StatCard title="On page one" value={`${s.top10} / ${s.total}`} subtitle={`${s.notRanking} not in the top 100 yet`} tooltip="Core terms ranking in the top 10, which is page one of Google." />
+          <StatCard title="P1 terms on page one" value={`${s.p1Top10} / ${s.p1Total}`} subtitle="the terms that matter most" tooltip="Priority 1 terms are core revenue services. This is the number to move first." />
+          <StatCard title="Problems to fix" value={s.flags} subtitle={Object.entries(flagCounts).map(([k, v]) => `${v} ${FLAG_META[k as FlagType].label.toLowerCase()}`).slice(0, 2).join(" · ") || "nothing flagged"} tooltip="Wrong pages ranking, pages competing, slipping P1 terms, pages to create, and off-plan terms. Listed on the right." />
+        </div>
+  );
+  const legend = (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 text-[12.5px] text-muted-foreground">
+          <span className="font-medium text-[#001A2E]">Rank</span>
+          {(Object.keys(BAND) as RankBand[]).map((b) => (
+            <span key={b} className="inline-flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${BAND[b].dot}`} /> {BAND[b].label}</span>
+          ))}
+          <span className="ml-2 inline-flex items-center gap-1.5"><Star size={12} className="fill-[#F5B70A] text-[#F5B70A]" /> primary term</span>
+          <span className="inline-flex items-center gap-1.5"><CircleDashed size={12} className="text-[#0394B2]" /> planned page</span>
+        </div>
+  );
+
   return (
     <div className="space-y-7">
       <div className="flex flex-wrap items-end justify-between gap-4 px-1">
@@ -236,14 +259,23 @@ export function KeywordMapTab({ clientSlug, clientName }: { clientSlug: string; 
           <div className="mb-1.5 text-[13px] font-semibold uppercase tracking-[0.12em] text-[#0394B2]">Keyword Map</div>
           <h2 className="font-headline text-[28px] text-[#001A2E]">Target keywords for {clientName}</h2>
           <p className="mt-1 max-w-[760px] text-[15px] text-muted-foreground">
-            Each page's target terms on the site's page tree. Color shows how well a term ranks; P1 to P3 shows how much it matters to the business. Team only.
+            Each page&apos;s target terms on the site&apos;s page tree. Color shows how well a term ranks; P1 to P3 shows how much it matters to the business. Team only.
           </p>
         </div>
         <div className="flex max-md:flex-wrap items-center gap-3">
           <span className="text-[13px] text-muted-foreground" title="Rankings refresh hourly, Search Console every 6 hours, the sitemap daily">
             {refreshing ? "Refreshing…" : `Updated ${timeAgo(map.generatedAt)}`}
           </span>
-          <button className={btnSecondary} disabled={refreshing} onClick={() => { setRefreshing(true); load(true); }} title="Free: reads SE Ranking, Search Console and the sitemap again">
+          {isDesktop && (
+            <div className="inline-flex rounded-lg border border-border bg-white p-0.5" role="tablist" aria-label="Keyword Map view">
+              {(["canvas", "list"] as const).map((v) => (
+                <button key={v} role="tab" aria-selected={view === v} onClick={() => chooseView(v)} className={`rounded-md px-3 py-1.5 text-[13.5px] font-medium transition-colors ${view === v ? "bg-[#001A2E] text-white" : "text-muted-foreground hover:text-[#001A2E]"}`}>
+                  {v === "canvas" ? "Canvas" : "List"}
+                </button>
+              ))}
+            </div>
+          )}
+          <button className={btnSecondary} disabled={refreshing} onClick={() => { if (dirty && !window.confirm("Refreshing drops your unsaved keyword changes. Refresh anyway?")) return; setRefreshing(true); load(true); }} title="Free: reads SE Ranking, Search Console and the sitemap again">
             <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> Refresh
           </button>
         </div>
@@ -259,30 +291,29 @@ export function KeywordMapTab({ clientSlug, clientName }: { clientSlug: string; 
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard title="In the top 3" value={`${s.top3} / ${s.total}`} subtitle="target terms ranking 1–3" tooltip="Core terms where the site ranks in Google's top three, from SE Ranking." />
-        <StatCard title="On page one" value={`${s.top10} / ${s.total}`} subtitle={`${s.notRanking} not in the top 100 yet`} tooltip="Core terms ranking in the top 10, which is page one of Google." />
-        <StatCard title="P1 terms on page one" value={`${s.p1Top10} / ${s.p1Total}`} subtitle="the terms that matter most" tooltip="Priority 1 terms are core revenue services. This is the number to move first." />
-        <StatCard title="Problems to fix" value={s.flags} subtitle={Object.entries(flagCounts).map(([k, v]) => `${v} ${FLAG_META[k as FlagType].label.toLowerCase()}`).slice(0, 2).join(" · ") || "nothing flagged"} tooltip="Wrong pages ranking, pages competing, slipping P1 terms, pages to create, and off-plan terms. Listed on the right." />
-      </div>
+      {showCanvas ? (
+        <KeywordCanvas clientSlug={clientSlug} map={map} onSaved={() => load()} onOpenAgents={onOpenAgents} onDirtyChange={setDirty} />
+      ) : (
+        <>
+          {statCards}
+          {legend}
+        </>
+      )}
+      {showCanvas && statCards}
+      {!showCanvas && dirty && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[14px] text-[#78350F]">You have unsaved changes on the canvas. The list shows the saved plan.</p>
+      )}
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 text-[12.5px] text-muted-foreground">
-        <span className="font-medium text-[#001A2E]">Rank</span>
-        {(Object.keys(BAND) as RankBand[]).map((b) => (
-          <span key={b} className="inline-flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${BAND[b].dot}`} /> {BAND[b].label}</span>
-        ))}
-        <span className="ml-2 inline-flex items-center gap-1.5"><Star size={12} className="fill-[#F5B70A] text-[#F5B70A]" /> primary term</span>
-        <span className="inline-flex items-center gap-1.5"><CircleDashed size={12} className="text-[#0394B2]" /> planned page</span>
-      </div>
+      <div className={`grid grid-cols-1 items-start gap-6 ${showCanvas ? "" : "xl:grid-cols-[minmax(0,1fr)_400px]"}`}>
+        {!showCanvas && (
+          <Card className="overflow-visible">
+            <CardContent>
+              <TreeNode node={map.tree} depth={0} />
+            </CardContent>
+          </Card>
+        )}
 
-      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
-        <Card className="overflow-visible">
-          <CardContent>
-            <TreeNode node={map.tree} depth={0} />
-          </CardContent>
-        </Card>
-
-        <Card className="xl:sticky xl:top-6">
+        <Card className={showCanvas ? "" : "xl:sticky xl:top-6"}>
           <CardContent>
             <h3 className="text-[17px] font-semibold text-[#001A2E]">Action map</h3>
             <p className="mt-0.5 text-[14px] text-muted-foreground">What to fix, most important first.</p>

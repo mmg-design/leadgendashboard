@@ -17,7 +17,7 @@ import { dataForSeoConnected } from "./dataforseo";
 // every task can say exactly why it exists.
 
 export type TaskCategory = "feedback" | "ai" | "links" | "indexing" | "search" | "upkeep";
-export type TaskType = "client_feedback" | "indexing" | "ctr" | "striking" | "missing_page" | "ai_prompt" | "ai_source" | "ux_leak" | "onpage" | "link_gap" | "link_reclaim" | "link_broken" | "link_junk" | "link_prospect";
+export type TaskType = "client_feedback" | "indexing" | "ctr" | "striking" | "missing_page" | "ai_prompt" | "ai_source" | "ux_leak" | "onpage" | "link_gap" | "link_reclaim" | "link_broken" | "link_junk" | "link_prospect" | "keyword_target";
 export type TaskStatus = "open" | "drafted" | "applied" | "done" | "dismissed" | "resolved";
 export type Impact = "high" | "medium" | "low";
 
@@ -69,6 +69,7 @@ const TYPE_SOURCE: Record<TaskType, string> = {
   link_broken: "Backlinks",
   link_junk: "Backlinks",
   link_prospect: "Link prospects", // synced from research, never auto-resolved by a scan
+  keyword_target: "Keyword Map", // pushed by hand from the Keyword Map, never auto-resolved by a scan
 };
 
 // Typical organic CTR by position. Pages well below this are losing clicks to
@@ -549,6 +550,21 @@ export async function updateTask(
   if (patch.output !== undefined) { sets.push("output = ?"); args.push(JSON.stringify(patch.output)); }
   if (patch.result !== undefined) { sets.push("result = ?"); args.push(JSON.stringify(patch.result)); }
   await db.execute({ sql: `UPDATE agent_tasks SET ${sets.join(", ")} WHERE client_slug = ? AND task_key = ?`, args: [...args, slug, key] });
+}
+
+// Adds or refreshes a task pushed by hand (the Keyword Map). Pushing again
+// updates the same task: an open or drafted one keeps its status and draft,
+// a finished or dismissed one opens again.
+export async function upsertManualTask(slug: string, task: AgentTask): Promise<TaskStatus> {
+  const db = await getDb();
+  await db.execute({
+    sql: `INSERT INTO agent_tasks (client_slug, task_key, task, status) VALUES (?, ?, ?, 'open')
+          ON CONFLICT(client_slug, task_key) DO UPDATE SET task = excluded.task, updated_at = datetime('now'),
+            status = CASE WHEN agent_tasks.status IN ('done', 'dismissed', 'resolved') THEN 'open' ELSE agent_tasks.status END`,
+    args: [slug, task.key, JSON.stringify(task)],
+  });
+  const row = (await db.execute({ sql: "SELECT status FROM agent_tasks WHERE client_slug = ? AND task_key = ?", args: [slug, task.key] })).rows[0];
+  return (row?.status as TaskStatus) || "open";
 }
 
 export async function lastScan(slug: string): Promise<ScanSummary | null> {
