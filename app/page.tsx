@@ -3,9 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
+import AccountMenu, { useViewer } from "@/components/account-menu";
 import {
+  Bot,
+  ListChecks,
   Plus,
   MessageSquare,
   BarChart3,
@@ -99,6 +103,7 @@ const integrationMeta = [
 ];
 
 export default function Home() {
+  const viewer = useViewer();
   const router = useRouter();
   const [clients, setClients] = useState<ClientConfig[]>([]);
   const [formOpen, setFormOpen] = useState(false);
@@ -242,7 +247,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F3FAFB] text-[#1D475E] relative overflow-hidden">
+    <div className="min-h-screen page-wash text-[#1D475E] relative overflow-hidden">
       {/* Soft ice wash with blue glows, like the mmg.studio hero */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[900px] bg-[radial-gradient(ellipse_60%_50%_at_20%_45%,rgba(74,162,192,0.16),transparent_70%),radial-gradient(ellipse_50%_45%_at_85%_15%,rgba(74,162,192,0.12),transparent_70%),linear-gradient(180deg,#F7FCFD_0%,#EEF7F9_60%,#F3FAFB_100%)]" />
 
@@ -259,12 +264,20 @@ export default function Home() {
                 <MessageSquare size={14} className="text-[#4AA2C0]" /> {openFeedback} open client {openFeedback === 1 ? "update" : "updates"}
               </span>
             )}
-            <button
-              onClick={() => { setFormOpen(true); setSuccess(false); }}
-              className="inline-flex items-center gap-1.5 btn-mmg-blue px-4 md:px-5 py-2.5 text-[15px]"
-            >
-              <Plus size={16} /> New client
-            </button>
+            {viewer && (
+              <Link href="/work" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[15px] font-medium text-[#1D475E] hover:bg-[#F3FAFB]">
+                <ListChecks size={16} /> {viewer.isOwner ? "Work" : "My queue"}
+              </Link>
+            )}
+            {viewer?.isOwner && (
+              <button
+                onClick={() => { setFormOpen(true); setSuccess(false); }}
+                className="inline-flex items-center gap-1.5 btn-mmg-blue px-4 md:px-5 py-2.5 text-[15px]"
+              >
+                <Plus size={16} /> New client
+              </button>
+            )}
+            <AccountMenu />
           </div>
         </nav>
       </div>
@@ -287,18 +300,15 @@ export default function Home() {
             Track search rankings, AI visibility, traffic and leads, then see what to fix next.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <button
-              onClick={() => { setFormOpen(true); setSuccess(false); }}
-              className="inline-flex items-center gap-2 btn-mmg-blue px-7 py-3.5 text-[16px]"
+            <Link href="/queue" className="inline-flex items-center gap-2 btn-mmg-blue px-7 py-3.5 text-[16px]">
+              <Bot size={17} /> Agent queue <ArrowRight size={17} />
+            </Link>
+            <Link
+              href="/work"
+              className="inline-flex items-center gap-2 btn-mmg-white px-7 py-3.5 text-[16px]"
             >
-              Add a client <ArrowRight size={17} />
-            </button>
-            <a
-              href="#clients"
-              className="inline-flex items-center btn-mmg-white px-7 py-3.5 text-[16px]"
-            >
-              See all clients
-            </a>
+              <ListChecks size={17} /> See client progress
+            </Link>
           </div>
         </div>
 

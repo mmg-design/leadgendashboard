@@ -29,6 +29,7 @@ import { ClientPortal } from "@/components/dashboard/client-portal";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
 import type { GoalConfig } from "@/lib/clients";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AccountMenu, { useViewer } from "@/components/account-menu";
 import {
   Activity,
   Eye,
@@ -52,6 +53,7 @@ import {
   MessageSquare,
   Presentation,
   Map as MapIcon,
+  ListChecks,
 } from "lucide-react";
 
 interface GAData {
@@ -177,11 +179,11 @@ type ClientsResponse = {
 
 const SECTIONS = [
   ["overview", "Overview", LayoutDashboard],
+  ["agents", "Agents", Bot],
   ["attribution", "Lead Funnel", Route],
   ["ai-visibility", "AI Visibility", Sparkles],
   ["keyword-map", "Keyword Map", MapIcon],
   ["links", "Links", Link2],
-  ["agents", "Agents", Bot],
   ["report-generator", "Custom Reports", FileChartColumn],
   ["feedback", "Client Feedback", MessageSquare],
   ["portal", "Client Page", Presentation],
@@ -201,16 +203,18 @@ function isSupportedIconFile(file: File) {
 }
 
 export default function ClientDashboard() {
+  const viewer = useViewer();
   const params = useParams();
   const clientSlug = params.client as string;
 
   const [range, setRange] = useState("7d");
-  // ?section=portal lands back on the Client Page tab (e.g. after Connect Gmail);
-  // ?section=keyword-map opens the Keyword Map.
+  // ?section=<key> opens that tab: portal after Connect Gmail, keyword-map,
+  // agents from the Work board, and so on.
   const searchParams = useSearchParams();
-  const [activeSection, setActiveSection] = useState<Section>(
-    searchParams.get("section") === "portal" ? "portal" : searchParams.get("section") === "keyword-map" ? "keyword-map" : "overview"
-  );
+  const [activeSection, setActiveSection] = useState<Section>(() => {
+    const wanted = searchParams.get("section");
+    return (SECTIONS.find(([key]) => key === wanted)?.[0] as Section | undefined) ?? "overview";
+  });
   // On phones, keep the active section visible in the horizontal tab strip
   // (e.g. when landing on ?section=portal or jumping from Links to Agents).
   const activeTabRef = useRef<HTMLButtonElement | null>(null);
@@ -598,7 +602,7 @@ export default function ClientDashboard() {
         <div className="max-w-[1680px] mx-auto px-4 md:px-12 2xl:px-16 py-4 md:py-6 flex flex-wrap md:flex-nowrap items-center justify-between max-md:gap-3">
           <div className="flex items-center gap-3 md:gap-4 max-md:min-w-0">
             <Link
-              href="/"
+              href="/#clients"
               aria-label="All Clients"
               className="max-md:shrink-0 text-[15px] text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -633,17 +637,29 @@ export default function ClientDashboard() {
                 <TabsTrigger value="90d" className="text-xs px-3 h-7">90d</TabsTrigger>
               </TabsList>
             </Tabs>
-            <button
-              onClick={() => setSettingsOpen(!settingsOpen)}
-              className={`p-2 rounded-lg transition-colors ${
-                settingsOpen
-                  ? "bg-[#001A2E]/10 text-[#001A2E]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              }`}
-              title="Client Settings"
-            >
-              <Settings size={16} />
-            </button>
+            {viewer && (
+              <Link
+                href={`/work?client=${encodeURIComponent(clientSlug)}`}
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[14px] font-medium text-muted-foreground transition-colors duration-200 hover:bg-muted/50 hover:text-foreground"
+                title="This client's tasks on the Work board"
+              >
+                <ListChecks size={16} /> Work
+              </Link>
+            )}
+            {viewer?.isOwner && (
+              <button
+                onClick={() => setSettingsOpen(!settingsOpen)}
+                className={`p-2 rounded-lg transition-colors ${
+                  settingsOpen
+                    ? "bg-[#001A2E]/10 text-[#001A2E]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                }`}
+                title="Client Settings"
+              >
+                <Settings size={16} />
+              </button>
+            )}
+            <AccountMenu />
           </div>
         </div>
       </header>

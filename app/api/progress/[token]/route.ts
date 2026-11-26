@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClient } from "@/lib/clients";
-import { DASHBOARD_SESSION_COOKIE, isTeamSession } from "@/lib/dashboard-auth";
+import { isTeamRequest } from "@/lib/viewer";
 import { applySettings, cachedReport, portalForToken } from "@/lib/portal";
 import { PORTAL_GUIDES } from "@/lib/portal-guides";
 
@@ -12,7 +12,7 @@ export const maxDuration = 60;
 export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const portal = await portalForToken(token);
-  const isTeam = await isTeamSession(req.cookies.get(DASHBOARD_SESSION_COOKIE)?.value);
+  const isTeam = await isTeamRequest(req.cookies);
   if (!portal || (!portal.enabled && !isTeam)) {
     return NextResponse.json({ error: "This progress page isn't available. Ask your MMG team for a new link." }, { status: 404 });
   }

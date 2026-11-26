@@ -57,3 +57,4 @@ next-env.d.ts
 .shipstudio/
 .env*.local
 /.next-testdb/
+/.next-teamtest/

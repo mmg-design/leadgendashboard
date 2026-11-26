@@ -1,17 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DASHBOARD_SESSION_COOKIE, dashboardSessionToken } from "@/lib/dashboard-auth";
+import { getViewer } from "@/lib/viewer";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "data.mmg.studio";
 const RESERVED_SUBDOMAINS = new Set(["www", "app", "admin", "dashboard"]);
 
 // The cron routes (/api/clarity/snapshot, /api/cron/site-changes, /api/cron/feedback-emails, /api/cron/api-budget) check CRON_SECRET themselves, since Vercel's cron has no session cookie.
-const PUBLIC_PATHS = new Set(["/login", "/api/auth/login", "/api/track-config", "/api/clarity/snapshot", "/api/cron/site-changes", "/api/cron/feedback-emails", "/api/cron/api-budget"]);
+const PUBLIC_PATHS = new Set(["/login", "/api/auth/login", "/api/auth/invite", "/api/track-config", "/api/clarity/snapshot", "/api/cron/site-changes", "/api/cron/feedback-emails", "/api/cron/api-budget"]);
 
-export async function middleware(req: NextRequest) {
+// Owner-only: changing clients, connections and spend limits, and managing the
+// team. Team members can read these screens but only the owner can change them.
+const OWNER_ONLY_WRITES = /^\/api\/(clients|api-budget|google|team|feedback)(\/|$)/;
+const OWNER_ONLY_PAGES = /^\/team(\/|$)/;
+
+// Runs on Node (Next 16 "proxy"), so it can check team accounts in the database.
+export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   // Client review and progress links: the pages, their APIs, and the proxied
   // site are reachable without the dashboard password; each checks its own link token.
-  const isPublic = PUBLIC_PATHS.has(pathname) || /^\/(review|proxy|progress|api\/review|api\/progress)\//.test(pathname);
+  const isPublic = PUBLIC_PATHS.has(pathname) || /^\/(review|proxy|progress|invite|api\/review|api\/progress)\//.test(pathname);
   const configuredPassword = process.env.DASHBOARD_PASSWORD;
 
   if (!configuredPassword && process.env.NODE_ENV === "production") {
@@ -21,10 +27,9 @@ export async function middleware(req: NextRequest) {
     });
   }
 
-  if (configuredPassword && !isPublic) {
-    const expected = await dashboardSessionToken(configuredPassword);
-    const session = req.cookies.get(DASHBOARD_SESSION_COOKIE)?.value;
-    if (session !== expected) {
+  if (!isPublic) {
+    const viewer = await getViewer(req.cookies);
+    if (!viewer) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       }
@@ -33,6 +38,12 @@ export async function middleware(req: NextRequest) {
       login.search = "";
       login.searchParams.set("next", `${pathname}${req.nextUrl.search}`);
       return NextResponse.redirect(login);
+    }
+    if (!viewer.isOwner) {
+      if (OWNER_ONLY_WRITES.test(pathname) && req.method !== "GET") {
+        return NextResponse.json({ error: "Only the owner can do that." }, { status: 403 });
+      }
+      if (OWNER_ONLY_PAGES.test(pathname)) return NextResponse.redirect(new URL("/", req.url));
     }
   }
 

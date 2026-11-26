@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClient } from "@/lib/clients";
-import { getTask, updateTask } from "@/lib/agent-tasks";
+import { getTask, setTaskContext, updateTask } from "@/lib/agent-tasks";
 import { runAgent } from "@/lib/agent-runner";
 import { AgentError } from "@/lib/agent-llm";
 import { buildPlan } from "@/lib/webflow-plan";
@@ -11,8 +11,10 @@ export const maxDuration = 300;
 // Runs the agent for one task and saves its draft. Nothing is changed on the
 // client's site here; applying is a separate, explicit step.
 export async function POST(req: NextRequest) {
-  const { client: slug, key } = (await req.json()) as { client?: string; key?: string };
+  const { client: slug, key, context } = (await req.json()) as { client?: string; key?: string; context?: string };
   if (!slug || !key) return NextResponse.json({ error: "Missing client or key" }, { status: 400 });
+  // Extra context from the queue goes into the task, and from there into the prompt.
+  if (typeof context === "string") await setTaskContext(slug, key, context);
   const [config, task] = await Promise.all([getClient(slug), getTask(slug, key)]);
   if (!config || !task) return NextResponse.json({ error: "Task not found" }, { status: 404 });
   if (task.type === "link_prospect") return NextResponse.json({ ok: false, error: "Link prospects are researched in Claude Code, with the pitch already written." }, { status: 400 });

@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Bot, Check, ChevronDown, MessageSquare, ClipboardCopy, ExternalLink, FileSearch, Globe, Link2, Loader2, RefreshCw,
-  RotateCcw, Search, Send, Sparkles, Wrench, X,
+  RotateCcw, Search, Send, Sparkles, UserCheck, Wrench, X,
 } from "lucide-react";
 import type { ScanSummary, StoredTask, TaskCategory } from "@/lib/agent-tasks";
+import { AssignControl } from "@/components/dashboard/agent-assign";
 import type { AgentOutput } from "@/lib/agent-runner";
 import type { WfCollection } from "@/lib/webflow";
 import type { PlanOpId, WebflowPlan } from "@/lib/webflow-plan";
@@ -33,8 +34,9 @@ const CATEGORIES: Record<TaskCategory, { label: string; color: string; Icon: typ
   indexing: { label: "Indexing", color: "#eb6834", Icon: FileSearch, blurb: "Pages Google can't show yet" },
   search: { label: "Search growth", color: "#2a78d6", Icon: Search, blurb: "Rankings and clicks within reach" },
   upkeep: { label: "Site upkeep", color: "#1baf7a", Icon: Wrench, blurb: "On-page basics and visitor friction" },
+  delegated: { label: "Delegated", color: "#1D475E", Icon: UserCheck, blurb: "Work the owner handed to an agent" },
 };
-const CATEGORY_ORDER: TaskCategory[] = ["feedback", "ai", "links", "indexing", "search", "upkeep"];
+const CATEGORY_ORDER: TaskCategory[] = ["delegated", "feedback", "ai", "links", "indexing", "search", "upkeep"];
 const IMPACT_RANK = { high: 0, medium: 1, low: 2 };
 
 const eyebrow = "text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground";
@@ -691,7 +693,7 @@ export function TaskCard({ task, clientSlug, webflowConnected, clickupConnected,
   const closed = task.status === "done" || task.status === "dismissed" || task.status === "resolved";
 
   return (
-    <Card className={closed ? "opacity-75" : ""}>
+    <Card className={`overflow-visible ${closed ? "opacity-75" : ""}`}>
       <CardContent className="space-y-4">
         <div className="flex items-start gap-4">
           <button className="min-w-0 flex-1 text-left" onClick={() => setOpen(!open)}>
@@ -711,11 +713,12 @@ export function TaskCard({ task, clientSlug, webflowConnected, clickupConnected,
               </p>
             )}
           </button>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+            {!closed && task.type !== "link_prospect" && <AssignControl clientSlug={clientSlug} taskKey={task.key} />}
             {!closed && !out && (
-              <button className={btnPrimary} disabled={running} onClick={run}>
+              <button className={btnPrimary} disabled={running} onClick={run} title="The agent drafts the fix. Nothing changes on the site until you apply it.">
                 {running ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
-                {running ? "Working…" : isIndexing ? "Diagnose" : task.type === "client_feedback" ? "Draft fix" : "Run agent"}
+                {running ? "Working…" : isIndexing ? "Diagnose" : "Fix with agent"}
               </button>
             )}
             <button className={btnGhost} onClick={() => setOpen(!open)} aria-label={open ? "Collapse" : "Expand"}>

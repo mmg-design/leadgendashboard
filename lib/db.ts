@@ -226,7 +226,111 @@ async function initSchema(db: Client) {
       integrations TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    -- Team accounts: employees and contractors who sign in with their own
+    -- email. Clients never get an account. One owner delegates; everyone else
+    -- carries a job title. Hourly rates are owner-only (contractors).
+    CREATE TABLE IF NOT EXISTS team_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT 'Team Member',
+      kind TEXT NOT NULL DEFAULT 'employee',
+      is_owner INTEGER NOT NULL DEFAULT 0,
+      hourly_rate_cents INTEGER,
+      password_hash TEXT,
+      status TEXT NOT NULL DEFAULT 'invited',
+      session_version INTEGER NOT NULL DEFAULT 1,
+      invite_token_hash TEXT,
+      invite_expires_at TEXT,
+      last_login_at TEXT,
+      photo TEXT,
+      photo_updated_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Delegated work (replaces ClickUp). Only the owner creates and assigns;
+    -- a task goes to a team member, to an agent (agent_task_key links the
+    -- Agents tab draft), or both. Clients never see these.
+    CREATE TABLE IF NOT EXISTS work_tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_slug TEXT,
+      title TEXT NOT NULL,
+      notes TEXT,
+      status TEXT NOT NULL DEFAULT 'todo',
+      priority TEXT NOT NULL DEFAULT 'normal',
+      assignee_id INTEGER,
+      agent_task_key TEXT,
+      page_path TEXT,
+      due_date TEXT,
+      estimate_minutes INTEGER,
+      created_by INTEGER,
+      source TEXT NOT NULL DEFAULT 'manual',
+      source_ref TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      completed_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS work_tasks_assignee ON work_tasks (assignee_id, status);
+    CREATE INDEX IF NOT EXISTS work_tasks_client ON work_tasks (client_slug, status);
+
+    -- Time tracking: one row per stint on a task. ended_at is NULL while the
+    -- timer runs; each person has at most one running timer. client_slug is
+    -- copied in at the start so reports stay right if a task moves clients.
+    CREATE TABLE IF NOT EXISTS time_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      member_id INTEGER NOT NULL,
+      task_id INTEGER NOT NULL,
+      client_slug TEXT,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      duration_seconds INTEGER,
+      note TEXT,
+      source TEXT NOT NULL DEFAULT 'timer',
+      rate_cents INTEGER,
+      edited_at TEXT,
+      edited_by INTEGER,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS time_entries_member ON time_entries (member_id, started_at);
+    CREATE INDEX IF NOT EXISTS time_entries_task ON time_entries (task_id);
+    CREATE INDEX IF NOT EXISTS time_entries_client ON time_entries (client_slug, started_at);
+
+    -- People @mentioned in a task's comments: they're emailed, and can open
+    -- that task even when it isn't assigned to them.
+    CREATE TABLE IF NOT EXISTS work_task_mentions (
+      task_id INTEGER NOT NULL,
+      member_id INTEGER NOT NULL,
+      comment_id INTEGER NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (task_id, member_id, comment_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS work_task_comments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL,
+      author_id INTEGER,
+      author_name TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
+
+  // Migration: team headshots (team-accounts branch DBs)
+  try {
+    await db.execute("SELECT photo FROM team_members LIMIT 1");
+  } catch {
+    await db.execute("ALTER TABLE team_members ADD COLUMN photo TEXT");
+    await db.execute("ALTER TABLE team_members ADD COLUMN photo_updated_at TEXT");
+  }
+
+  // Migration: contractor rate snapshot on time entries (team-accounts branch DBs)
+  try {
+    await db.execute("SELECT rate_cents FROM time_entries LIMIT 1");
+  } catch {
+    await db.execute("ALTER TABLE time_entries ADD COLUMN rate_cents INTEGER");
+  }
 
   // Migration: add icon_url column if missing (existing DBs)
   try {

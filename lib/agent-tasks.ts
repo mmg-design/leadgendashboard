@@ -16,8 +16,8 @@ import { dataForSeoConnected } from "./dataforseo";
 // behind it and an estimated payoff. Rules are plain thresholds on purpose:
 // every task can say exactly why it exists.
 
-export type TaskCategory = "feedback" | "ai" | "links" | "indexing" | "search" | "upkeep";
-export type TaskType = "client_feedback" | "indexing" | "ctr" | "striking" | "missing_page" | "ai_prompt" | "ai_source" | "ux_leak" | "onpage" | "link_gap" | "link_reclaim" | "link_broken" | "link_junk" | "link_prospect" | "keyword_target";
+export type TaskCategory = "delegated" | "feedback" | "ai" | "links" | "indexing" | "search" | "upkeep";
+export type TaskType = "client_feedback" | "indexing" | "ctr" | "striking" | "missing_page" | "ai_prompt" | "ai_source" | "ux_leak" | "onpage" | "link_gap" | "link_reclaim" | "link_broken" | "link_junk" | "link_prospect" | "keyword_target" | "delegated";
 export type TaskStatus = "open" | "drafted" | "applied" | "done" | "dismissed" | "resolved";
 export type Impact = "high" | "medium" | "low";
 
@@ -70,6 +70,7 @@ const TYPE_SOURCE: Record<TaskType, string> = {
   link_junk: "Backlinks",
   link_prospect: "Link prospects", // synced from research, never auto-resolved by a scan
   keyword_target: "Keyword Map", // pushed by hand from the Keyword Map, never auto-resolved by a scan
+  delegated: "Delegated", // handed to an agent from Work, never auto-resolved by a scan
 };
 
 // Typical organic CTR by position. Pages well below this are losing clicks to
@@ -610,5 +611,21 @@ export async function saveScan(slug: string, tasks: AgentTask[], summary: ScanSu
     sql: `INSERT OR REPLACE INTO analytics_cache (client_slug, metric_type, date_range, data, fetched_at)
           VALUES (?, 'agent_scan', 'all', ?, datetime('now'))`,
     args: [slug, JSON.stringify(summary)],
+  });
+}
+
+// Extra context from the team for one task, kept in its data and added to the
+// agent's prompt on every run. Empty text clears it.
+export async function setTaskContext(slug: string, key: string, context: string): Promise<void> {
+  const task = await getTask(slug, key);
+  if (!task) return;
+  const { status: _s, output: _o, result: _r, updatedAt: _u, ...stored } = task;
+  void _s; void _o; void _r; void _u;
+  const data = { ...(stored.data || {}) };
+  if (context.trim()) data.ownerContext = context.trim().slice(0, 2000); else delete data.ownerContext;
+  const db = await getDb();
+  await db.execute({
+    sql: "UPDATE agent_tasks SET task = ?, updated_at = datetime('now') WHERE client_slug = ? AND task_key = ?",
+    args: [JSON.stringify({ ...stored, data }), slug, key],
   });
 }
