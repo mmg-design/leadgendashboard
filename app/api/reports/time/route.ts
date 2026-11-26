@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { getAllClients } from "@/lib/clients";
 import { listMembers } from "@/lib/team";
 import { trackedByTask } from "@/lib/time";
+import { logoUrl } from "@/lib/client-logo";
 
 // Weekly time report. The owner sees everyone, with contractor cost; anyone
 // else sees only their own time and never a rate or cost.
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
   const [members, clients] = await Promise.all([listMembers(), getAllClients()]);
   const people = members
     .filter((m) => (owner ? m.status !== "disabled" || entries.some((e) => e.memberId === m.id) : m.id === onlyMe))
-    .map((m) => ({ id: m.id, name: m.name, title: m.title, kind: m.kind }));
+    .map((m) => ({ id: m.id, name: m.name, title: m.title, kind: m.kind, photoVersion: m.photoVersion }));
   const clientNames = Object.fromEntries(clients.map((c) => [c.slug, c.name]));
 
   if (sp.get("format") === "csv") {
@@ -106,6 +107,7 @@ export async function GET(req: NextRequest) {
     days,
     people,
     clients: clientNames,
+    logos: Object.fromEntries(clients.map((c) => [c.slug, logoUrl(c)])),
     entries,
     tasks: taskIds.map((id) => ({ id, totalSeconds: totals.get(id) || 0, estimateMinutes: estimate.get(id) ?? null, assigneeId: assignee.get(id) ?? null })),
   });

@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Check, Copy, Loader2, Mail, UserPlus } from "lucide-react";
 import AccountMenu from "@/components/account-menu";
+import { PhotoPicker } from "@/components/avatar";
 
 // Owner-only (the request gate sends everyone else home): invite employees and
 // contractors, set job titles, and keep contractor hourly rates.
@@ -21,6 +22,7 @@ interface Member {
   hasPassword: boolean;
   inviteExpiresAt: string | null;
   lastLoginAt: string | null;
+  photoVersion: string | null;
 }
 
 const field = "w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[15px] outline-none focus:border-[#0CA4C3]/50 focus:ring-2 focus:ring-[#0CA4C3]/15";
@@ -77,10 +79,10 @@ export default function TeamPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F3FAFB] text-[#1D475E]">
+    <div className="min-h-screen page-wash text-[#1D475E]">
       <div className="px-4 md:px-8 pt-5">
-        <nav className="max-w-[1100px] mx-auto h-[64px] px-4 md:px-5 flex items-center justify-between rounded-2xl bg-white border border-[#1D475E]/[0.08] shadow-[0_1px_4px_rgba(29,71,94,0.06)]">
-          <Link href="/" className="flex items-center gap-2.5 text-[15px] font-medium text-[#3E4F5E] hover:text-[#131B30]">
+        <nav className="max-w-[1100px] mx-auto h-[64px] px-4 md:px-5 flex items-center justify-between rounded-2xl card-depth">
+          <Link href="/#clients" className="flex items-center gap-2.5 text-[15px] font-medium text-[#3E4F5E] hover:text-[#131B30]">
             <ArrowLeft size={16} />
             <Image src="/mmg-icon.png" alt="" width={28} height={28} className="rounded-lg" />
             <span className="hidden sm:inline">All clients</span>
@@ -122,7 +124,7 @@ export default function TeamPage() {
 
         <AddPerson titles={titles} onAdd={async (p) => { const d = await call("POST", p); showInvite(p.name, d); return !!d; }} />
 
-        <section className="rounded-2xl bg-white border border-[#1D475E]/[0.08] shadow-[0_1px_4px_rgba(29,71,94,0.06)] overflow-hidden">
+        <section className="rounded-2xl card-depth overflow-hidden">
           <div className="px-5 py-4 border-b border-border/60 flex items-center justify-between">
             <h2 className="text-[17px] font-semibold text-[#131B30]">People</h2>
             <span className="text-[13px] text-muted-foreground">{members ? `${members.filter((m) => m.status !== "disabled").length} active or invited` : ""}</span>
@@ -147,7 +149,7 @@ export default function TeamPage() {
                 </thead>
                 <tbody>
                   {members.map((m) => (
-                    <MemberRow key={`${m.id}-${m.hourlyRateCents}-${m.kind}`} m={m} titles={titles} onPatch={(patch) => call("PATCH", { id: m.id, ...patch })}
+                    <MemberRow key={`${m.id}-${m.hourlyRateCents}-${m.kind}-${m.photoVersion}`} m={m} titles={titles} onPatch={(patch) => call("PATCH", { id: m.id, ...patch })}
                       onResend={async () => showInvite(m.name, await call("POST", { action: "resend", id: m.id }))} />
                   ))}
                 </tbody>
@@ -200,7 +202,7 @@ function AddPerson({ titles, onAdd }: { titles: string[]; onAdd: (p: NewPerson) 
         setBusy(false);
         if (ok) { setName(""); setEmail(""); setRate(""); }
       }}
-      className="rounded-2xl bg-white border border-[#1D475E]/[0.08] shadow-[0_1px_4px_rgba(29,71,94,0.06)] p-5 space-y-4"
+      className="rounded-2xl card-depth p-5 space-y-4"
     >
       <h2 className="flex items-center gap-2 text-[17px] font-semibold text-[#131B30]"><UserPlus size={17} className="text-[#4AA2C0]" /> Add a person</h2>
       <div className="grid md:grid-cols-2 lg:grid-cols-[1.1fr_1.3fr_1fr_auto_0.8fr] gap-3 items-end">
@@ -234,10 +236,16 @@ function MemberRow({ m, titles, onPatch, onResend }: { m: Member; titles: string
   const badge = { invited: "bg-amber-50 text-amber-800 border-amber-200", active: "bg-emerald-50 text-emerald-800 border-emerald-200", disabled: "bg-slate-100 text-slate-600 border-slate-200" }[m.status];
   const small = "rounded-md border border-border bg-white px-2 py-1.5 text-[13px] outline-none focus:border-[#0CA4C3]/50";
   return (
-    <tr className={`border-t border-border/60 ${disabled ? "opacity-60" : ""}`}>
+    <tr className={`border-t border-border/60 transition-colors duration-200 hover:bg-[#F6FAFB] ${disabled ? "opacity-60" : ""}`}>
       <td className="px-5 py-3">
-        <div className="font-semibold text-[#131B30]">{m.name}</div>
-        <div className="text-[13px] text-muted-foreground">{m.email}</div>
+        <div className="flex items-center gap-3">
+          <PhotoPicker id={m.id} name={m.name} photoVersion={m.photoVersion} size={36} label={`Change ${m.name}'s photo`}
+            save={async (image) => { await onPatch({ photo: image }); }} />
+          <div className="min-w-0">
+            <div className="font-semibold text-[#131B30]">{m.name}</div>
+            <div className="text-[13px] text-muted-foreground">{m.email}</div>
+          </div>
+        </div>
       </td>
       <td className="px-3 py-3">
         {m.isOwner ? <span className="font-medium">Owner</span> : (

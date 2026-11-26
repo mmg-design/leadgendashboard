@@ -5,7 +5,7 @@ import { getTask, updateTask } from "@/lib/agent-tasks";
 import { runAgent } from "@/lib/agent-runner";
 import { AgentError } from "@/lib/agent-llm";
 import { getWorkTask, linkAgentTask, updateWorkTask } from "@/lib/work-tasks";
-import { canSee } from "@/lib/work-access";
+import { canSee, notifyOwner } from "@/lib/work-access";
 
 export const maxDuration = 300;
 
@@ -28,6 +28,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     const output = await runAgent(task, config);
     await updateTask(work.clientSlug, key, { output, status: task.status === "applied" || task.status === "done" ? task.status : "drafted" });
     const updated = work.status === "todo" || work.status === "in_progress" ? await updateWorkTask(work.id, { status: "review" }) : work;
+    if (updated.status !== work.status) {
+      notifyOwner({ kind: "status", from: work.status, to: updated.status }, updated, { name: `${viewer.name}'s agent`, isOwner: viewer.isOwner }, req.nextUrl.origin, config.name);
+    }
     return NextResponse.json({ ok: true, output, task: updated });
   } catch (err) {
     console.error("Delegated agent run failed:", err);

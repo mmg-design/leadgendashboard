@@ -244,6 +244,8 @@ async function initSchema(db: Client) {
       invite_token_hash TEXT,
       invite_expires_at TEXT,
       last_login_at TEXT,
+      photo TEXT,
+      photo_updated_at TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -295,6 +297,16 @@ async function initSchema(db: Client) {
     CREATE INDEX IF NOT EXISTS time_entries_task ON time_entries (task_id);
     CREATE INDEX IF NOT EXISTS time_entries_client ON time_entries (client_slug, started_at);
 
+    -- People @mentioned in a task's comments: they're emailed, and can open
+    -- that task even when it isn't assigned to them.
+    CREATE TABLE IF NOT EXISTS work_task_mentions (
+      task_id INTEGER NOT NULL,
+      member_id INTEGER NOT NULL,
+      comment_id INTEGER NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (task_id, member_id, comment_id)
+    );
+
     CREATE TABLE IF NOT EXISTS work_task_comments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       task_id INTEGER NOT NULL,
@@ -304,6 +316,14 @@ async function initSchema(db: Client) {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // Migration: team headshots (team-accounts branch DBs)
+  try {
+    await db.execute("SELECT photo FROM team_members LIMIT 1");
+  } catch {
+    await db.execute("ALTER TABLE team_members ADD COLUMN photo TEXT");
+    await db.execute("ALTER TABLE team_members ADD COLUMN photo_updated_at TEXT");
+  }
 
   // Migration: contractor rate snapshot on time entries (team-accounts branch DBs)
   try {

@@ -156,13 +156,27 @@ export async function listComments(taskId: number): Promise<WorkComment[]> {
   }));
 }
 
-export async function addComment(taskId: number, author: { id: number | null; name: string }, body: string): Promise<void> {
+export async function addComment(taskId: number, author: { id: number | null; name: string }, body: string, mentions: number[] = []): Promise<number> {
   const db = await getDb();
-  await db.execute({
+  const res = await db.execute({
     sql: "INSERT INTO work_task_comments (task_id, author_id, author_name, body) VALUES (?, ?, ?, ?)",
     args: [taskId, author.id, author.name.slice(0, 80), body.trim().slice(0, 5000)],
   });
+  const commentId = Number(res.lastInsertRowid);
+  for (const memberId of new Set(mentions)) {
+    await db.execute({
+      sql: "INSERT OR IGNORE INTO work_task_mentions (task_id, member_id, comment_id) VALUES (?, ?, ?)",
+      args: [taskId, memberId, commentId],
+    });
+  }
   await db.execute({ sql: "UPDATE work_tasks SET updated_at = datetime('now') WHERE id = ?", args: [taskId] });
+  return commentId;
+}
+
+export async function isMentioned(taskId: number, memberId: number): Promise<boolean> {
+  const db = await getDb();
+  const res = await db.execute({ sql: "SELECT 1 FROM work_task_mentions WHERE task_id = ? AND member_id = ? LIMIT 1", args: [taskId, memberId] });
+  return res.rows.length > 0;
 }
 
 // ── Agents ───────────────────────────────────────────────────────────────────

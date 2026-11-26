@@ -1,12 +1,13 @@
 "use client";
 
-import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Bot, CalendarDays, Clock, ExternalLink, Loader2, MessageSquare, Pencil, Play, Plus, Square, Trash2, UserRound, X } from "lucide-react";
 import { clock, duration, refreshTimer, startTimerOn, stopTimer, useElapsed, useTimer } from "@/components/timer";
 import AccountMenu from "@/components/account-menu";
+import { Avatar, ClientLogo } from "@/components/avatar";
 
 // Delegated work. The owner sees every task and creates them, handing each to a
 // team member, an agent, or both. Everyone else sees their own queue and moves
@@ -19,10 +20,10 @@ interface Task {
   assigneeId: number | null; agentTaskKey: string | null; pagePath: string | null; dueDate: string | null;
   estimateMinutes: number | null; commentCount: number; completedAt: string | null; trackedSeconds?: number;
 }
-interface TimeEntry { id: number; memberId: number; memberName: string; startedAt: string; endedAt: string | null; durationSeconds: number | null; note: string | null; source: string; editedAt: string | null }
-interface Person { id: number; name: string; title: string }
-interface Client { slug: string; name: string }
-interface Comment { id: number; authorName: string; body: string; createdAt: string }
+interface TimeEntry { id: number; memberId: number; memberName: string; memberPhoto?: string | null; startedAt: string; endedAt: string | null; durationSeconds: number | null; note: string | null; source: string; editedAt: string | null }
+interface Person { id: number; name: string; title: string; photoVersion?: string | null }
+interface Client { slug: string; name: string; logo?: string | null }
+interface Comment { id: number; authorId: number | null; authorName: string; body: string; createdAt: string }
 interface AgentOut { summary?: string; proposedChange?: string; steps?: { title: string; detail: string }[] }
 
 const COLUMNS: { status: Status; label: string; dot: string }[] = [
@@ -40,7 +41,6 @@ const PRIORITY: Record<Priority, { label: string; cls: string }> = {
 const fieldBase = "rounded-lg border border-border bg-white px-3 py-2.5 text-[15px] outline-none focus:border-[#0CA4C3]/50 focus:ring-2 focus:ring-[#0CA4C3]/15";
 const field = `w-full ${fieldBase}`;
 const today = () => new Date().toISOString().slice(0, 10);
-const initials = (n: string) => n.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 const hours = (m: number | null) => (m == null ? "" : String(Math.round((m / 60) * 100) / 100));
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -60,7 +60,7 @@ function Work() {
   const openId = Number(params.get("task")) || null;
   const [data, setData] = useState<{ tasks: Task[]; people: Person[]; clients: Client[]; isOwner: boolean; me: number | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [clientFilter, setClientFilter] = useState("");
+  const [clientFilter, setClientFilter] = useState(() => params.get("client") || "");
   const [personFilter, setPersonFilter] = useState("");
   const [creating, setCreating] = useState(false);
   const [running, setRunning] = useState<Set<number>>(new Set());
@@ -85,13 +85,12 @@ function Work() {
     return () => { alive = false; };
   }, []);
 
-  const clientName = useMemo(() => new Map(data?.clients.map((c) => [c.slug, c.name]) || []), [data]);
   const person = useMemo(() => new Map(data?.people.map((p) => [p.id, p]) || []), [data]);
   const tasks = (data?.tasks || []).filter((t) =>
     (!clientFilter || t.clientSlug === clientFilter) &&
     (!personFilter || (personFilter === "agent" ? !!t.agentTaskKey && !t.assigneeId : personFilter === "none" ? !t.assigneeId : t.assigneeId === Number(personFilter))));
 
-  const setOpen = (id: number | null) => router.replace(id ? `/work?task=${id}` : "/work", { scroll: false });
+  const setOpen = (id: number | null) => router.replace(`/work${id ? `?task=${id}` : ""}${clientFilter ? `${id ? "&" : "?"}client=${encodeURIComponent(clientFilter)}` : ""}`, { scroll: false });
 
   async function runAgent(id: number) {
     setRunning((s) => new Set(s).add(id));
@@ -112,10 +111,10 @@ function Work() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F3FAFB] text-[#1D475E]">
+    <div className="min-h-screen page-wash text-[#1D475E]">
       <div className="px-4 md:px-8 pt-5">
-        <nav className="max-w-[1400px] mx-auto h-[64px] px-4 md:px-5 flex items-center justify-between rounded-2xl bg-white border border-[#1D475E]/[0.08] shadow-[0_1px_4px_rgba(29,71,94,0.06)]">
-          <Link href="/" className="flex items-center gap-2.5 text-[15px] font-medium text-[#3E4F5E] hover:text-[#131B30]">
+        <nav className="max-w-[1400px] mx-auto h-[64px] px-4 md:px-5 flex items-center justify-between rounded-2xl card-depth">
+          <Link href="/#clients" className="flex items-center gap-2.5 text-[15px] font-medium text-[#3E4F5E] hover:text-[#131B30]">
             <ArrowLeft size={16} />
             <Image src="/mmg-icon.png" alt="" width={28} height={28} className="rounded-lg" />
             <span className="hidden sm:inline">All clients</span>
@@ -133,7 +132,7 @@ function Work() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/time" className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2.5 text-[15px] font-medium hover:bg-slate-50">
+            <Link href="/time" className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2.5 text-[15px] font-medium hover:bg-slate-50 transition-colors duration-200">
               <Clock size={16} /> {data?.isOwner === false ? "My time" : "Time reports"}
             </Link>
             {data?.isOwner && (
@@ -154,7 +153,7 @@ function Work() {
           <div className="flex flex-wrap gap-3">
             <select className={`${fieldBase} min-w-[180px]`} value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} aria-label="Filter by client">
               <option value="">All clients</option>
-              {data.clients.filter((c) => data.tasks.some((t) => t.clientSlug === c.slug)).map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
+              {data.clients.filter((c) => c.slug === clientFilter || data.tasks.some((t) => t.clientSlug === c.slug)).map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
             </select>
             {data.isOwner && (
               <select className={`${fieldBase} min-w-[180px]`} value={personFilter} onChange={(e) => setPersonFilter(e.target.value)} aria-label="Filter by person">
@@ -174,14 +173,14 @@ function Work() {
             {COLUMNS.map((col) => {
               const list = tasks.filter((t) => t.status === col.status);
               return (
-                <section key={col.status} className="rounded-2xl bg-white/70 border border-[#1D475E]/[0.08] p-3 min-h-[180px]">
+                <section key={col.status} className="rounded-2xl bg-white/60 backdrop-blur-sm border border-[#1D475E]/[0.07] p-3 min-h-[180px] shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_8px_24px_-12px_rgba(7,61,143,0.12)]">
                   <h2 className="flex items-center gap-2 px-1 pb-3 text-[14px] font-semibold text-[#131B30]">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ background: col.dot }} />{col.label}
                     <span className="ml-auto text-[13px] font-normal text-muted-foreground">{list.length}</span>
                   </h2>
                   <div className="space-y-2.5">
                     {list.map((t) => (
-                      <TaskCard key={t.id} t={t} client={t.clientSlug ? clientName.get(t.clientSlug) : undefined}
+                      <TaskCard key={t.id} t={t} client={t.clientSlug ? data.clients.find((c) => c.slug === t.clientSlug) : undefined}
                         assignee={t.assigneeId ? person.get(t.assigneeId) : undefined} running={running.has(t.id)}
                         canTrack={!!timer?.canTrack && t.status !== "done" && (data.isOwner || t.assigneeId === data.me)}
                         timingSince={timing === t.id ? timer?.running?.startedAt ?? null : null}
@@ -212,7 +211,7 @@ function Work() {
 }
 
 function TaskCard({ t, client, assignee, running, canTrack, timingSince, onTimer, onOpen }: {
-  t: Task; client?: string; assignee?: Person; running: boolean; canTrack: boolean; timingSince: string | null; onTimer: () => void; onOpen: () => void;
+  t: Task; client?: Client; assignee?: Person; running: boolean; canTrack: boolean; timingSince: string | null; onTimer: () => void; onOpen: () => void;
 }) {
   const overdue = t.dueDate && t.status !== "done" && t.dueDate < today();
   const elapsed = useElapsed(timingSince);
@@ -220,8 +219,13 @@ function TaskCard({ t, client, assignee, running, canTrack, timingSince, onTimer
   const over = !!t.estimateMinutes && tracked > t.estimateMinutes * 60;
   return (
     <div role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen())}
-      className={`w-full text-left rounded-xl bg-white border p-3 shadow-[0_1px_2px_rgba(29,71,94,0.05)] hover:border-[#0CA4C3]/40 hover:shadow-md transition cursor-pointer ${timingSince ? "border-[#0CA4C3] ring-2 ring-[#0CA4C3]/20" : "border-[#1D475E]/[0.1]"}`}>
-      {client && <div className="mb-1 text-[12px] font-medium uppercase tracking-wide text-[#4AA2C0] truncate">{client}</div>}
+      className={`w-full text-left rounded-xl card-depth card-lift anim-rise p-3 cursor-pointer hover:border-[#0CA4C3]/40 ${timingSince ? "!border-[#0CA4C3] ring-2 ring-[#0CA4C3]/20" : ""}`}>
+      {client && (
+        <div className="mb-1.5 flex items-center gap-1.5 min-w-0">
+          <ClientLogo logo={client.logo} name={client.name} size={16} />
+          <span className="text-[12px] font-medium uppercase tracking-wide text-[#4AA2C0] truncate">{client.name}</span>
+        </div>
+      )}
       <div className="text-[15px] font-semibold leading-snug text-[#131B30]">{t.title}</div>
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[12px]">
         {t.priority !== "normal" && <span className={`rounded-full border px-2 py-0.5 font-medium ${PRIORITY[t.priority].cls}`}>{PRIORITY[t.priority].label}</span>}
@@ -239,7 +243,7 @@ function TaskCard({ t, client, assignee, running, canTrack, timingSince, onTimer
             </span>
           )}
           {assignee ? (
-            <span title={`${assignee.name} · ${assignee.title}`} className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1D475E] text-[10px] font-semibold text-white">{initials(assignee.name)}</span>
+            <Avatar id={assignee.id} name={assignee.name} photoVersion={assignee.photoVersion} size={24} title={`${assignee.name} · ${assignee.title}`} />
           ) : !t.agentTaskKey && <span title="Unassigned" className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-slate-300 text-slate-400"><UserRound size={12} /></span>}
         </span>
       </div>
@@ -291,8 +295,8 @@ function NewTask({ clients, people, onClose, onCreated }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#011421]/50 p-4 md:p-10" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <form onSubmit={submit} className="w-full max-w-[640px] rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#011421]/50 backdrop-blur-[2px] p-4 md:p-10 anim-fade" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <form onSubmit={submit} className="w-full max-w-[640px] rounded-2xl bg-white p-6 shadow-2xl space-y-4 anim-pop" style={{ transformOrigin: "top center" }}>
         <div className="flex items-center justify-between">
           <h2 className="text-[20px] font-semibold text-[#131B30]">New task</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={18} /></button>
@@ -383,7 +387,9 @@ function TaskDrawer({ id, isOwner, clients, people, running, onClose, onChanged,
   async function send(e: FormEvent) {
     e.preventDefault();
     if (!comment.trim()) return;
-    try { const d = await api<{ comments: Comment[] }>(`/api/work-tasks/${id}/comments`, { method: "POST", body: JSON.stringify({ body: comment }) }); setComment(""); setDetail((x) => x && { ...x, comments: d.comments }); onChanged(); }
+    // Everyone whose @Name is still in the text gets tagged.
+    const mentions = people.filter((p) => comment.includes(`@${p.name}`)).map((p) => p.id);
+    try { const d = await api<{ comments: Comment[] }>(`/api/work-tasks/${id}/comments`, { method: "POST", body: JSON.stringify({ body: comment, mentions }) }); setComment(""); setDetail((x) => x && { ...x, comments: d.comments }); onChanged(); }
     catch (err) { setError(err instanceof Error ? err.message : "Couldn't post."); }
   }
   async function remove() {
@@ -397,9 +403,9 @@ function TaskDrawer({ id, isOwner, clients, people, running, onClose, onChanged,
   const out = detail?.agent?.output;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-[#011421]/40" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <aside className="h-full w-full max-w-[560px] overflow-y-auto bg-white shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/60 bg-white px-5 py-3">
+    <div className="fixed inset-0 z-50 flex justify-end bg-[#011421]/40 backdrop-blur-[2px] anim-fade" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <aside className="h-full w-full max-w-[580px] overflow-y-auto page-wash shadow-[-24px_0_48px_-12px_rgba(1,20,33,0.25)] anim-drawer">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#1D475E]/[0.08] bg-white/80 px-5 py-3 backdrop-blur-md">
           <span className="text-[13px] font-medium text-muted-foreground">Task #{id}</span>
           <div className="flex items-center gap-1">
             {isOwner && t && <button onClick={remove} aria-label="Delete task" className="rounded-full p-2 text-red-600 hover:bg-red-50"><Trash2 size={16} /></button>}
@@ -408,25 +414,27 @@ function TaskDrawer({ id, isOwner, clients, people, running, onClose, onChanged,
         </div>
         {error && <p role="alert" className="mx-5 mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[14px] text-red-700">{error}</p>}
         {!t ? <div className="p-6"><Loader2 className="animate-spin text-muted-foreground" /></div> : (
-          <div className="space-y-6 p-5">
-            <div>
+          <div className="space-y-4 p-4">
+            <div className="rounded-2xl card-depth p-4 anim-rise">
               {isOwner ? (
                 <input defaultValue={t.title} onBlur={(e) => e.target.value.trim() && e.target.value !== t.title && patch({ title: e.target.value })}
                   className="w-full rounded-md border border-transparent px-1 -mx-1 text-[22px] font-semibold text-[#131B30] hover:border-border focus:border-[#0CA4C3]/50 outline-none" aria-label="Title" />
               ) : <h2 className="text-[22px] font-semibold text-[#131B30]">{t.title}</h2>}
               {t.clientSlug && (
-                <Link href={`/${t.clientSlug}`} className="mt-1 inline-flex items-center gap-1 text-[14px] font-medium text-[#0394B2] hover:underline">
+                <Link href={`/${t.clientSlug}`} className="mt-1.5 inline-flex items-center gap-1.5 text-[14px] font-medium text-[#0394B2] hover:underline">
+                  <ClientLogo logo={clients.find((c) => c.slug === t.clientSlug)?.logo} name={clients.find((c) => c.slug === t.clientSlug)?.name || t.clientSlug} size={20} />
                   {clients.find((c) => c.slug === t.clientSlug)?.name || t.clientSlug}{t.pagePath ? ` · ${t.pagePath}` : ""} <ExternalLink size={12} />
                 </Link>
               )}
             </div>
 
+            <div className="rounded-2xl card-depth p-4 space-y-5 anim-rise">
             <div>
               <span className="mb-1.5 block text-[13px] font-medium text-muted-foreground">Status</span>
               <div className="flex flex-wrap gap-1.5">
                 {COLUMNS.map((c) => (
                   <button key={c.status} onClick={() => { onMove(c.status); setDetail((d) => d && { ...d, task: { ...d.task, status: c.status } }); }}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] ${t.status === c.status ? "border-[#131B30] bg-[#131B30] text-white font-semibold" : "border-border text-[#3E4F5E] hover:bg-slate-50"}`}>
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] ${t.status === c.status ? "border-[#131B30] bg-[#131B30] text-white font-semibold" : "border-border text-[#3E4F5E] hover:bg-slate-50 transition-colors duration-200"}`}>
                     <span className="h-2 w-2 rounded-full" style={{ background: c.dot }} />{c.label}
                   </button>
                 ))}
@@ -435,12 +443,15 @@ function TaskDrawer({ id, isOwner, clients, people, running, onClose, onChanged,
 
             <div className="grid grid-cols-2 gap-3 text-[14px]">
               <Field label="Assigned to">
-                {isOwner ? (
-                  <select className={small} value={t.assigneeId ?? ""} onChange={(e) => patch({ assigneeId: e.target.value || null })}>
-                    <option value="">{t.agentTaskKey ? "Agent only" : "Unassigned"}</option>
-                    {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                ) : <span>{people.find((p) => p.id === t.assigneeId)?.name || "You"}</span>}
+                <div className="flex items-center gap-2">
+                  {(() => { const a = people.find((p) => p.id === t.assigneeId); return a ? <Avatar id={a.id} name={a.name} photoVersion={a.photoVersion} size={28} /> : null; })()}
+                  {isOwner ? (
+                    <select className={small} value={t.assigneeId ?? ""} onChange={(e) => patch({ assigneeId: e.target.value || null })}>
+                      <option value="">{t.agentTaskKey ? "Agent only" : "Unassigned"}</option>
+                      {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  ) : <span>{people.find((p) => p.id === t.assigneeId)?.name || "You"}</span>}
+                </div>
               </Field>
               <Field label="Priority">
                 {isOwner ? (
@@ -466,10 +477,12 @@ function TaskDrawer({ id, isOwner, clients, people, running, onClose, onChanged,
               ) : <p className="whitespace-pre-line text-[14px] leading-relaxed text-[#131B30]">{t.notes || "No instructions."}</p>}
             </Field>
 
+            </div>
+
             <TimeSection taskId={t.id} done={t.status === "done"} estimateMinutes={t.estimateMinutes} isOwner={isOwner}
               timingSince={timingSince} canTrack={canTrack} trackReason={trackReason} onTimer={onTimer} onChanged={onChanged} />
 
-            <section className="rounded-xl border border-[#1D475E]/[0.12] bg-[#F6F9FA] p-4 space-y-3">
+            <section className="rounded-2xl card-depth p-4 space-y-3 anim-rise">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="flex items-center gap-2 text-[15px] font-semibold text-[#131B30]"><Bot size={16} /> Agent</h3>
                 <button onClick={onRunAgent} disabled={running || !t.clientSlug}
@@ -491,19 +504,23 @@ function TaskDrawer({ id, isOwner, clients, people, running, onClose, onChanged,
               )}
             </section>
 
-            <section className="space-y-3">
+            <section className="rounded-2xl card-depth p-4 space-y-3 anim-rise">
               <h3 className="text-[15px] font-semibold text-[#131B30]">Comments</h3>
               {detail.comments.length === 0 && <p className="text-[13px] text-muted-foreground">No comments yet.</p>}
               {detail.comments.map((c) => (
-                <div key={c.id} className="rounded-lg border border-border/70 px-3 py-2">
-                  <div className="text-[12px] text-muted-foreground"><strong className="text-[#131B30]">{c.authorName}</strong> · {new Date(c.createdAt.replace(" ", "T") + "Z").toLocaleString()}</div>
-                  <p className="mt-1 whitespace-pre-line text-[14px] text-[#131B30]">{c.body}</p>
+                <div key={c.id} className="flex gap-2.5 anim-rise">
+                  <Avatar id={c.authorId} name={c.authorName} photoVersion={people.find((p) => p.id === c.authorId)?.photoVersion} size={30} />
+                  <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm bg-[#F6F9FA] px-3 py-2">
+                    <div className="text-[12px] text-muted-foreground"><strong className="text-[#131B30]">{c.authorName}</strong> · {new Date(c.createdAt.replace(" ", "T") + "Z").toLocaleString()}</div>
+                    <p className="mt-0.5 whitespace-pre-line text-[14px] text-[#131B30]"><WithMentions text={c.body} people={people} /></p>
+                  </div>
                 </div>
               ))}
-              <form onSubmit={send} className="flex gap-2">
-                <input className={field} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Write a comment" aria-label="Write a comment" />
-                <button disabled={!comment.trim()} className="btn-mmg-blue px-4 text-[14px] disabled:opacity-50">Post</button>
+              <form onSubmit={send} className="flex items-end gap-2">
+                <MentionInput value={comment} onChange={setComment} people={people} onSubmit={() => send({ preventDefault() {} } as FormEvent)} />
+                <button disabled={!comment.trim()} className="btn-mmg-blue px-4 py-2.5 text-[14px] disabled:opacity-50">Post</button>
               </form>
+              <p className="text-[12px] text-muted-foreground">Type @ to tag someone. They&apos;ll get an email.</p>
             </section>
           </div>
         )}
@@ -558,7 +575,7 @@ function TimeSection({ taskId, done, estimateMinutes, isOwner, timingSince, canT
   }
 
   return (
-    <section className="rounded-xl border border-[#1D475E]/[0.12] p-4 space-y-3">
+    <section className="rounded-2xl card-depth p-4 space-y-3 anim-rise">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="flex items-center gap-2 text-[15px] font-semibold text-[#131B30]"><Clock size={16} /> Time</h3>
@@ -580,6 +597,7 @@ function TimeSection({ taskId, done, estimateMinutes, isOwner, timingSince, canT
             const mine = e.memberId === me;
             return (
               <li key={e.id} className="flex items-center gap-3 px-3 py-2">
+                <Avatar id={e.memberId} name={e.memberName} photoVersion={e.memberPhoto} size={26} />
                 <div className="min-w-0 flex-1">
                   <div className="text-[#131B30]">
                     <strong>{e.endedAt ? duration(e.durationSeconds ?? 0) : "Running"}</strong>
@@ -646,4 +664,71 @@ function AddTime({ taskId, onDone, onCancel }: { taskId: number; onDone: () => v
       </div>
     </form>
   );
+}
+
+// Comment box with @mentions: typing @ opens a list of teammates; picking one
+// inserts "@Full Name". Enter posts, Shift+Enter adds a line.
+function MentionInput({ value, onChange, people, onSubmit }: { value: string; onChange: (v: string) => void; people: Person[]; onSubmit: () => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const [query, setQuery] = useState<string | null>(null);
+  const [active, setActive] = useState(0);
+  const matches = query === null ? [] : people.filter((p) => p.name.toLowerCase().includes(query.toLowerCase())).slice(0, 6);
+
+  function update(text: string, caret: number) {
+    onChange(text);
+    const m = text.slice(0, caret).match(/(^|\s)@([^\s@]*)$/);
+    setQuery(m ? m[2] : null);
+    setActive(0);
+  }
+  function pick(p: Person) {
+    const el = ref.current;
+    if (!el) return;
+    const caret = el.selectionStart;
+    const before = value.slice(0, caret).replace(/@([^\s@]*)$/, `@${p.name} `);
+    const next = before + value.slice(caret);
+    onChange(next);
+    setQuery(null);
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(before.length, before.length); });
+  }
+
+  return (
+    <div className="relative flex-1">
+      <textarea ref={ref} rows={1} value={value} placeholder="Write a comment" aria-label="Write a comment"
+        onChange={(e) => update(e.target.value, e.target.selectionStart)}
+        onKeyDown={(e) => {
+          if (matches.length) {
+            if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => (a + 1) % matches.length); return; }
+            if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => (a - 1 + matches.length) % matches.length); return; }
+            if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); pick(matches[active]); return; }
+            if (e.key === "Escape") { setQuery(null); return; }
+          }
+          if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (value.trim()) onSubmit(); }
+        }}
+        className="block w-full resize-none rounded-lg border border-border bg-white px-3 py-2.5 text-[15px] leading-snug outline-none transition focus:border-[#0CA4C3]/50 focus:ring-2 focus:ring-[#0CA4C3]/15"
+        style={{ minHeight: 44, maxHeight: 160, fieldSizing: "content" } as React.CSSProperties} />
+      {matches.length > 0 && (
+        <ul role="listbox" className="absolute bottom-full left-0 z-20 mb-2 w-72 overflow-hidden rounded-xl card-depth p-1 anim-pop" style={{ transformOrigin: "bottom left" }}>
+          {matches.map((p, i) => (
+            <li key={p.id} role="option" aria-selected={i === active}>
+              <button type="button" onMouseDown={(e) => { e.preventDefault(); pick(p); }} onMouseEnter={() => setActive(i)}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-150 ${i === active ? "bg-[#0CA4C3]/10" : ""}`}>
+                <Avatar id={p.id} name={p.name} photoVersion={p.photoVersion} size={26} />
+                <span className="min-w-0"><span className="block truncate text-[14px] font-medium text-[#131B30]">{p.name}</span><span className="block truncate text-[12px] text-muted-foreground">{p.title}</span></span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// Comment text with @Full Name tags highlighted.
+function WithMentions({ text, people }: { text: string; people: Person[] }) {
+  const names = people.map((p) => p.name).sort((a, b) => b.length - a.length);
+  if (!names.length) return <>{text}</>;
+  const pattern = new RegExp(`(@(?:${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")}))`, "g");
+  return <>{text.split(pattern).map((part, i) => (part.startsWith("@") && names.includes(part.slice(1))
+    ? <span key={i} className="rounded bg-[#0CA4C3]/10 px-1 font-semibold text-[#0F6E84]">{part}</span>
+    : <span key={i}>{part}</span>))}</>;
 }

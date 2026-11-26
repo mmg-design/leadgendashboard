@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ownerOnly, forgetMember } from "@/lib/viewer";
-import { createMember, issueInvite, isEmail, listMembers, TeamError, TITLES, updateMember, getMember, hasOwner, INVITE_DAYS, type TeamMember } from "@/lib/team";
+import { createMember, issueInvite, isEmail, listMembers, TeamError, TITLES, updateMember, getMember, hasOwner, INVITE_DAYS, setMemberPhoto, type TeamMember } from "@/lib/team";
 import { getConnection, sendEmail } from "@/lib/google-oauth";
 
 // Owner only: the team list (with hourly rates), invites and edits.
@@ -73,6 +73,9 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Use an hourly rate between 0 and 2,000." }, { status: 400 });
   }
   try {
+    if (body.photo !== undefined) {
+      await setMemberPhoto(Number(body.id), typeof body.photo === "string" ? body.photo : null);
+    }
     const member = await updateMember(Number(body.id), {
       name: typeof body.name === "string" ? body.name : undefined,
       title: typeof body.title === "string" ? body.title : undefined,

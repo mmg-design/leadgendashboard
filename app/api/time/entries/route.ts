@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
   const task = await getWorkTask(Number(req.nextUrl.searchParams.get("taskId")));
   if (!task || !canSee(viewer, task)) return NextResponse.json({ error: "Task not found." }, { status: 404 });
   const entries = await entriesForTask(task.id, viewer.isOwner ? undefined : viewer.type === "member" ? viewer.member.id : -1);
-  const names = new Map((await listMembers()).map((m) => [m.id, m.name]));
+  const people = new Map((await listMembers()).map((m) => [m.id, m]));
   return NextResponse.json({
-    entries: entries.map((e) => ({ ...e, memberName: names.get(e.memberId) || "Former team member" })),
+    entries: entries.map((e) => ({ ...e, memberName: people.get(e.memberId)?.name || "Former team member", memberPhoto: people.get(e.memberId)?.photoVersion ?? null })),
     me: viewer.type === "member" ? viewer.member.id : null,
   });
 }

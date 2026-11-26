@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getViewer } from "@/lib/viewer";
 import { getClient } from "@/lib/clients";
 import { getWorkTask } from "@/lib/work-tasks";
-import { canSee } from "@/lib/work-access";
+import { canSee, notifyOwner } from "@/lib/work-access";
 import { getRunning, needsReview, startTimer, stopTimer, TimeError, MAX_RUN_HOURS } from "@/lib/time";
 
 // The signed-in person's timer. Time is tracked per person, so the shared
@@ -38,6 +38,9 @@ export async function POST(req: NextRequest) {
       if (!task || !canSee(viewer, task)) return NextResponse.json({ error: "Task not found." }, { status: 404 });
       const running = await startTimer(viewer.member.id, task.id);
       const client = running.clientSlug ? await getClient(running.clientSlug) : null;
+      if (task.status === "todo") {
+        notifyOwner({ kind: "status", from: "todo", to: "in_progress" }, { ...task, status: "in_progress" }, { name: viewer.name, isOwner: viewer.isOwner }, req.nextUrl.origin, client?.name ?? null);
+      }
       return NextResponse.json({ running: { ...running, clientName: client?.name ?? null } });
     }
     return NextResponse.json({ error: "Unknown action." }, { status: 400 });

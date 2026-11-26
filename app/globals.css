@@ -202,3 +202,62 @@
     transform: scale(0.98);
   }
 }
+
+/* Team, Work and Time pages: an ice-blue wash fading to white, cards with
+   layered depth that match the mmg.studio buttons, and gentle motion. */
+@layer components {
+  .page-wash {
+    background-color: #fff;
+    background-image: linear-gradient(180deg, #e3f2f6 0%, #eef7fa 30%, #f8fcfd 60%, #ffffff 100%);
+    background-attachment: fixed;
+  }
+  .card-depth {
+    background-color: #fff;
+    border: 1px solid rgba(9, 38, 72, 0.07);
+    box-shadow:
+      0 1px 2px 0 rgba(7, 61, 143, 0.05),
+      0 4px 10px 0 rgba(7, 61, 143, 0.05),
+      0 12px 28px -8px rgba(7, 61, 143, 0.08);
+  }
+  .card-lift {
+    transition: transform 0.45s cubic-bezier(0.19, 1, 0.22, 1), box-shadow 0.45s cubic-bezier(0.19, 1, 0.22, 1), border-color 0.3s ease;
+  }
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 2px 0 rgba(7, 61, 143, 0.06),
+      0 8px 18px 0 rgba(7, 61, 143, 0.08),
+      0 20px 36px -12px rgba(7, 61, 143, 0.14);
+  }
+  .anim-fade { animation: mmg-fade 0.22s ease-out both; }
+  .anim-rise { animation: mmg-rise 0.4s cubic-bezier(0.19, 1, 0.22, 1) both; }
+  .anim-pop { animation: mmg-pop 0.32s cubic-bezier(0.19, 1, 0.22, 1) both; transform-origin: top right; }
+  .anim-drawer { animation: mmg-drawer 0.42s cubic-bezier(0.19, 1, 0.22, 1) both; }
+}
+@keyframes mmg-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mmg-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes mmg-pop { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes mmg-drawer { from { opacity: 0.6; transform: translateX(32px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .anim-fade, .anim-rise, .anim-pop, .anim-drawer { animation: none !important; }
+  .card-lift, .card-lift:hover { transition: none !important; transform: none !important; }
+}
+
+/* Every dropdown: a subtle brand shadow and a chevron with room to breathe.
+   Unlayered on purpose so it wins over per-element padding utilities. */
+select:not([multiple]):not([size]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%235F7A8A' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.8rem center;
+  background-size: 14px 14px;
+  padding-right: 2.4rem;
+  cursor: pointer;
+  box-shadow: 0 0 0 0 transparent, 0 1px 2px 0 rgba(7, 61, 143, 0.06), 0 3px 8px 0 rgba(7, 61, 143, 0.05);
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+select:not([multiple]):not([size]):hover:not(:disabled) {
+  box-shadow: 0 0 0 0 transparent, 0 1px 2px 0 rgba(7, 61, 143, 0.08), 0 6px 14px 0 rgba(7, 61, 143, 0.08);
+}
+select:not([multiple]):not([size]):disabled { cursor: default; opacity: 0.7; }

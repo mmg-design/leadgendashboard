@@ -53,6 +53,7 @@ import {
   MessageSquare,
   Presentation,
   Map as MapIcon,
+  ListChecks,
 } from "lucide-react";
 
 interface GAData {
@@ -600,7 +601,7 @@ export default function ClientDashboard() {
         <div className="max-w-[1680px] mx-auto px-4 md:px-12 2xl:px-16 py-4 md:py-6 flex flex-wrap md:flex-nowrap items-center justify-between max-md:gap-3">
           <div className="flex items-center gap-3 md:gap-4 max-md:min-w-0">
             <Link
-              href="/"
+              href="/#clients"
               aria-label="All Clients"
               className="max-md:shrink-0 text-[15px] text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -635,6 +636,15 @@ export default function ClientDashboard() {
                 <TabsTrigger value="90d" className="text-xs px-3 h-7">90d</TabsTrigger>
               </TabsList>
             </Tabs>
+            {viewer && (
+              <Link
+                href={`/work?client=${encodeURIComponent(clientSlug)}`}
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[14px] font-medium text-muted-foreground transition-colors duration-200 hover:bg-muted/50 hover:text-foreground"
+                title="This client's tasks on the Work board"
+              >
+                <ListChecks size={16} /> Work
+              </Link>
+            )}
             {viewer?.isOwner && (
               <button
                 onClick={() => setSettingsOpen(!settingsOpen)}

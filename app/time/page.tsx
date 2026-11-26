@@ -6,6 +6,7 @@ import Image from "next/image";
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, Loader2, X } from "lucide-react";
 import AccountMenu from "@/components/account-menu";
 import { duration } from "@/components/timer";
+import { Avatar, AvatarStack, ClientLogo } from "@/components/avatar";
 
 // Weekly time. The owner sees the whole team: a timesheet of people by day,
 // hours and contractor cost per client, and time against estimate per task.
@@ -16,9 +17,9 @@ interface Entry {
   startedAt: string; endedAt: string | null; seconds: number; running: boolean; note: string | null; source: string; edited: boolean;
   rateCents?: number | null; costCents?: number | null;
 }
-interface Person { id: number; name: string; title: string; kind: "employee" | "contractor" }
+interface Person { id: number; name: string; title: string; kind: "employee" | "contractor"; photoVersion?: string | null }
 interface Report {
-  isOwner: boolean; days: string[]; people: Person[]; clients: Record<string, string>; entries: Entry[];
+  isOwner: boolean; days: string[]; people: Person[]; clients: Record<string, string>; logos: Record<string, string | null>; entries: Entry[];
   tasks: { id: number; totalSeconds: number; estimateMinutes: number | null; assigneeId: number | null }[];
 }
 
@@ -89,12 +90,14 @@ export default function TimePage() {
   }, [entries]);
   const taskInfo = new Map(report?.tasks.map((t) => [t.id, t]) || []);
   const name = (id: number) => report?.people.find((p) => p.id === id)?.name || "Former team member";
+  const personOf = (id: number) => report?.people.find((p) => p.id === id) || { id, name: "Former team member", photoVersion: null };
+  const logo = (slug: string | null) => (slug ? report?.logos?.[slug] ?? null : null);
 
   return (
-    <div className="min-h-screen bg-[#F3FAFB] text-[#1D475E]">
+    <div className="min-h-screen page-wash text-[#1D475E]">
       <div className="px-4 md:px-8 pt-5">
-        <nav className="max-w-[1240px] mx-auto h-[64px] px-4 md:px-5 flex items-center justify-between rounded-2xl bg-white border border-[#1D475E]/[0.08] shadow-[0_1px_4px_rgba(29,71,94,0.06)]">
-          <Link href="/" className="flex items-center gap-2.5 text-[15px] font-medium text-[#3E4F5E] hover:text-[#131B30]">
+        <nav className="max-w-[1240px] mx-auto h-[64px] px-4 md:px-5 flex items-center justify-between rounded-2xl card-depth">
+          <Link href="/#clients" className="flex items-center gap-2.5 text-[15px] font-medium text-[#3E4F5E] hover:text-[#131B30]">
             <ArrowLeft size={16} />
             <Image src="/mmg-icon.png" alt="" width={28} height={28} className="rounded-lg" />
             <span className="hidden sm:inline">All clients</span>
@@ -113,12 +116,12 @@ export default function TimePage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center rounded-lg border border-border bg-white">
-              <button onClick={() => setWeek(addDays(week, -7))} aria-label="Previous week" className="p-2.5 hover:bg-slate-50"><ChevronLeft size={16} /></button>
+              <button onClick={() => setWeek(addDays(week, -7))} aria-label="Previous week" className="p-2.5 hover:bg-slate-50 transition-colors duration-200"><ChevronLeft size={16} /></button>
               <span className="px-2 text-[14px] font-medium text-[#131B30] tabular-nums">{rangeLabel}</span>
               <button onClick={() => setWeek(addDays(week, 7))} aria-label="Next week" disabled={isThisWeek} className="p-2.5 hover:bg-slate-50 disabled:opacity-30"><ChevronRight size={16} /></button>
             </div>
             {!isThisWeek && <button onClick={() => setWeek(mondayOf(new Date()))} className="rounded-lg px-3 py-2 text-[14px] font-medium text-[#0394B2] hover:bg-white">This week</button>}
-            <a href={`/api/reports/time?${query}&format=csv`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[14px] font-medium hover:bg-slate-50">
+            <a href={`/api/reports/time?${query}&format=csv`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[14px] font-medium hover:bg-slate-50 transition-colors duration-200">
               <Download size={15} /> Export CSV
             </a>
           </div>
@@ -165,10 +168,15 @@ export default function TimePage() {
                         const mine = entries.filter((e) => e.memberId === p.id);
                         const sum = mine.reduce((s, e) => s + e.seconds, 0);
                         return (
-                          <tr key={p.id} className="border-t border-border/60">
+                          <tr key={p.id} className="border-t border-border/60 transition-colors duration-200 hover:bg-[#F6FAFB]">
                             <td className="px-4 py-2.5">
-                              <div className="font-semibold text-[#131B30]">{p.name}</div>
-                              <div className="text-[12px] text-muted-foreground">{p.title}{p.kind === "contractor" ? " · contractor" : ""}</div>
+                              <div className="flex items-center gap-2.5">
+                                <Avatar id={p.id} name={p.name} photoVersion={p.photoVersion} size={32} />
+                                <div>
+                                  <div className="font-semibold text-[#131B30]">{p.name}</div>
+                                  <div className="text-[12px] text-muted-foreground">{p.title}{p.kind === "contractor" ? " · contractor" : ""}</div>
+                                </div>
+                              </div>
                             </td>
                             {report.days.map((d) => {
                               const dayEntries = mine.filter((e) => e.day === d);
@@ -206,14 +214,14 @@ export default function TimePage() {
                   <ul className="divide-y divide-border/60">
                     {byClient.map((c) => (
                       <li key={c.slug || "internal"} className="px-4 py-3">
-                        <div className="flex items-baseline justify-between gap-3 text-[14px]">
-                          <span className="font-semibold text-[#131B30]">{clientName(c.slug)}</span>
+                        <div className="flex items-center justify-between gap-3 text-[14px]">
+                          <span className="flex min-w-0 items-center gap-2 font-semibold text-[#131B30]"><ClientLogo logo={logo(c.slug)} name={clientName(c.slug)} size={22} /><span className="truncate">{clientName(c.slug)}</span></span>
                           <span className="tabular-nums"><strong className="text-[#131B30]">{duration(c.seconds)}</strong>{report.isOwner && c.cost > 0 && <span className="text-muted-foreground"> · {money(c.cost)}</span>}</span>
                         </div>
                         <div className="mt-1.5 h-2 rounded-full bg-slate-100">
                           <div className="h-2 rounded-full bg-[#0CA4C3]" style={{ width: `${Math.max(2, (c.seconds / (total || 1)) * 100)}%` }} />
                         </div>
-                        {report.isOwner && <div className="mt-1 text-[12px] text-muted-foreground">{[...c.people].map(name).join(", ")}</div>}
+                        {report.isOwner && <div className="mt-1.5 flex items-center gap-2 text-[12px] text-muted-foreground"><AvatarStack people={[...c.people].map(personOf)} size={20} />{[...c.people].map(name).join(", ")}</div>}
                       </li>
                     ))}
                   </ul>
@@ -232,8 +240,8 @@ export default function TimePage() {
                             <Link href={`/work?task=${t.id}`} className="min-w-0 truncate font-semibold text-[#131B30] hover:underline">{t.title}</Link>
                             <strong className="shrink-0 tabular-nums text-[#131B30]">{duration(t.seconds)}</strong>
                           </div>
-                          <div className="mt-0.5 flex flex-wrap gap-x-2 text-[12px] text-muted-foreground">
-                            <span>{clientName(t.slug)}</span>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground">
+                            <span className="inline-flex items-center gap-1"><ClientLogo logo={logo(t.slug)} name={clientName(t.slug)} size={14} />{clientName(t.slug)}</span>
                             {report.isOwner && <span>· {[...t.people].map(name).join(", ")}</span>}
                             {info?.estimateMinutes ? (
                               <span className={over ? "font-medium text-red-600" : ""}>· {duration(info.totalSeconds)} of {duration(info.estimateMinutes * 60)} estimated{over ? " (over)" : ""}</span>
@@ -251,8 +259,8 @@ export default function TimePage() {
       </main>
 
       {cell && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#011421]/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && setCell(null)}>
-          <div className="w-full max-w-[520px] rounded-2xl bg-white p-5 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#011421]/40 backdrop-blur-[2px] p-4 anim-fade" onMouseDown={(e) => e.target === e.currentTarget && setCell(null)}>
+          <div className="w-full max-w-[520px] rounded-2xl bg-white p-5 shadow-2xl anim-pop" style={{ transformOrigin: "center" }}>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-[17px] font-semibold text-[#131B30]">{cell.title}</h2>
               <button onClick={() => setCell(null)} aria-label="Close" className="rounded-full p-1.5 hover:bg-slate-100"><X size={17} /></button>
@@ -262,8 +270,8 @@ export default function TimePage() {
                 <li key={e.id} className="flex items-start justify-between gap-3 py-2.5">
                   <div className="min-w-0">
                     <Link href={`/work?task=${e.taskId}`} className="font-medium text-[#131B30] hover:underline">{e.taskTitle}</Link>
-                    <div className="text-[12px] text-muted-foreground">
-                      {clientName(e.clientSlug)} · {new Date(e.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                    <div className="flex flex-wrap items-center gap-1 text-[12px] text-muted-foreground">
+                      <ClientLogo logo={logo(e.clientSlug)} name={clientName(e.clientSlug)} size={14} />{clientName(e.clientSlug)} · {new Date(e.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                       {e.endedAt ? `–${new Date(e.endedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : " · running"}
                       {e.source === "manual" ? " · added by hand" : ""}{e.source === "auto_stopped" ? " · auto-stopped" : ""}{e.edited ? " · edited" : ""}
                     </div>
@@ -289,7 +297,7 @@ function busiestDay(entries: Entry[]): string {
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-2xl bg-white border border-[#1D475E]/[0.08] px-4 py-4 shadow-[0_1px_4px_rgba(29,71,94,0.06)]" title={hint}>
+    <div className="rounded-2xl card-depth card-lift px-4 py-4 anim-rise" title={hint}>
       <div className="text-[12px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="mt-1 text-[26px] font-semibold tabular-nums text-[#131B30]">{value}</div>
     </div>
@@ -298,7 +306,7 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl bg-white border border-[#1D475E]/[0.08] shadow-[0_1px_4px_rgba(29,71,94,0.06)] overflow-hidden">
+    <section className="rounded-2xl card-depth overflow-hidden anim-rise">
       <h2 className="border-b border-border/60 px-4 py-3 text-[16px] font-semibold text-[#131B30]">{title}</h2>
       {children}
     </section>

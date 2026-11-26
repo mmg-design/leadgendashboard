@@ -5,6 +5,7 @@ import { listMembers } from "@/lib/team";
 import { createWorkTask, getWorkTask, linkAgentTask, listWorkTasks, parseTaskInput } from "@/lib/work-tasks";
 import { notifyAssignee, viewerId } from "@/lib/work-access";
 import { trackedByTask } from "@/lib/time";
+import { logoUrl } from "@/lib/client-logo";
 
 // The owner sees every task and can create them; anyone else gets their own queue.
 export async function GET(req: NextRequest) {
@@ -15,16 +16,15 @@ export async function GET(req: NextRequest) {
     listWorkTasks(viewer.isOwner ? { clientSlug } : { assigneeId: viewerId(viewer) ?? -1, clientSlug }),
     getAllClients(),
   ]);
-  // Names and titles only: rates never leave the Team page.
-  const people = viewer.isOwner
-    ? (await listMembers()).filter((m) => m.status !== "disabled").map((m) => ({ id: m.id, name: m.name, title: m.title }))
-    : viewer.type === "member" ? [{ id: viewer.member.id, name: viewer.member.name, title: viewer.member.title }] : [];
+  // Names, titles and photos only (for avatars and @mentions): rates never leave the Team page.
+  const people = (await listMembers()).filter((m) => m.status === "active" || (viewer.isOwner && m.status === "invited"))
+    .map((m) => ({ id: m.id, name: m.name, title: m.title, photoVersion: m.photoVersion }));
   // Tracked time per task: everyone's for the owner, your own otherwise.
   const tracked = await trackedByTask(tasks.map((t) => t.id), viewer.isOwner ? undefined : viewerId(viewer) ?? -1);
   return NextResponse.json({
     tasks: tasks.map((t) => ({ ...t, trackedSeconds: tracked.get(t.id) || 0 })),
     people,
-    clients: clients.map((c) => ({ slug: c.slug, name: c.name })),
+    clients: clients.map((c) => ({ slug: c.slug, name: c.name, logo: logoUrl(c) })),
     isOwner: viewer.isOwner,
     me: viewerId(viewer),
   });

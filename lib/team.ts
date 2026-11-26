@@ -26,6 +26,7 @@ export interface TeamMember {
   inviteExpiresAt: string | null;
   lastLoginAt: string | null;
   createdAt: string;
+  photoVersion: string | null; // set when they have a headshot; served at /api/team/photo/<id>?v=<version>
 }
 
 export const INVITE_DAYS = 7;
@@ -50,6 +51,7 @@ function rowToMember(r: Record<string, unknown>): TeamMember {
     inviteExpiresAt: (r.invite_expires_at as string) || null,
     lastLoginAt: (r.last_login_at as string) || null,
     createdAt: r.created_at as string,
+    photoVersion: r.photo ? String(r.photo_updated_at || "1") : null,
   };
 }
 
@@ -190,6 +192,30 @@ export async function acceptInvite(token: string, password: string): Promise<Tea
     args: [await hashPassword(password), member.id],
   });
   return (await getMember(member.id))!;
+}
+
+// ── Headshots ────────────────────────────────────────────────────────────────
+// Small square JPEG/PNG/WebP data URLs (the browser resizes them to 256px first).
+export const MAX_PHOTO_CHARS = 160_000;
+const PHOTO_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+
+export async function setMemberPhoto(id: number, image: string | null): Promise<TeamMember> {
+  if (image !== null && (image.length > MAX_PHOTO_CHARS || !PHOTO_RE.test(image))) throw new TeamError("Use a JPG, PNG or WebP photo.");
+  const db = await getDb();
+  await db.execute({
+    sql: "UPDATE team_members SET photo = ?, photo_updated_at = CASE WHEN ? IS NULL THEN NULL ELSE strftime('%s','now') END, updated_at = datetime('now') WHERE id = ?",
+    args: [image, image, id],
+  });
+  const m = await getMember(id);
+  if (!m) throw new TeamError("That person isn't on the team.");
+  return m;
+}
+
+export async function getMemberPhoto(id: number): Promise<{ type: string; bytes: Buffer } | null> {
+  const db = await getDb();
+  const res = await db.execute({ sql: "SELECT photo FROM team_members WHERE id = ?", args: [id] });
+  const m = (res.rows[0]?.photo as string | undefined)?.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+  return m ? { type: m[1], bytes: Buffer.from(m[2], "base64") } : null;
 }
 
 export class TeamError extends Error {}

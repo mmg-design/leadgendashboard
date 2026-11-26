@@ -246,7 +246,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F3FAFB] text-[#1D475E] relative overflow-hidden">
+    <div className="min-h-screen page-wash text-[#1D475E] relative overflow-hidden">
       {/* Soft ice wash with blue glows, like the mmg.studio hero */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[900px] bg-[radial-gradient(ellipse_60%_50%_at_20%_45%,rgba(74,162,192,0.16),transparent_70%),radial-gradient(ellipse_50%_45%_at_85%_15%,rgba(74,162,192,0.12),transparent_70%),linear-gradient(180deg,#F7FCFD_0%,#EEF7F9_60%,#F3FAFB_100%)]" />
 
