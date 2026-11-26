@@ -186,6 +186,9 @@ const IMPACT: Record<Priority, Impact> = { urgent: "high", high: "high", normal:
 
 export async function linkAgentTask(task: WorkTask, delegatedBy: string): Promise<string> {
   if (!task.clientSlug) throw new Error("Pick a client first: agents work on a client's site.");
+  // Assigned from an existing Agents card: that card already has its own type,
+  // evidence and draft. Leave it as it is and run it.
+  if (task.agentTaskKey && !task.agentTaskKey.startsWith("delegated-")) return task.agentTaskKey;
   const key = task.agentTaskKey || `delegated-${task.id}`;
   const agentTask: AgentTask = {
     key,
@@ -233,4 +236,11 @@ export function parseTaskInput(body: Record<string, unknown>): TaskInput | strin
     out.estimateMinutes = n;
   }
   return out;
+}
+
+// The Work task that an Agents card was assigned through, if any.
+export async function workTaskForAgent(clientSlug: string, agentKey: string): Promise<WorkTask | null> {
+  const db = await getDb();
+  const res = await db.execute({ sql: `${SELECT} WHERE t.client_slug = ? AND t.agent_task_key = ? ORDER BY t.id DESC LIMIT 1`, args: [clientSlug, agentKey] });
+  return res.rows[0] ? rowToTask(res.rows[0] as Record<string, unknown>) : null;
 }

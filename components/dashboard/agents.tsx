@@ -7,6 +7,7 @@ import {
   RotateCcw, Search, Send, Sparkles, UserCheck, Wrench, X,
 } from "lucide-react";
 import type { ScanSummary, StoredTask, TaskCategory } from "@/lib/agent-tasks";
+import { AssignControl } from "@/components/dashboard/agent-assign";
 import type { AgentOutput } from "@/lib/agent-runner";
 import type { WfCollection } from "@/lib/webflow";
 import type { PlanOpId, WebflowPlan } from "@/lib/webflow-plan";
@@ -692,7 +693,7 @@ export function TaskCard({ task, clientSlug, webflowConnected, clickupConnected,
   const closed = task.status === "done" || task.status === "dismissed" || task.status === "resolved";
 
   return (
-    <Card className={closed ? "opacity-75" : ""}>
+    <Card className={`overflow-visible ${closed ? "opacity-75" : ""}`}>
       <CardContent className="space-y-4">
         <div className="flex items-start gap-4">
           <button className="min-w-0 flex-1 text-left" onClick={() => setOpen(!open)}>
@@ -712,11 +713,12 @@ export function TaskCard({ task, clientSlug, webflowConnected, clickupConnected,
               </p>
             )}
           </button>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+            {!closed && task.type !== "link_prospect" && <AssignControl clientSlug={clientSlug} taskKey={task.key} />}
             {!closed && !out && (
-              <button className={btnPrimary} disabled={running} onClick={run}>
+              <button className={btnPrimary} disabled={running} onClick={run} title="The agent drafts the fix. Nothing changes on the site until you apply it.">
                 {running ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
-                {running ? "Working…" : isIndexing ? "Diagnose" : task.type === "client_feedback" ? "Draft fix" : "Run agent"}
+                {running ? "Working…" : isIndexing ? "Diagnose" : "Fix with agent"}
               </button>
             )}
             <button className={btnGhost} onClick={() => setOpen(!open)} aria-label={open ? "Collapse" : "Expand"}>

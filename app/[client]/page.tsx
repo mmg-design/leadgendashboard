@@ -179,11 +179,11 @@ type ClientsResponse = {
 
 const SECTIONS = [
   ["overview", "Overview", LayoutDashboard],
+  ["agents", "Agents", Bot],
   ["attribution", "Lead Funnel", Route],
   ["ai-visibility", "AI Visibility", Sparkles],
   ["keyword-map", "Keyword Map", MapIcon],
   ["links", "Links", Link2],
-  ["agents", "Agents", Bot],
   ["report-generator", "Custom Reports", FileChartColumn],
   ["feedback", "Client Feedback", MessageSquare],
   ["portal", "Client Page", Presentation],
@@ -208,12 +208,13 @@ export default function ClientDashboard() {
   const clientSlug = params.client as string;
 
   const [range, setRange] = useState("7d");
-  // ?section=portal lands back on the Client Page tab (e.g. after Connect Gmail);
-  // ?section=keyword-map opens the Keyword Map.
+  // ?section=<key> opens that tab: portal after Connect Gmail, keyword-map,
+  // agents from the Work board, and so on.
   const searchParams = useSearchParams();
-  const [activeSection, setActiveSection] = useState<Section>(
-    searchParams.get("section") === "portal" ? "portal" : searchParams.get("section") === "keyword-map" ? "keyword-map" : "overview"
-  );
+  const [activeSection, setActiveSection] = useState<Section>(() => {
+    const wanted = searchParams.get("section");
+    return (SECTIONS.find(([key]) => key === wanted)?.[0] as Section | undefined) ?? "overview";
+  });
   // On phones, keep the active section visible in the horizontal tab strip
   // (e.g. when landing on ?section=portal or jumping from Links to Agents).
   const activeTabRef = useRef<HTMLButtonElement | null>(null);

@@ -307,12 +307,12 @@ export default function Home() {
                 Add a client <ArrowRight size={17} />
               </button>
             )}
-            <a
-              href="#clients"
-              className="inline-flex items-center btn-mmg-white px-7 py-3.5 text-[16px]"
+            <Link
+              href="/work"
+              className="inline-flex items-center gap-2 btn-mmg-white px-7 py-3.5 text-[16px]"
             >
-              See all clients
-            </a>
+              <ListChecks size={17} /> See client progress
+            </Link>
           </div>
         </div>
 
