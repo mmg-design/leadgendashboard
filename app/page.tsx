@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
 import AccountMenu, { useViewer } from "@/components/account-menu";
 import {
+  Bot,
   ListChecks,
   Plus,
   MessageSquare,
@@ -299,14 +300,9 @@ export default function Home() {
             Track search rankings, AI visibility, traffic and leads, then see what to fix next.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            {viewer?.isOwner && (
-              <button
-                onClick={() => { setFormOpen(true); setSuccess(false); }}
-                className="inline-flex items-center gap-2 btn-mmg-blue px-7 py-3.5 text-[16px]"
-              >
-                Add a client <ArrowRight size={17} />
-              </button>
-            )}
+            <Link href="/queue" className="inline-flex items-center gap-2 btn-mmg-blue px-7 py-3.5 text-[16px]">
+              <Bot size={17} /> Agent queue <ArrowRight size={17} />
+            </Link>
             <Link
               href="/work"
               className="inline-flex items-center gap-2 btn-mmg-white px-7 py-3.5 text-[16px]"

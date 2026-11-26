@@ -4,10 +4,11 @@ import { FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState 
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Bot, CalendarDays, Clock, ExternalLink, Loader2, MessageSquare, Pencil, Play, Plus, Square, Trash2, UserRound, X } from "lucide-react";
+import { ArrowLeft, Bot, CalendarDays, Clock, Maximize2, ExternalLink, Loader2, MessageSquare, Pencil, Play, Plus, Square, Trash2, UserRound, X } from "lucide-react";
 import { clock, duration, refreshTimer, startTimerOn, stopTimer, useElapsed, useTimer } from "@/components/timer";
 import AccountMenu from "@/components/account-menu";
 import { Avatar, ClientLogo } from "@/components/avatar";
+import AgentQueue from "@/components/agent-queue";
 
 // Delegated work. The owner sees every task and creates them, handing each to a
 // team member, an agent, or both. Everyone else sees their own queue and moves
@@ -63,6 +64,7 @@ function Work() {
   const [clientFilter, setClientFilter] = useState(() => params.get("client") || "");
   const [personFilter, setPersonFilter] = useState("");
   const [creating, setCreating] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
   const [running, setRunning] = useState<Set<number>>(new Set());
   const timer = useTimer();
   const timing = timer?.running?.taskId ?? null;
@@ -131,7 +133,10 @@ function Work() {
               {data?.isOwner === false ? "Tasks assigned to you. Move them along as you go, and run an agent when it helps." : "Every task across clients. Hand each one to a person, an agent, or both."}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => setQueueOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-[#0CA4C3]/40 bg-white px-3 py-2.5 text-[15px] font-semibold text-[#0F6E84] shadow-[0_1px_2px_rgba(7,61,143,0.06),0_3px_8px_rgba(7,61,143,0.05)] transition-all duration-200 hover:shadow-[0_1px_2px_rgba(7,61,143,0.08),0_6px_14px_rgba(7,61,143,0.08)]">
+              <Bot size={16} /> Agent queue
+            </button>
             <Link href="/time" className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2.5 text-[15px] font-medium hover:bg-slate-50 transition-colors duration-200">
               <Clock size={16} /> {data?.isOwner === false ? "My time" : "Time reports"}
             </Link>
@@ -195,6 +200,23 @@ function Work() {
         )}
       </main>
 
+      {queueOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-[#011421]/40 backdrop-blur-[2px] anim-fade" onMouseDown={(e) => e.target === e.currentTarget && (setQueueOpen(false), reload())}>
+          <aside className="flex h-full w-full max-w-[760px] flex-col page-wash shadow-[-24px_0_48px_-12px_rgba(1,20,33,0.25)] anim-drawer">
+            <div className="flex items-center justify-between gap-3 border-b border-[#1D475E]/[0.08] bg-white/80 px-5 py-3 backdrop-blur-md">
+              <div>
+                <h2 className="flex items-center gap-2 text-[18px] font-semibold text-[#131B30]"><Bot size={18} /> Agent queue</h2>
+                <p className="text-[13px] text-muted-foreground">Every client&apos;s recommendations. Assign one or have an agent fix it.</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <Link href="/queue" title="Open the full page" className="rounded-full p-2 text-muted-foreground hover:bg-slate-100"><Maximize2 size={16} /></Link>
+                <button onClick={() => { setQueueOpen(false); reload(); }} aria-label="Close" className="rounded-full p-2 hover:bg-slate-100"><X size={18} /></button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1"><AgentQueue compact /></div>
+          </aside>
+        </div>
+      )}
       {creating && data && (
         <NewTask clients={data.clients} people={data.people} onClose={() => setCreating(false)}
           onCreated={(t, runNow) => { setCreating(false); reload(); if (runNow) runAgent(t.id); }} />

@@ -419,6 +419,8 @@ Microsoft Clarity shows visitors getting frustrated on this page. From the page'
   }
 
   const schema = task.type === "keyword_target" && task.data?.planned ? SCHEMAS.missing_page : SCHEMAS[task.type];
+  const extra = typeof task.data?.ownerContext === "string" ? task.data.ownerContext.trim() : "";
+  if (extra) prompt += `\n\nExtra context from MMG's team (follow it where it applies):\n${extra}`;
   const { output, model } = await runStructured<Omit<AgentOutput, "model" | "generatedAt">>(system(config, about), prompt, schema);
   // Summaries are meant to be two sentences; keep a runaway one readable.
   const summary = output.summary.length > 600 ? `${output.summary.slice(0, 597).replace(/\s+\S*$/, "")}…` : output.summary;

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Clock, ListChecks, LogOut, Users } from "lucide-react";
+import { Bot, Clock, ListChecks, LogOut, Users } from "lucide-react";
 import TimerPill from "@/components/timer";
 import { Avatar, PhotoPicker } from "@/components/avatar";
 
@@ -87,6 +87,9 @@ export default function AccountMenu() {
               )}
             </div>
           </div>
+          <Link href="/queue" role="menuitem" className="flex items-center gap-2 rounded-lg px-3 py-2 text-[14px] text-[#1D475E] hover:bg-[#F3FAFB] transition-colors duration-200">
+            <Bot size={15} /> Agent queue
+          </Link>
           <Link href="/work" role="menuitem" className="flex items-center gap-2 rounded-lg px-3 py-2 text-[14px] text-[#1D475E] hover:bg-[#F3FAFB] transition-colors duration-200">
             <ListChecks size={15} /> {me.isOwner ? "Work" : "My queue"}
           </Link>
