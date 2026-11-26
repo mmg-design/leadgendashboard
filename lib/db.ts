@@ -247,6 +247,40 @@ async function initSchema(db: Client) {
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
+
+    -- Delegated work (replaces ClickUp). Only the owner creates and assigns;
+    -- a task goes to a team member, to an agent (agent_task_key links the
+    -- Agents tab draft), or both. Clients never see these.
+    CREATE TABLE IF NOT EXISTS work_tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_slug TEXT,
+      title TEXT NOT NULL,
+      notes TEXT,
+      status TEXT NOT NULL DEFAULT 'todo',
+      priority TEXT NOT NULL DEFAULT 'normal',
+      assignee_id INTEGER,
+      agent_task_key TEXT,
+      page_path TEXT,
+      due_date TEXT,
+      estimate_minutes INTEGER,
+      created_by INTEGER,
+      source TEXT NOT NULL DEFAULT 'manual',
+      source_ref TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      completed_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS work_tasks_assignee ON work_tasks (assignee_id, status);
+    CREATE INDEX IF NOT EXISTS work_tasks_client ON work_tasks (client_slug, status);
+
+    CREATE TABLE IF NOT EXISTS work_task_comments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL,
+      author_id INTEGER,
+      author_name TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // Migration: add icon_url column if missing (existing DBs)

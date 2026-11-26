@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   const { token, password } = (await req.json().catch(() => ({}))) as { token?: string; password?: string };
   try {
     const member = await acceptInvite(token || "", password || "");
-    const response = NextResponse.json({ ok: true, name: member.name });
+    const response = NextResponse.json({ ok: true, name: member.name, isOwner: member.isOwner });
     response.cookies.set(USER_SESSION_COOKIE, await signSession(member.id, member.sessionVersion), sessionCookieOptions);
     response.cookies.set(DASHBOARD_SESSION_COOKIE, "", { httpOnly: true, path: "/", maxAge: 0 });
     return response;

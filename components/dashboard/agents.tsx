@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Bot, Check, ChevronDown, MessageSquare, ClipboardCopy, ExternalLink, FileSearch, Globe, Link2, Loader2, RefreshCw,
-  RotateCcw, Search, Send, Sparkles, Wrench, X,
+  RotateCcw, Search, Send, Sparkles, UserCheck, Wrench, X,
 } from "lucide-react";
 import type { ScanSummary, StoredTask, TaskCategory } from "@/lib/agent-tasks";
 import type { AgentOutput } from "@/lib/agent-runner";
@@ -33,8 +33,9 @@ const CATEGORIES: Record<TaskCategory, { label: string; color: string; Icon: typ
   indexing: { label: "Indexing", color: "#eb6834", Icon: FileSearch, blurb: "Pages Google can't show yet" },
   search: { label: "Search growth", color: "#2a78d6", Icon: Search, blurb: "Rankings and clicks within reach" },
   upkeep: { label: "Site upkeep", color: "#1baf7a", Icon: Wrench, blurb: "On-page basics and visitor friction" },
+  delegated: { label: "Delegated", color: "#1D475E", Icon: UserCheck, blurb: "Work the owner handed to an agent" },
 };
-const CATEGORY_ORDER: TaskCategory[] = ["feedback", "ai", "links", "indexing", "search", "upkeep"];
+const CATEGORY_ORDER: TaskCategory[] = ["delegated", "feedback", "ai", "links", "indexing", "search", "upkeep"];
 const IMPACT_RANK = { high: 0, medium: 1, low: 2 };
 
 const eyebrow = "text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground";

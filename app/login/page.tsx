@@ -39,7 +39,8 @@ export default function LoginPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to sign in");
       const requested = new URLSearchParams(window.location.search).get("next");
-      const destination = requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/";
+      const fallback = mode === "member" && !data.isOwner ? "/work" : "/";
+      const destination = requested?.startsWith("/") && !requested.startsWith("//") && requested !== "/" ? requested : fallback;
       router.replace(destination);
       router.refresh();
     } catch (err) {

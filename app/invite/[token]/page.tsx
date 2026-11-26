@@ -39,7 +39,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Couldn't set your password.");
-      router.replace("/");
+      router.replace(data.isOwner ? "/" : "/work");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't set your password.");

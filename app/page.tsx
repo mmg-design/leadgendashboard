@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
 import AccountMenu, { useViewer } from "@/components/account-menu";
 import {
+  ListChecks,
   Plus,
   MessageSquare,
   BarChart3,
@@ -260,6 +262,11 @@ export default function Home() {
               <span className="hidden sm:inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[14px] font-medium text-[#3E4F5E]">
                 <MessageSquare size={14} className="text-[#4AA2C0]" /> {openFeedback} open client {openFeedback === 1 ? "update" : "updates"}
               </span>
+            )}
+            {viewer && (
+              <Link href="/work" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[15px] font-medium text-[#1D475E] hover:bg-[#F3FAFB]">
+                <ListChecks size={16} /> {viewer.isOwner ? "Work" : "My queue"}
+              </Link>
             )}
             {viewer?.isOwner && (
               <button

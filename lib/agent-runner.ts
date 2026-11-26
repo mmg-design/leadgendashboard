@@ -112,6 +112,12 @@ const SCHEMAS: Record<string, JsonSchema> = {
     clientReply: str("A short, friendly reply to the client (2-3 sentences) confirming what will change. Plain text, no sign-off."),
     steps: STEPS,
   }),
+  // Work handed to an agent from the Work page: do the task itself.
+  delegated: obj({
+    summary: SUMMARY,
+    proposedChange: str("The finished work itself, ready to use: full copy, the exact change, or the findings. Not a plan to do it."),
+    steps: STEPS,
+  }),
   ux_leak: obj({
     summary: SUMMARY,
     findings: arr(obj({ issue: str(), likelyCause: str("What on this page most likely causes it, based on the page content"), fix: str() })),
@@ -388,6 +394,18 @@ ${d.selector ? `Element they clicked (CSS path): ${d.selector}` : ""}
 ${pageBlock("The page", target)}
 
 Work out precisely what they want changed. If it's copy, write the replacement word-for-word in proposedChange (match the page's tone and length). If it's design or layout, describe the exact change (which element, what to change, on which breakpoints). If the request is unclear, say what you'd assume and put a clarifying question in clientReply. Steps should say where to make the change in Webflow (page, section, element, breakpoint) and to resolve the comment after publishing.`;
+      break;
+    }
+    case "delegated": {
+      prompt = `MMG's owner delegated this task to you for ${config.name}. Do the work itself, not a plan for it.
+
+Task: ${task.title}
+Instructions: ${task.why}
+${list(task.evidence)}
+
+${task.path ? pageBlock("The page", target) : ""}
+
+Put the finished deliverable in proposedChange: if the task calls for copy, write it in full and match the site's tone; if it calls for a technical or design change, give the exact change; if it calls for research or analysis, give the findings and what to do about them. If something is genuinely unclear, state the assumption you made. Steps say how to finish and ship it (where in Webflow or which tool), including anything you couldn't do yourself.`;
       break;
     }
     case "ux_leak": {
