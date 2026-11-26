@@ -4,6 +4,7 @@ import { getTask, setTaskContext, updateTask } from "@/lib/agent-tasks";
 import { runAgent } from "@/lib/agent-runner";
 import { AgentError } from "@/lib/agent-llm";
 import { buildPlan } from "@/lib/webflow-plan";
+import { updateWorkTask, workTaskForAgent } from "@/lib/work-tasks";
 
 // Long drafts (a full new page) can take a couple of minutes.
 export const maxDuration = 300;
@@ -27,6 +28,9 @@ export async function POST(req: NextRequest) {
     });
     const status = task.status === "applied" || task.status === "done" ? task.status : "drafted";
     await updateTask(slug, key, { output, status });
+    // Handed to the agent on the Work board (no person on it): the draft is now ready to review.
+    const work = await workTaskForAgent(slug, key).catch(() => null);
+    if (work && !work.assigneeId && (work.status === "todo" || work.status === "in_progress")) await updateWorkTask(work.id, { status: "review" }).catch(() => {});
     return NextResponse.json({ ok: true, output, status });
   } catch (err) {
     console.error("Agent run error:", err);
