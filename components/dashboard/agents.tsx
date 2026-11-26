@@ -100,7 +100,7 @@ const STATUS_TEXT: Record<StoredTask["status"], string> = {
 
 // ── Agent output ────────────────────────────────────────────────────────────
 
-type Post = (body: Record<string, unknown>) => Promise<{ ok?: boolean; error?: string; result?: Record<string, unknown> } & Record<string, unknown>>;
+export type Post = (body: Record<string, unknown>) => Promise<{ ok?: boolean; error?: string; result?: Record<string, unknown> } & Record<string, unknown>>;
 
 type SeoEdits = { title: string; description: string };
 
@@ -474,7 +474,8 @@ function PlanButton({ post, onOutput }: { post: Post; onOutput: (o: AgentOutput)
 
 const proseHtml = "text-[14px] leading-relaxed text-[#001A2E] [&_h2]:mt-4 [&_h2]:mb-1.5 [&_h2]:text-[17px] [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:font-semibold [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[#0394B2] [&_a]:underline";
 
-function OutputView({ task, out, post, webflowConnected, onResult, onOutput }: {
+// Exported so the Agent queue shows drafts exactly as the Agents tab does.
+export function OutputView({ task, out, post, webflowConnected, onResult, onOutput }: {
   task: StoredTask; out: AgentOutput; post: Post; webflowConnected: boolean; onResult: (r: Record<string, unknown>, status?: StoredTask["status"]) => void;
   onOutput: (o: AgentOutput) => void;
 }) {

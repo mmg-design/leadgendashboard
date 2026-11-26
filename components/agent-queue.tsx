@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Bot, Check, ChevronDown, ExternalLink, FileSearch, Link2, Loader2, MessageSquare, RefreshCw, Search, Sparkles, UserCheck, UserPlus, Wrench, X } from "lucide-react";
 import { Avatar, ClientLogo } from "@/components/avatar";
+import { OutputView, type Post } from "@/components/dashboard/agents";
+import type { StoredTask } from "@/lib/agent-tasks";
+import type { AgentOutput } from "@/lib/agent-runner";
 
 // Every client's agent recommendations in one scrollable queue. Filter by
 // client, category, priority and status; sort by date or priority; then assign
@@ -49,6 +52,7 @@ function ago(iso: string) {
   return d < 30 ? `${d}d ago` : toDate(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 const select = "rounded-lg border border-border bg-white px-3 py-2 text-[14px] min-w-0";
+const AGENT = -1; // the "Agent" choice in the assign panel
 
 export default function AgentQueue({ compact = false }: { compact?: boolean }) {
   const [data, setData] = useState<Data | null>(null);
@@ -165,7 +169,26 @@ function QueueItem({ item, client, people, isOwner, me, onChange }: {
   const [due, setDue] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The full card (draft and all), loaded when there's a draft to show.
+  const [full, setFull] = useState<{ task: StoredTask; webflow: boolean } | null>(null);
   const cat = CATEGORIES[item.category] || CATEGORIES.upkeep;
+  const hasDraft = item.status === "drafted" || item.status === "applied" || !!full?.task.output;
+
+  useEffect(() => {
+    if (!open || full || !(item.status === "drafted" || item.status === "applied")) return;
+    let alive = true;
+    fetch(`/api/agents/task?client=${encodeURIComponent(item.clientSlug)}&key=${encodeURIComponent(item.key)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d?.task) setFull({ task: d.task, webflow: d.webflow.connected }); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [open, full, item.status, item.clientSlug, item.key]);
+
+  // Same Apply actions as the Agents tab card.
+  const post: Post = async (body) => {
+    const res = await fetch("/api/agents/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client: item.clientSlug, key: item.key, ...body }) });
+    return res.json().catch(() => ({ error: `Request failed (${res.status})` }));
+  };
   const assignee = item.assigned?.assigneeId ? people.find((p) => p.id === item.assigned!.assigneeId) : undefined;
   const canRun = item.type !== "link_prospect";
   const agentsHref = `/${item.clientSlug}?section=agents`;
@@ -177,12 +200,27 @@ function QueueItem({ item, client, people, isOwner, me, onChange }: {
       const d = await r.json().catch(() => ({ error: "The agent took too long to answer. Try again." }));
       if (!d.ok) throw new Error(d.error || "The agent hit an error.");
       onChange({ status: d.status, draftSummary: d.output?.summary || null, context });
+      // Show the draft in full, exactly as the Agents tab does.
+      const t = await fetch(`/api/agents/task?client=${encodeURIComponent(item.clientSlug)}&key=${encodeURIComponent(item.key)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      if (t?.task) setFull({ task: t.task, webflow: t.webflow.connected });
     } catch (e) {
       setError(e instanceof Error ? e.message : "The agent hit an error.");
     } finally { setBusy(null); }
   }
   async function assign() {
     if (pick === null) return;
+    if (pick === AGENT) {
+      // Hand it to the agent: track it on the Work board as agent-only (unless a
+      // person already has it), then draft the fix now.
+      setMode(null);
+      if (!item.assigned) {
+        const r = await fetch("/api/work-tasks/from-agent", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ client: item.clientSlug, key: item.key, assigneeId: null, context, dueDate: due || undefined }) }).catch(() => null);
+        const d = r && r.ok ? await r.json() : null;
+        if (d?.task) onChange({ assigned: { taskId: d.task.id, assigneeId: null, workStatus: d.task.status } });
+      }
+      return run();
+    }
     setBusy("assign"); setError(null);
     try {
       const r = await fetch("/api/work-tasks/from-agent", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -221,18 +259,23 @@ function QueueItem({ item, client, people, isOwner, me, onChange }: {
           {isOwner ? (
             <button onClick={() => { setMode(mode === "assign" ? null : "assign"); setOpen(true); }}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-white pl-2 pr-2.5 text-[13px] font-semibold text-[#01384C] shadow-[0_1px_2px_rgba(7,61,143,0.06),0_3px_8px_rgba(7,61,143,0.05)] transition-all duration-200 hover:shadow-[0_1px_2px_rgba(7,61,143,0.08),0_6px_14px_rgba(7,61,143,0.08)]">
-              {assignee ? <Avatar id={assignee.id} name={assignee.name} photoVersion={assignee.photoVersion} size={22} /> : <UserPlus size={15} />}
-              {assignee ? assignee.name.split(" ")[0] : "Assign"}
+              {assignee ? <Avatar id={assignee.id} name={assignee.name} photoVersion={assignee.photoVersion} size={22} /> : item.assigned ? <Bot size={15} /> : <UserPlus size={15} />}
+              {assignee ? assignee.name.split(" ")[0] : item.assigned ? "Agent" : "Assign"}
             </button>
           ) : item.assigned?.assigneeId === me && me !== null ? (
             <Link href={`/work?task=${item.assigned.taskId}`} className="inline-flex items-center gap-1.5 rounded-full bg-[#0CA4C3]/10 px-3 py-1.5 text-[13px] font-semibold text-[#0F6E84]"><Check size={13} /> Assigned to you</Link>
           ) : null}
-          {canRun && (
-            <button onClick={run} disabled={busy === "run"} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0CA4C3] px-3 text-[13px] font-semibold text-white shadow-[0_2px_6px_rgba(12,164,195,0.3)] transition-all duration-200 hover:bg-[#0394B2] disabled:opacity-70">
+          {canRun ? (
+            <button onClick={run} disabled={busy === "run"} title="The agent drafts the fix. Nothing changes on the site until you apply it." className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0CA4C3] px-3 text-[13px] font-semibold text-white shadow-[0_2px_6px_rgba(12,164,195,0.3)] transition-all duration-200 hover:bg-[#0394B2] disabled:opacity-70">
               {busy === "run" ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
-              {busy === "run" ? "Drafting…" : item.status === "drafted" ? "Run again" : "Fix with agent"}
+              {busy === "run" ? "Drafting…" : hasDraft ? "Run again" : "Fix with agent"}
             </button>
-          )}
+          ) : hasDraft ? (
+            // Link prospects arrive with the research and pitch already written.
+            <button onClick={() => setOpen(!open)} title="Researched in Claude Code, with the pitch already written." className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0CA4C3] px-3 text-[13px] font-semibold text-white shadow-[0_2px_6px_rgba(12,164,195,0.3)] transition-all duration-200 hover:bg-[#0394B2]">
+              <Bot size={14} /> {open ? "Hide the pitch" : "See the pitch"}
+            </button>
+          ) : null}
           <button onClick={() => setOpen(!open)} aria-label={open ? "Collapse" : "Expand"} className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:bg-slate-100">
             <ChevronDown size={16} className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
           </button>
@@ -258,18 +301,16 @@ function QueueItem({ item, client, people, isOwner, me, onChange }: {
               <Loader2 size={16} className="animate-spin text-[#0CA4C3]" /> The agent is reading the page and the data, then drafting. Usually 30 to 90 seconds.
             </div>
           )}
-          {item.draftSummary && busy !== "run" && (
-            <div className="rounded-xl bg-emerald-50/60 px-4 py-3 text-[14px] text-[#01384C]">
-              <p className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-emerald-700">Agent draft</p>
-              {item.draftSummary}
-              <Link href={agentsHref} className="mt-2 flex items-center gap-1 text-[13px] font-medium text-[#0394B2] hover:underline">Review and apply in the Agents tab <ExternalLink size={12} /></Link>
-            </div>
-          )}
-
           {mode === "assign" && isOwner && (
             <div className="space-y-3 rounded-xl border border-[#0CA4C3]/25 bg-[#0CA4C3]/[0.04] p-3 anim-pop" style={{ transformOrigin: "top center" }}>
               <p className="text-[13px] font-semibold text-[#131B30]">Assign to</p>
               <div className="flex flex-wrap gap-2">
+                {canRun && (
+                  <button onClick={() => setPick(AGENT)} aria-pressed={pick === AGENT}
+                    className={`inline-flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-[13px] transition-all duration-200 ${pick === AGENT ? "border-[#0CA4C3] bg-white font-semibold text-[#131B30] shadow-[0_2px_8px_rgba(12,164,195,0.2)]" : "border-border bg-white/70 text-[#3E4F5E] hover:bg-white"}`}>
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0CA4C3] text-white"><Bot size={13} /></span>Agent
+                  </button>
+                )}
                 {people.length === 0 && <span className="text-[13px] text-muted-foreground">Add people on the Team page first.</span>}
                 {people.map((p) => (
                   <button key={p.id} onClick={() => setPick(p.id)} aria-pressed={pick === p.id}
@@ -284,13 +325,28 @@ function QueueItem({ item, client, people, isOwner, me, onChange }: {
                 </label>
                 <button onClick={assign} disabled={pick === null || busy === "assign"} className="btn-mmg-blue inline-flex items-center gap-1.5 px-4 py-2 text-[14px] disabled:opacity-50">
                   {busy === "assign" && <Loader2 size={14} className="animate-spin" />}
-                  {pick !== null ? `Assign to ${people.find((p) => p.id === pick)?.name.split(" ")[0] || ""}` : "Pick someone"}
+                  {pick === AGENT ? "Hand to the agent" : pick !== null ? `Assign to ${people.find((p) => p.id === pick)?.name.split(" ")[0] || ""}` : "Pick someone"}
                 </button>
                 <button onClick={() => setMode(null)} className="rounded-md px-3 py-2 text-[13px] text-[#3E4F5E] hover:bg-white">Cancel</button>
               </div>
-              <p className="text-[12px] text-muted-foreground">They get an email and it lands in their queue, with your context at the top.</p>
+              <p className="text-[12px] text-muted-foreground">
+                {pick === AGENT ? "The agent drafts the fix now, using your context. It's tracked on the Work board; nothing changes on the site until you apply it." : "They get an email and it lands in their queue, with your context at the top."}
+              </p>
             </div>
           )}
+
+          {busy !== "run" && full?.task.output ? (
+            <div className="rounded-xl border border-emerald-200/70 bg-white p-4 anim-rise">
+              <p className="mb-3 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-emerald-700"><Bot size={13} /> Agent draft · review, then apply</p>
+              <OutputView key={(full.task.output as AgentOutput).generatedAt} task={full.task} out={full.task.output as AgentOutput} post={post} webflowConnected={full.webflow}
+                onResult={(result, status) => { setFull((f) => f && { ...f, task: { ...f.task, result, ...(status ? { status } : {}) } }); if (status) onChange({ status: status as Item["status"] }); }}
+                onOutput={(output) => setFull((f) => f && { ...f, task: { ...f.task, output } })} />
+            </div>
+          ) : busy !== "run" && item.draftSummary ? (
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-50/60 px-4 py-3 text-[14px] text-[#01384C]">
+              <Loader2 size={14} className="animate-spin text-emerald-700" /> Loading the draft…
+            </div>
+          ) : null}
 
           {error && <p role="alert" className="text-[13px] text-red-600">{error}</p>}
 
