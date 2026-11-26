@@ -286,6 +286,7 @@ async function initSchema(db: Client) {
       duration_seconds INTEGER,
       note TEXT,
       source TEXT NOT NULL DEFAULT 'timer',
+      rate_cents INTEGER,
       edited_at TEXT,
       edited_by INTEGER,
       created_at TEXT DEFAULT (datetime('now'))
@@ -303,6 +304,13 @@ async function initSchema(db: Client) {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // Migration: contractor rate snapshot on time entries (team-accounts branch DBs)
+  try {
+    await db.execute("SELECT rate_cents FROM time_entries LIMIT 1");
+  } catch {
+    await db.execute("ALTER TABLE time_entries ADD COLUMN rate_cents INTEGER");
+  }
 
   // Migration: add icon_url column if missing (existing DBs)
   try {

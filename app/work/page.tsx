@@ -132,11 +132,16 @@ function Work() {
               {data?.isOwner === false ? "Tasks assigned to you. Move them along as you go, and run an agent when it helps." : "Every task across clients. Hand each one to a person, an agent, or both."}
             </p>
           </div>
-          {data?.isOwner && (
-            <button onClick={() => setCreating(true)} className="inline-flex items-center gap-1.5 btn-mmg-blue px-4 py-2.5 text-[15px]">
-              <Plus size={16} /> New task
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <Link href="/time" className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2.5 text-[15px] font-medium hover:bg-slate-50">
+              <Clock size={16} /> {data?.isOwner === false ? "My time" : "Time reports"}
+            </Link>
+            {data?.isOwner && (
+              <button onClick={() => setCreating(true)} className="inline-flex items-center gap-1.5 btn-mmg-blue px-4 py-2.5 text-[15px]">
+                <Plus size={16} /> New task
+              </button>
+            )}
+          </div>
         </div>
 
         {error && (

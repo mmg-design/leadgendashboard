@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ListChecks, LogOut, Users } from "lucide-react";
+import { Clock, ListChecks, LogOut, Users } from "lucide-react";
 import TimerPill from "@/components/timer";
 
 export interface Me { type: "member" | "legacy"; name: string; title?: string; email?: string; isOwner: boolean }
@@ -70,6 +70,11 @@ export default function AccountMenu() {
           <Link href="/work" role="menuitem" className="flex items-center gap-2 rounded-lg px-3 py-2 text-[14px] text-[#1D475E] hover:bg-[#F3FAFB]">
             <ListChecks size={15} /> {me.isOwner ? "Work" : "My queue"}
           </Link>
+          {(me.isOwner || me.type === "member") && (
+            <Link href="/time" role="menuitem" className="flex items-center gap-2 rounded-lg px-3 py-2 text-[14px] text-[#1D475E] hover:bg-[#F3FAFB]">
+              <Clock size={15} /> {me.isOwner ? "Time reports" : "My time"}
+            </Link>
+          )}
           {me.isOwner && (
             <Link href="/team" role="menuitem" className="flex items-center gap-2 rounded-lg px-3 py-2 text-[14px] text-[#1D475E] hover:bg-[#F3FAFB]">
               <Users size={15} /> Team and rates

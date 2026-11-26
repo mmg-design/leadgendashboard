@@ -1,5 +1,13 @@
 import { getDb } from "./db";
 import { getWorkTask, updateWorkTask } from "./work-tasks";
+import { getMember } from "./team";
+
+// A contractor's hourly rate when the time was recorded, so later rate
+// changes don't rewrite past costs. Employees have no rate.
+async function rateFor(memberId: number): Promise<number | null> {
+  const m = await getMember(memberId);
+  return m?.kind === "contractor" ? m.hourlyRateCents : null;
+}
 
 // Time tracking (Phase 3 of replacing ClickUp). People clock in on a task;
 // each person has at most one running timer, and starting another stops it.
@@ -110,8 +118,8 @@ export async function startTimer(memberId: number, taskId: number): Promise<Runn
   await stopTimer(memberId);
   const db = await getDb();
   await db.execute({
-    sql: "INSERT INTO time_entries (member_id, task_id, client_slug, started_at, source) VALUES (?, ?, ?, ?, 'timer')",
-    args: [memberId, taskId, task.clientSlug, nowIso()],
+    sql: "INSERT INTO time_entries (member_id, task_id, client_slug, started_at, source, rate_cents) VALUES (?, ?, ?, ?, 'timer', ?)",
+    args: [memberId, taskId, task.clientSlug, nowIso(), await rateFor(memberId)],
   });
   if (task.status === "todo") await updateWorkTask(taskId, { status: "in_progress" });
   return (await getRunning(memberId))!;
@@ -128,8 +136,8 @@ export async function addManual(memberId: number, taskId: number, startedAt: str
   const end = new Date(Date.parse(start) + minutes * 60_000).toISOString();
   const db = await getDb();
   const res = await db.execute({
-    sql: "INSERT INTO time_entries (member_id, task_id, client_slug, started_at, ended_at, duration_seconds, note, source) VALUES (?, ?, ?, ?, ?, ?, ?, 'manual')",
-    args: [memberId, taskId, task.clientSlug, start, end, Math.round(minutes * 60), note?.trim().slice(0, 500) || null],
+    sql: "INSERT INTO time_entries (member_id, task_id, client_slug, started_at, ended_at, duration_seconds, note, source, rate_cents) VALUES (?, ?, ?, ?, ?, ?, ?, 'manual', ?)",
+    args: [memberId, taskId, task.clientSlug, start, end, Math.round(minutes * 60), note?.trim().slice(0, 500) || null, await rateFor(memberId)],
   });
   return (await getEntry(Number(res.lastInsertRowid)))!;
 }
