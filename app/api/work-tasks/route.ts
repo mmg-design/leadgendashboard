@@ -4,6 +4,7 @@ import { getAllClients } from "@/lib/clients";
 import { listMembers } from "@/lib/team";
 import { createWorkTask, getWorkTask, linkAgentTask, listWorkTasks, parseTaskInput } from "@/lib/work-tasks";
 import { notifyAssignee, viewerId } from "@/lib/work-access";
+import { trackedByTask } from "@/lib/time";
 
 // The owner sees every task and can create them; anyone else gets their own queue.
 export async function GET(req: NextRequest) {
@@ -18,8 +19,10 @@ export async function GET(req: NextRequest) {
   const people = viewer.isOwner
     ? (await listMembers()).filter((m) => m.status !== "disabled").map((m) => ({ id: m.id, name: m.name, title: m.title }))
     : viewer.type === "member" ? [{ id: viewer.member.id, name: viewer.member.name, title: viewer.member.title }] : [];
+  // Tracked time per task: everyone's for the owner, your own otherwise.
+  const tracked = await trackedByTask(tasks.map((t) => t.id), viewer.isOwner ? undefined : viewerId(viewer) ?? -1);
   return NextResponse.json({
-    tasks,
+    tasks: tasks.map((t) => ({ ...t, trackedSeconds: tracked.get(t.id) || 0 })),
     people,
     clients: clients.map((c) => ({ slug: c.slug, name: c.name })),
     isOwner: viewer.isOwner,

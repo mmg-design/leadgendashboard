@@ -4,7 +4,8 @@ import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Bot, CalendarDays, ExternalLink, Loader2, MessageSquare, Plus, Trash2, UserRound, X } from "lucide-react";
+import { ArrowLeft, Bot, CalendarDays, Clock, ExternalLink, Loader2, MessageSquare, Pencil, Play, Plus, Square, Trash2, UserRound, X } from "lucide-react";
+import { clock, duration, refreshTimer, startTimerOn, stopTimer, useElapsed, useTimer } from "@/components/timer";
 import AccountMenu from "@/components/account-menu";
 
 // Delegated work. The owner sees every task and creates them, handing each to a
@@ -16,8 +17,9 @@ type Priority = "low" | "normal" | "high" | "urgent";
 interface Task {
   id: number; clientSlug: string | null; title: string; notes: string | null; status: Status; priority: Priority;
   assigneeId: number | null; agentTaskKey: string | null; pagePath: string | null; dueDate: string | null;
-  estimateMinutes: number | null; commentCount: number; completedAt: string | null;
+  estimateMinutes: number | null; commentCount: number; completedAt: string | null; trackedSeconds?: number;
 }
+interface TimeEntry { id: number; memberId: number; memberName: string; startedAt: string; endedAt: string | null; durationSeconds: number | null; note: string | null; source: string; editedAt: string | null }
 interface Person { id: number; name: string; title: string }
 interface Client { slug: string; name: string }
 interface Comment { id: number; authorName: string; body: string; createdAt: string }
@@ -62,6 +64,17 @@ function Work() {
   const [personFilter, setPersonFilter] = useState("");
   const [creating, setCreating] = useState(false);
   const [running, setRunning] = useState<Set<number>>(new Set());
+  const timer = useTimer();
+  const timing = timer?.running?.taskId ?? null;
+
+  async function toggleTimer(taskId: number) {
+    try {
+      if (timing === taskId) await stopTimer(); else await startTimerOn(taskId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't update the timer.");
+    }
+    reload();
+  }
 
   const reload = useCallback(() => {
     api<NonNullable<typeof data>>("/api/work-tasks").then(setData).catch((e) => setError(e.message));
@@ -165,7 +178,9 @@ function Work() {
                     {list.map((t) => (
                       <TaskCard key={t.id} t={t} client={t.clientSlug ? clientName.get(t.clientSlug) : undefined}
                         assignee={t.assigneeId ? person.get(t.assigneeId) : undefined} running={running.has(t.id)}
-                        onOpen={() => setOpen(t.id)} />
+                        canTrack={!!timer?.canTrack && t.status !== "done" && (data.isOwner || t.assigneeId === data.me)}
+                        timingSince={timing === t.id ? timer?.running?.startedAt ?? null : null}
+                        onTimer={() => toggleTimer(t.id)} onOpen={() => setOpen(t.id)} />
                     ))}
                     {list.length === 0 && <p className="px-1 py-4 text-[13px] text-muted-foreground">Nothing here.</p>}
                   </div>
@@ -182,23 +197,36 @@ function Work() {
       )}
       {openId && data && (
         <TaskDrawer key={openId} id={openId} isOwner={data.isOwner} clients={data.clients} people={data.people}
-          running={running.has(openId)} onClose={() => setOpen(null)} onChanged={reload}
+          running={running.has(openId)} onClose={() => setOpen(null)} onChanged={() => { reload(); refreshTimer(); }}
+          timingSince={timing === openId ? timer?.running?.startedAt ?? null : null} canTrack={!!timer?.canTrack} trackReason={timer?.reason}
+          onTimer={() => toggleTimer(openId)}
           onRunAgent={() => runAgent(openId)} onMove={(s) => moveTask(openId, s)} />
       )}
     </div>
   );
 }
 
-function TaskCard({ t, client, assignee, running, onOpen }: { t: Task; client?: string; assignee?: Person; running: boolean; onOpen: () => void }) {
+function TaskCard({ t, client, assignee, running, canTrack, timingSince, onTimer, onOpen }: {
+  t: Task; client?: string; assignee?: Person; running: boolean; canTrack: boolean; timingSince: string | null; onTimer: () => void; onOpen: () => void;
+}) {
   const overdue = t.dueDate && t.status !== "done" && t.dueDate < today();
+  const elapsed = useElapsed(timingSince);
+  const tracked = t.trackedSeconds || 0;
+  const over = !!t.estimateMinutes && tracked > t.estimateMinutes * 60;
   return (
-    <button onClick={onOpen} className="w-full text-left rounded-xl bg-white border border-[#1D475E]/[0.1] p-3 shadow-[0_1px_2px_rgba(29,71,94,0.05)] hover:border-[#0CA4C3]/40 hover:shadow-md transition">
+    <div role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen())}
+      className={`w-full text-left rounded-xl bg-white border p-3 shadow-[0_1px_2px_rgba(29,71,94,0.05)] hover:border-[#0CA4C3]/40 hover:shadow-md transition cursor-pointer ${timingSince ? "border-[#0CA4C3] ring-2 ring-[#0CA4C3]/20" : "border-[#1D475E]/[0.1]"}`}>
       {client && <div className="mb-1 text-[12px] font-medium uppercase tracking-wide text-[#4AA2C0] truncate">{client}</div>}
       <div className="text-[15px] font-semibold leading-snug text-[#131B30]">{t.title}</div>
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[12px]">
         {t.priority !== "normal" && <span className={`rounded-full border px-2 py-0.5 font-medium ${PRIORITY[t.priority].cls}`}>{PRIORITY[t.priority].label}</span>}
         {t.dueDate && <span className={`inline-flex items-center gap-1 ${overdue ? "text-red-600 font-medium" : "text-muted-foreground"}`}><CalendarDays size={12} />{t.dueDate}</span>}
         {t.commentCount > 0 && <span className="inline-flex items-center gap-1 text-muted-foreground"><MessageSquare size={12} />{t.commentCount}</span>}
+        {(tracked > 0 || t.estimateMinutes) && (
+          <span className={`inline-flex items-center gap-1 ${over ? "text-red-600 font-medium" : "text-muted-foreground"}`} title="Tracked / estimate">
+            <Clock size={12} />{duration(tracked)}{t.estimateMinutes ? ` / ${duration(t.estimateMinutes * 60)}` : ""}
+          </span>
+        )}
         <span className="ml-auto flex items-center gap-1">
           {(t.agentTaskKey || running) && (
             <span className={`inline-flex items-center gap-1 rounded-full bg-[#1D475E]/[0.07] px-2 py-0.5 font-medium text-[#1D475E] ${running ? "animate-pulse" : ""}`}>
@@ -210,7 +238,13 @@ function TaskCard({ t, client, assignee, running, onOpen }: { t: Task; client?: 
           ) : !t.agentTaskKey && <span title="Unassigned" className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-slate-300 text-slate-400"><UserRound size={12} /></span>}
         </span>
       </div>
-    </button>
+      {canTrack && (
+        <button onClick={(e) => { e.stopPropagation(); onTimer(); }} onKeyDown={(e) => e.stopPropagation()}
+          className={`mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition ${timingSince ? "bg-[#1D475E] text-white hover:bg-[#163a4d]" : "bg-[#0CA4C3]/[0.1] text-[#0F6E84] hover:bg-[#0CA4C3]/[0.18]"}`}>
+          {timingSince ? <><Square size={11} fill="currentColor" /> Stop · <span className="tabular-nums">{clock(elapsed)}</span></> : <><Play size={12} fill="currentColor" /> Start</>}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -320,9 +354,10 @@ function NewTask({ clients, people, onClose, onCreated }: {
   );
 }
 
-function TaskDrawer({ id, isOwner, clients, people, running, onClose, onChanged, onRunAgent, onMove }: {
+function TaskDrawer({ id, isOwner, clients, people, running, onClose, onChanged, onRunAgent, onMove, timingSince, canTrack, trackReason, onTimer }: {
   id: number; isOwner: boolean; clients: Client[]; people: Person[]; running: boolean;
   onClose: () => void; onChanged: () => void; onRunAgent: () => void; onMove: (s: Status) => void;
+  timingSince: string | null; canTrack: boolean; trackReason?: string; onTimer: () => void;
 }) {
   const [detail, setDetail] = useState<{ task: Task; comments: Comment[]; agent: { key: string; status: string; output: AgentOut | null } | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -426,6 +461,9 @@ function TaskDrawer({ id, isOwner, clients, people, running, onClose, onChanged,
               ) : <p className="whitespace-pre-line text-[14px] leading-relaxed text-[#131B30]">{t.notes || "No instructions."}</p>}
             </Field>
 
+            <TimeSection taskId={t.id} done={t.status === "done"} estimateMinutes={t.estimateMinutes} isOwner={isOwner}
+              timingSince={timingSince} canTrack={canTrack} trackReason={trackReason} onTimer={onTimer} onChanged={onChanged} />
+
             <section className="rounded-xl border border-[#1D475E]/[0.12] bg-[#F6F9FA] p-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="flex items-center gap-2 text-[15px] font-semibold text-[#131B30]"><Bot size={16} /> Agent</h3>
@@ -471,4 +509,136 @@ function TaskDrawer({ id, isOwner, clients, people, running, onClose, onChanged,
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><span className="mb-1 block text-[12px] font-medium text-muted-foreground">{label}</span>{children}</div>;
+}
+
+// Time on this task: Start/Stop, the entries (everyone's for the owner, your
+// own otherwise), corrections, and time added by hand.
+function TimeSection({ taskId, done, estimateMinutes, isOwner, timingSince, canTrack, trackReason, onTimer, onChanged }: {
+  taskId: number; done: boolean; estimateMinutes: number | null; isOwner: boolean; timingSince: string | null;
+  canTrack: boolean; trackReason?: string; onTimer: () => void; onChanged: () => void;
+}) {
+  const [entries, setEntries] = useState<TimeEntry[] | null>(null);
+  const [me, setMe] = useState<number | null>(null);
+  const [tick, setTick] = useState(0);
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const elapsed = useElapsed(timingSince);
+
+  useEffect(() => {
+    let alive = true;
+    api<{ entries: TimeEntry[]; me: number | null }>(`/api/time/entries?taskId=${taskId}`)
+      .then((d) => { if (alive) { setEntries(d.entries); setMe(d.me); } })
+      .catch((e) => alive && setError(e.message));
+    return () => { alive = false; };
+  }, [taskId, tick, timingSince]);
+
+  const refresh = () => { setTick((n) => n + 1); onChanged(); };
+  const finished = (entries || []).reduce((sum, e) => sum + (e.durationSeconds ?? 0), 0);
+  const total = finished + (timingSince ? elapsed : 0);
+  const over = !!estimateMinutes && total > estimateMinutes * 60;
+
+  async function edit(e: TimeEntry) {
+    const current = Math.round((e.durationSeconds ?? 0) / 60);
+    const raw = prompt("Minutes for this entry", String(current));
+    if (raw === null) return;
+    const minutes = Number(raw);
+    if (!Number.isFinite(minutes) || minutes < 0) return setError("Enter a number of minutes.");
+    try { await api(`/api/time/entries/${e.id}`, { method: "PATCH", body: JSON.stringify({ minutes }) }); refresh(); }
+    catch (err) { setError(err instanceof Error ? err.message : "Couldn't save."); }
+  }
+  async function remove(e: TimeEntry) {
+    if (!confirm("Delete this time entry?")) return;
+    try { await api(`/api/time/entries/${e.id}`, { method: "DELETE" }); refresh(); }
+    catch (err) { setError(err instanceof Error ? err.message : "Couldn't delete."); }
+  }
+
+  return (
+    <section className="rounded-xl border border-[#1D475E]/[0.12] p-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="flex items-center gap-2 text-[15px] font-semibold text-[#131B30]"><Clock size={16} /> Time</h3>
+          <p className={`text-[13px] ${over ? "text-red-600 font-medium" : "text-muted-foreground"}`}>
+            {duration(total)} tracked{estimateMinutes ? ` of ${duration(estimateMinutes * 60)} estimated` : ""}{isOwner ? " (everyone)" : ""}
+          </p>
+        </div>
+        {canTrack && !done && (
+          <button onClick={onTimer} className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[14px] font-semibold ${timingSince ? "bg-[#1D475E] text-white hover:bg-[#163a4d]" : "btn-mmg-blue"}`}>
+            {timingSince ? <><Square size={12} fill="currentColor" /> Stop · <span className="tabular-nums">{clock(elapsed)}</span></> : <><Play size={13} fill="currentColor" /> Start timer</>}
+          </button>
+        )}
+      </div>
+      {!canTrack && <p className="text-[13px] text-muted-foreground">{trackReason || "Sign in with your own login to track time."}</p>}
+      {error && <p role="alert" className="text-[13px] text-red-600">{error}</p>}
+      {entries && entries.length > 0 && (
+        <ul className="divide-y divide-border/60 rounded-lg border border-border/60 text-[13px]">
+          {entries.map((e) => {
+            const mine = e.memberId === me;
+            return (
+              <li key={e.id} className="flex items-center gap-3 px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[#131B30]">
+                    <strong>{e.endedAt ? duration(e.durationSeconds ?? 0) : "Running"}</strong>
+                    {isOwner && <span className="text-muted-foreground"> · {e.memberName}</span>}
+                    <span className="text-muted-foreground"> · {new Date(e.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+                    {e.source === "manual" && <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">added by hand</span>}
+                    {e.source === "auto_stopped" && !e.editedAt && <span className="ml-1.5 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-800">auto-stopped: check it</span>}
+                    {e.editedAt && <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">edited</span>}
+                  </div>
+                  {e.note && <div className="truncate text-muted-foreground">{e.note}</div>}
+                </div>
+                {e.endedAt && (mine || isOwner) && (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button onClick={() => edit(e)} aria-label="Edit time" className="rounded p-1.5 text-muted-foreground hover:bg-slate-100"><Pencil size={13} /></button>
+                    <button onClick={() => remove(e)} aria-label="Delete time" className="rounded p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600"><Trash2 size={13} /></button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {canTrack && (adding ? <AddTime taskId={taskId} onDone={() => { setAdding(false); refresh(); }} onCancel={() => setAdding(false)} />
+        : <button onClick={() => setAdding(true)} className="text-[13px] font-medium text-[#0394B2] hover:underline">+ Add time by hand</button>)}
+    </section>
+  );
+}
+
+function AddTime({ taskId, onDone, onCancel }: { taskId: number; onDone: () => void; onCancel: () => void }) {
+  const [date, setDate] = useState(today());
+  const [h, setH] = useState("");
+  const [m, setM] = useState("");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const minutes = (Number(h) || 0) * 60 + (Number(m) || 0);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      // Logged at 9am local time on the chosen day.
+      const startedAt = new Date(`${date}T09:00:00`).toISOString();
+      await api("/api/time/entries", { method: "POST", body: JSON.stringify({ taskId, startedAt, minutes, note }) });
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't add time.");
+      setBusy(false);
+    }
+  }
+  const small = "rounded-md border border-border bg-white px-2 py-1.5 text-[14px] outline-none focus:border-[#0CA4C3]/50";
+  return (
+    <form onSubmit={submit} className="space-y-2 rounded-lg bg-[#F6F9FA] p-3">
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="text-[12px] text-muted-foreground">Date<input type="date" className={`${small} block`} value={date} max={today()} onChange={(e) => setDate(e.target.value)} /></label>
+        <label className="text-[12px] text-muted-foreground">Hours<input inputMode="numeric" className={`${small} block w-16`} value={h} onChange={(e) => setH(e.target.value)} /></label>
+        <label className="text-[12px] text-muted-foreground">Minutes<input inputMode="numeric" className={`${small} block w-16`} value={m} onChange={(e) => setM(e.target.value)} /></label>
+      </div>
+      <input className={`${small} w-full`} placeholder="What you did (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+      {error && <p role="alert" className="text-[13px] text-red-600">{error}</p>}
+      <div className="flex gap-2">
+        <button disabled={busy || minutes <= 0} className="btn-mmg-blue px-3 py-1.5 text-[13px] disabled:opacity-50">Add {minutes > 0 ? duration(minutes * 60) : "time"}</button>
+        <button type="button" onClick={onCancel} className="rounded-md px-3 py-1.5 text-[13px] text-[#3E4F5E] hover:bg-slate-100">Cancel</button>
+      </div>
+    </form>
+  );
 }

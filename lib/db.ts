@@ -273,6 +273,27 @@ async function initSchema(db: Client) {
     CREATE INDEX IF NOT EXISTS work_tasks_assignee ON work_tasks (assignee_id, status);
     CREATE INDEX IF NOT EXISTS work_tasks_client ON work_tasks (client_slug, status);
 
+    -- Time tracking: one row per stint on a task. ended_at is NULL while the
+    -- timer runs; each person has at most one running timer. client_slug is
+    -- copied in at the start so reports stay right if a task moves clients.
+    CREATE TABLE IF NOT EXISTS time_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      member_id INTEGER NOT NULL,
+      task_id INTEGER NOT NULL,
+      client_slug TEXT,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      duration_seconds INTEGER,
+      note TEXT,
+      source TEXT NOT NULL DEFAULT 'timer',
+      edited_at TEXT,
+      edited_by INTEGER,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS time_entries_member ON time_entries (member_id, started_at);
+    CREATE INDEX IF NOT EXISTS time_entries_task ON time_entries (task_id);
+    CREATE INDEX IF NOT EXISTS time_entries_client ON time_entries (client_slug, started_at);
+
     CREATE TABLE IF NOT EXISTS work_task_comments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       task_id INTEGER NOT NULL,

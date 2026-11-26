@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ListChecks, LogOut, Users } from "lucide-react";
+import TimerPill from "@/components/timer";
 
 export interface Me { type: "member" | "legacy"; name: string; title?: string; email?: string; isOwner: boolean }
 
@@ -46,6 +47,8 @@ export default function AccountMenu() {
   }
 
   return (
+    <div className="flex items-center gap-2">
+    {me.type === "member" && <TimerPill />}
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
@@ -77,6 +80,7 @@ export default function AccountMenu() {
           </button>
         </div>
       )}
+    </div>
     </div>
   );
 }
