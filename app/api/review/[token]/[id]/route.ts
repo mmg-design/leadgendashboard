@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DASHBOARD_SESSION_COOKIE, isTeamSession } from "@/lib/dashboard-auth";
+import { isTeamRequest } from "@/lib/viewer";
 import { addReply, clientForToken, getFeedback, isStatus, savePhoto, setFeedbackStatus, slackThreadFor } from "@/lib/feedback";
 import { photoPath } from "@/lib/feedback-photo";
 import { queueFeedbackEmail } from "@/lib/feedback-email";
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!item) return NextResponse.json({ error: "Comment not found." }, { status: 404 });
 
   const input = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-  const isTeam = await isTeamSession(req.cookies.get(DASHBOARD_SESSION_COOKIE)?.value);
+  const isTeam = await isTeamRequest(req.cookies);
   const author = (typeof input.authorName === "string" && input.authorName.trim().slice(0, 80)) || (isTeam ? "MMG Studio" : "");
   const openUrl = `${req.nextUrl.origin}/review/${token}?c=${id}`;
   const thread = await slackThreadFor(id);

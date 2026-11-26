@@ -29,6 +29,7 @@ import { ClientPortal } from "@/components/dashboard/client-portal";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
 import type { GoalConfig } from "@/lib/clients";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AccountMenu, { useViewer } from "@/components/account-menu";
 import {
   Activity,
   Eye,
@@ -201,6 +202,7 @@ function isSupportedIconFile(file: File) {
 }
 
 export default function ClientDashboard() {
+  const viewer = useViewer();
   const params = useParams();
   const clientSlug = params.client as string;
 
@@ -633,17 +635,20 @@ export default function ClientDashboard() {
                 <TabsTrigger value="90d" className="text-xs px-3 h-7">90d</TabsTrigger>
               </TabsList>
             </Tabs>
-            <button
-              onClick={() => setSettingsOpen(!settingsOpen)}
-              className={`p-2 rounded-lg transition-colors ${
-                settingsOpen
-                  ? "bg-[#001A2E]/10 text-[#001A2E]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              }`}
-              title="Client Settings"
-            >
-              <Settings size={16} />
-            </button>
+            {viewer?.isOwner && (
+              <button
+                onClick={() => setSettingsOpen(!settingsOpen)}
+                className={`p-2 rounded-lg transition-colors ${
+                  settingsOpen
+                    ? "bg-[#001A2E]/10 text-[#001A2E]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                }`}
+                title="Client Settings"
+              >
+                <Settings size={16} />
+              </button>
+            )}
+            <AccountMenu />
           </div>
         </div>
       </header>

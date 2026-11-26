@@ -226,6 +226,27 @@ async function initSchema(db: Client) {
       integrations TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    -- Team accounts: employees and contractors who sign in with their own
+    -- email. Clients never get an account. One owner delegates; everyone else
+    -- carries a job title. Hourly rates are owner-only (contractors).
+    CREATE TABLE IF NOT EXISTS team_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT 'Team Member',
+      kind TEXT NOT NULL DEFAULT 'employee',
+      is_owner INTEGER NOT NULL DEFAULT 0,
+      hourly_rate_cents INTEGER,
+      password_hash TEXT,
+      status TEXT NOT NULL DEFAULT 'invited',
+      session_version INTEGER NOT NULL DEFAULT 1,
+      invite_token_hash TEXT,
+      invite_expires_at TEXT,
+      last_login_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // Migration: add icon_url column if missing (existing DBs)

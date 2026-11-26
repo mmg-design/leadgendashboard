@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DASHBOARD_SESSION_COOKIE, isTeamSession } from "@/lib/dashboard-auth";
+import { isTeamRequest } from "@/lib/viewer";
 import { clientForToken, createFeedback, getFeedback, isClientHost, listFeedback, savePhoto, setSlackThread, type Anchor, type Device } from "@/lib/feedback";
 import { photoPath } from "@/lib/feedback-photo";
 import { queueFeedbackEmail, sweepFeedbackEmails } from "@/lib/feedback-email";
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   const { token } = await params;
   const client = await clientForToken(token);
   if (!client) return NextResponse.json({ error: "This review link isn't valid anymore." }, { status: 404 });
-  const isTeam = await isTeamSession(req.cookies.get(DASHBOARD_SESSION_COOKIE)?.value);
+  const isTeam = await isTeamRequest(req.cookies);
   sweepFeedbackEmails();
   return NextResponse.json({
     client: { name: client.name, domain: client.domain, iconUrl: client.iconUrl || null, slug: client.slug },
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   const anchor: Anchor | null = a && typeof a.selector === "string"
     ? { selector: a.selector.slice(0, 1000), text: clip(a.text, 200), offsetX: num(a.offsetX, 1), offsetY: num(a.offsetY, 1), docX: num(a.docX), docY: num(a.docY) }
     : null;
-  const isTeam = await isTeamSession(req.cookies.get(DASHBOARD_SESSION_COOKIE)?.value);
+  const isTeam = await isTeamRequest(req.cookies);
 
   const authorEmail = clip(input.authorEmail, 160) || null;
   if (typeof input.authorPhoto === "string") await savePhoto(client.slug, { name: authorName, email: authorEmail }, input.authorPhoto);

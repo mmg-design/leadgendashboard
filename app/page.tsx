@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
+import AccountMenu, { useViewer } from "@/components/account-menu";
 import {
   Plus,
   MessageSquare,
@@ -99,6 +100,7 @@ const integrationMeta = [
 ];
 
 export default function Home() {
+  const viewer = useViewer();
   const router = useRouter();
   const [clients, setClients] = useState<ClientConfig[]>([]);
   const [formOpen, setFormOpen] = useState(false);
@@ -259,12 +261,15 @@ export default function Home() {
                 <MessageSquare size={14} className="text-[#4AA2C0]" /> {openFeedback} open client {openFeedback === 1 ? "update" : "updates"}
               </span>
             )}
-            <button
-              onClick={() => { setFormOpen(true); setSuccess(false); }}
-              className="inline-flex items-center gap-1.5 btn-mmg-blue px-4 md:px-5 py-2.5 text-[15px]"
-            >
-              <Plus size={16} /> New client
-            </button>
+            {viewer?.isOwner && (
+              <button
+                onClick={() => { setFormOpen(true); setSuccess(false); }}
+                className="inline-flex items-center gap-1.5 btn-mmg-blue px-4 md:px-5 py-2.5 text-[15px]"
+              >
+                <Plus size={16} /> New client
+              </button>
+            )}
+            <AccountMenu />
           </div>
         </nav>
       </div>
@@ -287,12 +292,14 @@ export default function Home() {
             Track search rankings, AI visibility, traffic and leads, then see what to fix next.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <button
-              onClick={() => { setFormOpen(true); setSuccess(false); }}
-              className="inline-flex items-center gap-2 btn-mmg-blue px-7 py-3.5 text-[16px]"
-            >
-              Add a client <ArrowRight size={17} />
-            </button>
+            {viewer?.isOwner && (
+              <button
+                onClick={() => { setFormOpen(true); setSuccess(false); }}
+                className="inline-flex items-center gap-2 btn-mmg-blue px-7 py-3.5 text-[16px]"
+              >
+                Add a client <ArrowRight size={17} />
+              </button>
+            )}
             <a
               href="#clients"
               className="inline-flex items-center btn-mmg-white px-7 py-3.5 text-[16px]"

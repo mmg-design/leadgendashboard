@@ -19,7 +19,10 @@ const AUDIENCES = ["Health systems", "Medicare & insurance", "Pharmacy", "Health
 
 export default function LoginPage() {
   const router = useRouter();
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // Team members sign in with email; the shared workspace password still works until it is retired.
+  const [mode, setMode] = useState<"member" | "shared">("member");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -31,7 +34,7 @@ export default function LoginPage() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify(mode === "member" ? { email, password } : { password }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to sign in");
@@ -90,14 +93,30 @@ export default function LoginPage() {
       <section className="order-first lg:order-none flex items-center justify-center bg-[#F6F8F9] px-6 py-14 lg:rounded-l-[28px]">
         <div className="w-full max-w-[400px]">
           <h2 className="font-headline text-[34px] tracking-tight text-[#001A2E]">Sign in to MMG Studio</h2>
-          <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">Welcome back. Enter your workspace password to continue.</p>
+          <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">
+            {mode === "member" ? "Welcome back. Sign in with your work email." : "Enter the shared workspace password to continue."}
+          </p>
           <form onSubmit={submit} className="mt-8 space-y-4">
+            {mode === "member" && (
+              <div>
+                <label htmlFor="email" className="mb-1.5 block text-[13px] font-medium text-foreground/75">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  autoFocus
+                  autoComplete="username"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="w-full rounded-xl border border-border bg-white px-4 py-3.5 text-[16px] outline-none focus:border-[#0CA4C3]/50 focus:ring-2 focus:ring-[#0CA4C3]/15"
+                />
+              </div>
+            )}
             <div>
               <label htmlFor="password" className="mb-1.5 block text-[13px] font-medium text-foreground/75">Password</label>
               <input
                 id="password"
                 type="password"
-                autoFocus
+                autoFocus={mode === "shared"}
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -107,13 +126,20 @@ export default function LoginPage() {
             {error && <p role="alert" className="text-[13px] text-red-600">{error}</p>}
             <button
               type="submit"
-              disabled={loading || !password}
+              disabled={loading || !password || (mode === "member" && !email)}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0CA4C3] px-4 py-3.5 text-[15px] font-semibold text-white hover:bg-[#0394B2] disabled:opacity-50 transition-colors"
             >
               {loading ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />}
               {loading ? "Checking…" : "Sign in"}
             </button>
           </form>
+          <button
+            type="button"
+            onClick={() => { setMode(mode === "member" ? "shared" : "member"); setError(null); setPassword(""); }}
+            className="mt-5 text-[13px] font-medium text-[#0394B2] hover:underline"
+          >
+            {mode === "member" ? "Use the shared workspace password instead" : "Sign in with your email instead"}
+          </button>
         </div>
       </section>
     </main>
