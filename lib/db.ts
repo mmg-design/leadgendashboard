@@ -275,6 +275,35 @@ async function initSchema(db: Client) {
     CREATE INDEX IF NOT EXISTS work_tasks_assignee ON work_tasks (assignee_id, status);
     CREATE INDEX IF NOT EXISTS work_tasks_client ON work_tasks (client_slug, status);
 
+    -- An agent carrying a Work task out in the client's code (GitHub): one row
+    -- per attempt. Round 2+ are "send back" rounds on the same branch and PR.
+    CREATE TABLE IF NOT EXISTS agent_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      work_task_id INTEGER NOT NULL,
+      client_slug TEXT NOT NULL,
+      repo TEXT NOT NULL,
+      branch TEXT NOT NULL,
+      round INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL DEFAULT 'queued',
+      feedback TEXT,
+      gh_run_id INTEGER,
+      gh_run_url TEXT,
+      head_sha TEXT,
+      changed_files INTEGER,
+      pr_number INTEGER,
+      pr_url TEXT,
+      preview_url TEXT,
+      summary TEXT,
+      error TEXT,
+      origin TEXT,
+      created_by INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      finished_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS agent_runs_task ON agent_runs (work_task_id, id);
+    CREATE INDEX IF NOT EXISTS agent_runs_status ON agent_runs (status);
+
     -- Time tracking: one row per stint on a task. ended_at is NULL while the
     -- timer runs; each person has at most one running timer. client_slug is
     -- copied in at the start so reports stay right if a task moves clients.

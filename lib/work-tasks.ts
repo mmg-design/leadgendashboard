@@ -244,3 +244,22 @@ export async function workTaskForAgent(clientSlug: string, agentKey: string): Pr
   const res = await db.execute({ sql: `${SELECT} WHERE t.client_slug = ? AND t.agent_task_key = ? ORDER BY t.id DESC LIMIT 1`, args: [clientSlug, agentKey] });
   return res.rows[0] ? rowToTask(res.rows[0] as Record<string, unknown>) : null;
 }
+
+// The Work task for an Agents card, created the first time it's handed to
+// someone (or to an agent). Context leads its instructions.
+export async function workTaskForCard(card: AgentTask & { status?: string }, clientSlug: string, opts: {
+  assigneeId: number | null; createdBy: number | null; byName: string; context?: string; dueDate?: string | null;
+}): Promise<{ task: WorkTask; created: boolean }> {
+  const existing = await workTaskForAgent(clientSlug, card.key);
+  if (existing) return { task: existing, created: false };
+  const notes = [opts.context ? `Context from ${opts.byName}: ${opts.context}` : "", card.why,
+    card.evidence.length ? `Evidence:\n${card.evidence.map((e) => `- ${e}`).join("\n")}` : "",
+    "From the Agents tab. Run the agent from this task, or open the Agents tab to review and apply its draft."].filter(Boolean).join("\n\n");
+  const priority: Priority = card.impact === "high" ? "high" : card.impact === "low" ? "low" : "normal";
+  let task = await createWorkTask({
+    title: card.title, clientSlug, notes, priority, assigneeId: opts.assigneeId, pagePath: card.path || null,
+    createdBy: opts.createdBy, source: "agent", sourceRef: card.key, dueDate: opts.dueDate || null,
+  });
+  task = await updateWorkTask(task.id, { agentTaskKey: card.key, ...(card.status === "drafted" ? { status: "review" as const } : {}) });
+  return { task, created: true };
+}

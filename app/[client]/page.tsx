@@ -155,6 +155,11 @@ interface ClientConfig {
       projectId: string;
       host?: string;
     };
+    github?: {
+      enabled: boolean;
+      repo: string;
+      previewUrl?: string;
+    };
   };
   goals?: GoalConfig[];
   actionItemsState?: { dismissed: string[]; order: string[] };
@@ -168,6 +173,7 @@ type SettingsIntegrations = {
   seRanking: { enabled: boolean; projectId: string };
   clickup: { enabled: boolean; listIds: string[]; engagementStartDate?: string };
   posthog: { enabled: boolean; projectId: string; host?: string };
+  github: { enabled: boolean; repo: string; previewUrl?: string };
   // Only sent with a newly pasted token or to disconnect; otherwise the saved one is kept.
   webflow?: { enabled: boolean; siteId: string; apiToken?: string };
   gohighlevel?: { enabled: boolean; locationId: string; apiToken?: string };
@@ -264,6 +270,8 @@ export default function ClientDashboard() {
     webflowApiToken: "", // only ever holds a newly pasted token
     ghlLocationId: "",
     ghlApiToken: "", // only ever holds a newly pasted token
+    githubRepo: "",
+    githubPreviewUrl: "",
   });
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -296,6 +304,8 @@ export default function ClientDashboard() {
         webflowApiToken: "",
         ghlLocationId: clientConfig.integrations?.gohighlevel?.locationId || "",
         ghlApiToken: "",
+        githubRepo: clientConfig.integrations?.github?.repo || "",
+        githubPreviewUrl: clientConfig.integrations?.github?.previewUrl || "",
       });
     }
   }, [clientConfig]);
@@ -390,6 +400,9 @@ export default function ClientDashboard() {
         posthog: settingsForm.posthogProjectId
           ? { enabled: true, projectId: settingsForm.posthogProjectId, host: settingsForm.posthogHost || undefined }
           : { enabled: false, projectId: "" },
+        github: settingsForm.githubRepo.trim()
+          ? { enabled: true, repo: settingsForm.githubRepo.trim(), previewUrl: settingsForm.githubPreviewUrl.trim() || undefined }
+          : { enabled: false, repo: "" },
         ...(disconnect === "webflow"
           ? { webflow: { enabled: false, siteId: "" } }
           : settingsForm.webflowApiToken.trim()
@@ -876,6 +889,28 @@ export default function ClientDashboard() {
                       </>
                     )}
                   </p>
+                </div>
+                <div>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">GitHub repo (site code)</label>
+                  <input
+                    type="text"
+                    value={settingsForm.githubRepo}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, githubRepo: e.target.value })}
+                    placeholder="mmg-design/ipl-website"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                  />
+                  <p className="text-[12px] text-[#097388]/75 mt-0.5">Lets agents make changes in the site&apos;s code and open a pull request. The repo needs the MMG agent workflow.</p>
+                </div>
+                <div>
+                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">Preview address (Cloudflare)</label>
+                  <input
+                    type="text"
+                    value={settingsForm.githubPreviewUrl}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, githubPreviewUrl: e.target.value })}
+                    placeholder="https://{version}-ipl-website.mmgstudio.workers.dev"
+                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                  />
+                  <p className="text-[12px] text-[#097388]/75 mt-0.5">For Cloudflare Workers sites: {"{version}"} is filled in from each build. Leave blank for Vercel.</p>
                 </div>
                 <div>
                   <label className="text-[14px] font-medium text-foreground/70 mb-1 block">GoHighLevel Location ID</label>
