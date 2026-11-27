@@ -7,6 +7,7 @@ import { notifyAssignee, viewerId } from "@/lib/work-access";
 import { trackedByTask } from "@/lib/time";
 import { logoUrl } from "@/lib/client-logo";
 import { executorFor, latestRuns, syncOpenRuns } from "@/lib/agent-runs";
+import { hasGitHubAccess } from "@/lib/github-app";
 
 // The owner sees every task and can create them; anyone else gets their own queue.
 export async function GET(req: NextRequest) {
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
     getAllClients(),
     latestRuns(),
   ]);
+  const access = await hasGitHubAccess();
   // Names, titles and photos only (for avatars and @mentions): rates never leave the Team page.
   const people = (await listMembers()).filter((m) => m.status === "active" || (viewer.isOwner && m.status === "invited"))
     .map((m) => ({ id: m.id, name: m.name, title: m.title, photoVersion: m.photoVersion }));
@@ -30,7 +32,7 @@ export async function GET(req: NextRequest) {
       return { ...t, trackedSeconds: tracked.get(t.id) || 0, agentRun: run ? { status: run.status, round: run.round, prUrl: run.prUrl, previewUrl: run.previewUrl } : null };
     }),
     people,
-    clients: clients.map((c) => ({ slug: c.slug, name: c.name, logo: logoUrl(c), agentMode: executorFor(c) })),
+    clients: clients.map((c) => ({ slug: c.slug, name: c.name, logo: logoUrl(c), agentMode: executorFor(c, access) })),
     isOwner: viewer.isOwner,
     me: viewerId(viewer),
   });

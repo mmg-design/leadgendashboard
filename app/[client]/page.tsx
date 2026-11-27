@@ -30,6 +30,7 @@ import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-
 import type { GoalConfig } from "@/lib/clients";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AccountMenu, { useViewer } from "@/components/account-menu";
+import { GitHubSetup, PlatformPicker, type Platform } from "@/components/website-setup";
 import {
   Activity,
   Eye,
@@ -160,6 +161,7 @@ interface ClientConfig {
       repo: string;
       previewUrl?: string;
     };
+    site?: { platform: Platform };
   };
   goals?: GoalConfig[];
   actionItemsState?: { dismissed: string[]; order: string[] };
@@ -173,7 +175,7 @@ type SettingsIntegrations = {
   seRanking: { enabled: boolean; projectId: string };
   clickup: { enabled: boolean; listIds: string[]; engagementStartDate?: string };
   posthog: { enabled: boolean; projectId: string; host?: string };
-  github: { enabled: boolean; repo: string; previewUrl?: string };
+  site?: { platform: Platform };
   // Only sent with a newly pasted token or to disconnect; otherwise the saved one is kept.
   webflow?: { enabled: boolean; siteId: string; apiToken?: string };
   gohighlevel?: { enabled: boolean; locationId: string; apiToken?: string };
@@ -270,9 +272,19 @@ export default function ClientDashboard() {
     webflowApiToken: "", // only ever holds a newly pasted token
     ghlLocationId: "",
     ghlApiToken: "", // only ever holds a newly pasted token
-    githubRepo: "",
-    githubPreviewUrl: "",
   });
+  // "Where is this website built?" (saved with the other settings).
+  const [platform, setPlatform] = useState<Platform | null>(null);
+  const [githubNotice, setGithubNotice] = useState<string | null>(null);
+  // ?github=connected|error after the GitHub app flow: reopen settings at Website.
+  useEffect(() => {
+    const gh = searchParams.get("github");
+    if (!gh) return;
+    setSettingsOpen(true);
+    setGithubNotice(gh === "connected" ? "GitHub is connected. Pick this client's repo below." : null);
+    if (gh === "error") setSaveError(searchParams.get("reason") || "GitHub didn't finish connecting.");
+    setTimeout(() => document.getElementById("website-settings")?.scrollIntoView({ behavior: "smooth", block: "center" }), 400);
+  }, [searchParams]);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   async function readUploadResponse(res: Response) {
@@ -304,11 +316,12 @@ export default function ClientDashboard() {
         webflowApiToken: "",
         ghlLocationId: clientConfig.integrations?.gohighlevel?.locationId || "",
         ghlApiToken: "",
-        githubRepo: clientConfig.integrations?.github?.repo || "",
-        githubPreviewUrl: clientConfig.integrations?.github?.previewUrl || "",
       });
+      const i = clientConfig.integrations;
+      // Back from connecting GitHub: show the GitHub setup.
+      setPlatform(searchParams.get("github") ? "github" : i?.site?.platform ?? (i?.github?.enabled ? "github" : i?.webflow?.hasApiToken ? "webflow" : null));
     }
-  }, [clientConfig]);
+  }, [clientConfig, searchParams]);
 
   async function uploadIcon(file: File | undefined) {
     if (!file) return;
@@ -400,9 +413,7 @@ export default function ClientDashboard() {
         posthog: settingsForm.posthogProjectId
           ? { enabled: true, projectId: settingsForm.posthogProjectId, host: settingsForm.posthogHost || undefined }
           : { enabled: false, projectId: "" },
-        github: settingsForm.githubRepo.trim()
-          ? { enabled: true, repo: settingsForm.githubRepo.trim(), previewUrl: settingsForm.githubPreviewUrl.trim() || undefined }
-          : { enabled: false, repo: "" },
+        ...(platform ? { site: { platform } } : {}),
         ...(disconnect === "webflow"
           ? { webflow: { enabled: false, siteId: "" } }
           : settingsForm.webflowApiToken.trim()
@@ -693,6 +704,47 @@ export default function ClientDashboard() {
               </button>
             </div>
 
+            {/* Website: where it's built decides how agents work on it */}
+            <div id="website-settings" className="mb-6 space-y-3 rounded-2xl border border-[#001A2E]/[0.08] bg-[#F6FAFB] p-4">
+              <div>
+                <div className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">Website</div>
+                <p className="mt-0.5 text-[14px] text-[#01384C]">Where is this website built? Agents use this to make changes for review.</p>
+              </div>
+              <PlatformPicker value={platform} onChange={setPlatform} />
+              {platform === "github" && <div className="rounded-xl border border-border bg-white p-4"><GitHubSetup clientSlug={clientSlug} notice={githubNotice} /></div>}
+              {platform === "webflow" && (
+                <div className="space-y-3 rounded-xl border border-border bg-white p-4">
+                  <div>
+                    <label className="text-[14px] font-medium text-foreground/70 mb-1 block">Webflow Site API Token</label>
+                    <input
+                      type="password"
+                      autoComplete="off"
+                      value={settingsForm.webflowApiToken}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, webflowApiToken: e.target.value })}
+                      placeholder={
+                        clientConfig?.integrations?.webflow?.hasApiToken
+                          ? `Connected to ${clientConfig.integrations.webflow.siteName || "Webflow"}. Paste a new token to replace it.`
+                          : "Lets agents apply changes to this site"
+                      }
+                      className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
+                    />
+                    <p className="text-[12px] text-[#097388]/75 mt-0.5">
+                      Webflow: Site settings → Apps &amp; integrations → API access → Generate API token, with Sites, Pages, and CMS set to read and write.
+                      {clientConfig?.integrations?.webflow?.hasApiToken && (
+                        <>
+                          {" "}
+                          <button type="button" onClick={() => handleSaveSettings("webflow")} className="underline hover:text-[#001A2E]">Disconnect</button>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <p className="text-[13px] text-muted-foreground">With the token saved, agents draft fixes and you can apply SEO changes from the Agents tab. Agents making changes on Webflow&apos;s staging site by themselves is coming next.</p>
+                </div>
+              )}
+              {platform === "other" && <p className="text-[13px] text-muted-foreground">Agents write drafts for this site. Someone on the team makes the change.</p>}
+              {platform && platform !== "github" && <p className="text-[12px] text-[#097388]/75">Click Save Changes to keep this choice.</p>}
+            </div>
+
             <div className="grid gap-6 md:grid-cols-3">
               {/* General */}
               <div className="space-y-3">
@@ -865,52 +917,6 @@ export default function ClientDashboard() {
                     className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
                   />
                   <p className="text-[12px] text-[#097388]/75 mt-0.5">From the SE Ranking project URL</p>
-                </div>
-                <div>
-                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">Webflow Site API Token</label>
-                  <input
-                    type="password"
-                    autoComplete="off"
-                    value={settingsForm.webflowApiToken}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, webflowApiToken: e.target.value })}
-                    placeholder={
-                      clientConfig?.integrations?.webflow?.hasApiToken
-                        ? `Connected to ${clientConfig.integrations.webflow.siteName || "Webflow"}. Paste a new token to replace it.`
-                        : "Lets agents apply changes to this site"
-                    }
-                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
-                  />
-                  <p className="text-[12px] text-[#097388]/75 mt-0.5">
-                    Webflow: Site settings → Apps &amp; integrations → API access → Generate API token, with Sites, Pages, and CMS set to read and write.
-                    {clientConfig?.integrations?.webflow?.hasApiToken && (
-                      <>
-                        {" "}
-                        <button type="button" onClick={() => handleSaveSettings("webflow")} className="underline hover:text-[#001A2E]">Disconnect</button>
-                      </>
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">GitHub repo (site code)</label>
-                  <input
-                    type="text"
-                    value={settingsForm.githubRepo}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, githubRepo: e.target.value })}
-                    placeholder="mmg-design/ipl-website"
-                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
-                  />
-                  <p className="text-[12px] text-[#097388]/75 mt-0.5">Lets agents make changes in the site&apos;s code and open a pull request. The repo needs the MMG agent workflow.</p>
-                </div>
-                <div>
-                  <label className="text-[14px] font-medium text-foreground/70 mb-1 block">Preview address (Cloudflare)</label>
-                  <input
-                    type="text"
-                    value={settingsForm.githubPreviewUrl}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, githubPreviewUrl: e.target.value })}
-                    placeholder="https://{version}-ipl-website.mmgstudio.workers.dev"
-                    className="w-full px-3 py-2 text-[15px] border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30"
-                  />
-                  <p className="text-[12px] text-[#097388]/75 mt-0.5">For Cloudflare Workers sites: {"{version}"} is filled in from each build. Leave blank for Vercel.</p>
                 </div>
                 <div>
                   <label className="text-[14px] font-medium text-foreground/70 mb-1 block">GoHighLevel Location ID</label>

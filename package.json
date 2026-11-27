@@ -18,6 +18,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "google-auth-library": "^10.6.1",
+    "libsodium-wrappers": "^0.7.15",
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
     "react": "19.2.3",
@@ -30,6 +31,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/libsodium-wrappers": "^0.7.14",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

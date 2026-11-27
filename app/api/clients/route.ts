@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
                 engagementStartDate: integrations.clickup.engagementStartDate || undefined,
               }
             : undefined,
+        site: ["github", "webflow", "other"].includes(integrations?.site?.platform) ? { platform: integrations.site.platform } : undefined,
       },
     };
 
@@ -159,14 +160,14 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    // The client's code on GitHub, for agents that carry tasks out.
-    if (integrations?.github) {
-      const repo = typeof integrations.github.repo === "string" ? integrations.github.repo.trim().replace(/^https:\/\/github\.com\//, "").replace(/\.git$|\/+$/g, "") : "";
-      const previewUrl = typeof integrations.github.previewUrl === "string" ? integrations.github.previewUrl.trim() : "";
-      if (repo && !/^[\w.-]+\/[\w.-]+$/.test(repo)) return NextResponse.json({ error: "Write the GitHub repo as owner/name, e.g. mmg-design/ipl-website." }, { status: 400 });
-      if (previewUrl && !/^https:\/\/\S*\{version\}\S*$/.test(previewUrl)) return NextResponse.json({ error: "The preview address needs to start with https:// and include {version}." }, { status: 400 });
-      integrations.github = repo ? { enabled: true, repo, baseBranch: current.integrations.github?.baseBranch, previewUrl: previewUrl || undefined } : { enabled: false, repo: "" };
+    // Where the site is built. The GitHub repo itself is connected (and set up)
+    // from settings through /api/github/setup, so a settings save keeps it as is.
+    if (integrations?.site) {
+      const platform = integrations.site.platform;
+      if (!["github", "webflow", "other"].includes(platform)) return NextResponse.json({ error: "Pick where the website is built." }, { status: 400 });
+      integrations.site = { platform };
     }
+    if (integrations) delete integrations.github;
 
     // Same for GoHighLevel: a newly pasted token is checked against the
     // sub-account, whose name and timezone are stored with it.

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GaServiceAccountHint } from "@/components/dashboard/ga-service-account-hint";
 import AccountMenu, { useViewer } from "@/components/account-menu";
+import { PlatformPicker, type Platform } from "@/components/website-setup";
 import {
   Bot,
   ListChecks,
@@ -107,6 +108,7 @@ export default function Home() {
   const router = useRouter();
   const [clients, setClients] = useState<ClientConfig[]>([]);
   const [formOpen, setFormOpen] = useState(false);
+  const [sitePlatform, setSitePlatform] = useState<Platform | null>(null);
   // Open client-feedback comments per client (from the review tool)
   const [feedbackCounts, setFeedbackCounts] = useState<Record<string, number>>({});
   const openFeedback = Object.values(feedbackCounts).reduce((a, b) => a + b, 0);
@@ -225,7 +227,7 @@ export default function Home() {
       const res = await fetch("/api/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, domain, iconUrl: iconUrl || undefined, integrations }),
+        body: JSON.stringify({ name, domain, iconUrl: iconUrl || undefined, integrations: { ...integrations, ...(sitePlatform ? { site: { platform: sitePlatform } } : {}) } }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -233,6 +235,9 @@ export default function Home() {
       } else {
         setSuccess(true);
         resetForm();
+        // Custom code: go straight to connecting the client's repo.
+        if (sitePlatform === "github" && data.client?.slug) { window.location.href = `/${data.client.slug}?github=setup`; return; }
+        setSitePlatform(null);
         fetchClients();
         setTimeout(() => {
           setSuccess(false);
@@ -390,6 +395,17 @@ export default function Home() {
                         className="w-full px-3 py-2 text-[14px] rounded-lg border border-border bg-white/60 focus:outline-none focus:ring-2 focus:ring-[#001A2E]/20 focus:border-[#001A2E]/30 transition-all placeholder:text-[#097388]/55"
                       />
                       <p className="text-[11px] text-[#097388]/65 mt-1">Path or URL to the client&apos;s logo/icon - displayed in the dashboard header</p>
+                    </div>
+
+                    {/* Where the site is built: decides how agents work on it */}
+                    <div>
+                      <label className="block text-[12px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                        Where is the website built?
+                      </label>
+                      <PlatformPicker value={sitePlatform} onChange={setSitePlatform} compact />
+                      <p className="text-[11px] text-[#097388]/65 mt-1">
+                        {sitePlatform === "github" ? "After you create the client, you'll connect its GitHub repo so the agent can make changes and open pull requests." : sitePlatform === "webflow" ? "Add the Webflow site token in the client's settings so agents can work on it." : "Lets agents make changes on the site for review. You can change it later in settings."}
+                      </p>
                     </div>
 
                     {/* Integrations */}

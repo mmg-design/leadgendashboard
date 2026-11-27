@@ -5,6 +5,7 @@ import { getTask, setTaskContext } from "@/lib/agent-tasks";
 import { addComment, getWorkTask, isDate, workTaskForCard } from "@/lib/work-tasks";
 import { canAccess, viewerId } from "@/lib/work-access";
 import { executorFor, listRuns, RunError, startRun, syncOpenRuns } from "@/lib/agent-runs";
+import { hasGitHubAccess } from "@/lib/github-app";
 
 // GET ?workTaskId= : the task's agent runs (round by round) and whether its
 // client's code is connected. Anyone who can open the task can see them.
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
   if (!work || !(await canAccess(viewer, work))) return NextResponse.json({ error: "Task not found." }, { status: 404 });
   await syncOpenRuns().catch((err) => console.error("Agent run sync failed:", err));
   const config = work.clientSlug ? await getClient(work.clientSlug) : null;
-  return NextResponse.json({ runs: await listRuns(work.id), executor: executorFor(config), isOwner: viewer.isOwner });
+  return NextResponse.json({ runs: await listRuns(work.id), executor: executorFor(config, await hasGitHubAccess()), isOwner: viewer.isOwner });
 }
 
 // POST, owner only: hand a task to the agent to carry out in the client's code.

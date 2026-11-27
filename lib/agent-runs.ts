@@ -4,6 +4,7 @@ import { getTask, type StoredTask } from "./agent-tasks";
 import type { AgentOutput } from "./agent-runner";
 import { addComment, getWorkTask, listComments, updateWorkTask, type WorkComment, type WorkTask } from "./work-tasks";
 import { notifyAgentResult } from "./work-access";
+import { GitHubApiError, GitHubAppError, ghApi } from "./github-app";
 
 // Agents that carry a Work task out in the client's code. The dashboard starts
 // the "MMG agent" workflow in the client's GitHub repo with a brief; the
@@ -45,42 +46,29 @@ export const isActive = (s: RunStatus) => (ACTIVE as readonly string[]).includes
 // The client's repo, if agents can work in its code.
 export function githubFor(config: ClientConfig | null | undefined) {
   const gh = config?.integrations.github;
+  const platform = config?.integrations.site?.platform;
+  if (platform && platform !== "github") return null;
   if (!gh?.enabled || !/^[\w.-]+\/[\w.-]+$/.test(gh.repo || "")) return null;
   return { repo: gh.repo, base: gh.baseBranch || "main", previewUrl: gh.previewUrl || "" };
 }
 
-// What the UI should offer: "github" (ready), "needs_token" (repo set, token missing) or null.
-export function executorFor(config: ClientConfig | null | undefined): "github" | "needs_token" | null {
+// What the UI should offer: "github" (ready), "needs_token" (repo set, GitHub
+// not connected) or null. `access` is hasGitHubAccess(), looked up once per request.
+export function executorFor(config: ClientConfig | null | undefined, access: boolean): "github" | "needs_token" | null {
   if (!githubFor(config)) return null;
-  return process.env.GITHUB_AGENT_TOKEN ? "github" : "needs_token";
+  return access ? "github" : "needs_token";
 }
 
 // ── GitHub ──────────────────────────────────────────────────────────────────
 
-class GitHubError extends RunError {
-  constructor(message: string, readonly status: number) { super(message); }
-}
-
+// GitHub calls go through the shared helper; a missing connection reads as a RunError.
 async function gh<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
-  const token = process.env.GITHUB_AGENT_TOKEN;
-  if (!token) throw new RunError("GitHub isn't connected. Add GITHUB_AGENT_TOKEN in Vercel, then redeploy.");
-  const res = await fetch(`https://api.github.com${path}`, {
-    method: init.method || "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "mmg-studio-dashboard",
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-    },
-    body: init.body ? JSON.stringify(init.body) : undefined,
-    cache: "no-store",
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (res.status === 204) return undefined as T;
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new GitHubError(`GitHub: ${(data as { message?: string }).message || res.statusText}`, res.status);
-  return data as T;
+  try {
+    return await ghApi<T>(path, init);
+  } catch (err) {
+    if (err instanceof GitHubAppError) throw new RunError(err.message);
+    throw err;
+  }
 }
 
 interface GhRun { id: number; html_url: string; display_title: string; status: string; conclusion: string | null }
@@ -105,7 +93,7 @@ async function findPreview(repo: string, sha: string, template: string): Promise
   const checks = await gh<{ check_runs: { output?: { summary?: string | null } }[] }>(`/repos/${repo}/commits/${sha}/check-runs?per_page=30`).catch(() => ({ check_runs: [] }));
   const texts = [mmg?.description || "", ...checks.check_runs.map((c) => c.output?.summary || "")];
   for (const text of texts) {
-    const url = text.match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev[^\s)\]]*/i);
+    const url = text.match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.(?:workers|pages)\.dev[^\s)\]'"<]*/i);
     if (url) return url[0];
     const version = text.match(/(?:Version ID:|Cloudflare version)\s*([0-9a-f]{8})/i);
     if (version && template.includes("{version}")) return template.replace("{version}", version[1].toLowerCase());
@@ -223,7 +211,7 @@ export async function startRun(opts: { workTaskId: number; feedback?: string | n
       body: { ref: exec.base, inputs: { run_id: String(id), branch, title: clip(work.title, 120), brief, callback } },
     });
   } catch (err) {
-    const message = err instanceof GitHubError && err.status === 404
+    const message = err instanceof GitHubApiError && err.status === 404
       ? `Couldn't start the agent in ${exec.repo}. Check the repo has the MMG agent workflow and the token can reach it.`
       : err instanceof Error ? err.message : "Couldn't start the agent.";
     await setRun(id, { status: "failed", error: message, finished_at: new Date().toISOString() });
@@ -345,7 +333,7 @@ async function refreshPreview(row: Record<string, unknown>) {
 // stays right even if GitHub's ping back never arrives.
 let lastSync = 0;
 export async function syncOpenRuns(): Promise<void> {
-  if (!process.env.GITHUB_AGENT_TOKEN || Date.now() - lastSync < 20_000) return;
+  if (Date.now() - lastSync < 20_000) return;
   lastSync = Date.now();
   const db = await getDb();
   const res = await db.execute(`SELECT * FROM agent_runs WHERE status IN ('queued', 'running')
