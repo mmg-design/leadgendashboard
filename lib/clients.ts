@@ -63,6 +63,17 @@ export interface ClientConfig {
       apiToken?: string;
       hasApiToken?: boolean;
     };
+    // The client's site code on GitHub, for agents that carry tasks out: they
+    // work on a branch, the dashboard opens the pull request. previewUrl turns
+    // a Cloudflare version ID into its preview address, e.g.
+    // "https://{version}-ipl-website.mmgstudio.workers.dev" (Vercel previews
+    // are found without it). Uses the GITHUB_AGENT_TOKEN env var.
+    github?: {
+      enabled: boolean;
+      repo: string; // "owner/name"
+      baseBranch?: string; // defaults to "main"
+      previewUrl?: string;
+    };
     // GoHighLevel sub-account Private Integration token, for "ghl_form" lead
     // events. Never reaches the browser (swapped for hasApiToken); the name and
     // timezone are looked up from the sub-account when the token is saved.

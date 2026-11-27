@@ -6,15 +6,18 @@ import { createWorkTask, getWorkTask, linkAgentTask, listWorkTasks, parseTaskInp
 import { notifyAssignee, viewerId } from "@/lib/work-access";
 import { trackedByTask } from "@/lib/time";
 import { logoUrl } from "@/lib/client-logo";
+import { executorFor, latestRuns, syncOpenRuns } from "@/lib/agent-runs";
 
 // The owner sees every task and can create them; anyone else gets their own queue.
 export async function GET(req: NextRequest) {
   const viewer = await getViewer(req.cookies);
   if (!viewer) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   const clientSlug = req.nextUrl.searchParams.get("client") || undefined;
-  const [tasks, clients] = await Promise.all([
+  await syncOpenRuns().catch((err) => console.error("Agent run sync failed:", err));
+  const [tasks, clients, runs] = await Promise.all([
     listWorkTasks(viewer.isOwner ? { clientSlug } : { assigneeId: viewerId(viewer) ?? -1, clientSlug }),
     getAllClients(),
+    latestRuns(),
   ]);
   // Names, titles and photos only (for avatars and @mentions): rates never leave the Team page.
   const people = (await listMembers()).filter((m) => m.status === "active" || (viewer.isOwner && m.status === "invited"))
@@ -22,9 +25,12 @@ export async function GET(req: NextRequest) {
   // Tracked time per task: everyone's for the owner, your own otherwise.
   const tracked = await trackedByTask(tasks.map((t) => t.id), viewer.isOwner ? undefined : viewerId(viewer) ?? -1);
   return NextResponse.json({
-    tasks: tasks.map((t) => ({ ...t, trackedSeconds: tracked.get(t.id) || 0 })),
+    tasks: tasks.map((t) => {
+      const run = runs.get(t.id);
+      return { ...t, trackedSeconds: tracked.get(t.id) || 0, agentRun: run ? { status: run.status, round: run.round, prUrl: run.prUrl, previewUrl: run.previewUrl } : null };
+    }),
     people,
-    clients: clients.map((c) => ({ slug: c.slug, name: c.name, logo: logoUrl(c) })),
+    clients: clients.map((c) => ({ slug: c.slug, name: c.name, logo: logoUrl(c), agentMode: executorFor(c) })),
     isOwner: viewer.isOwner,
     me: viewerId(viewer),
   });

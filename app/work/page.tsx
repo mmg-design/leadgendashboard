@@ -20,10 +20,17 @@ interface Task {
   id: number; clientSlug: string | null; title: string; notes: string | null; status: Status; priority: Priority;
   assigneeId: number | null; agentTaskKey: string | null; pagePath: string | null; dueDate: string | null;
   estimateMinutes: number | null; commentCount: number; completedAt: string | null; trackedSeconds?: number;
+  agentRun?: { status: RunStatus; round: number; prUrl: string | null; previewUrl: string | null } | null;
 }
+type RunStatus = "queued" | "running" | "finishing" | "done" | "no_changes" | "failed";
+interface AgentRun {
+  id: number; round: number; status: RunStatus; feedback: string | null; ghRunUrl: string | null; prUrl: string | null;
+  previewUrl: string | null; summary: string | null; error: string | null; createdAt: string; finishedAt: string | null;
+}
+const runActive = (s?: RunStatus) => s === "queued" || s === "running" || s === "finishing";
 interface TimeEntry { id: number; memberId: number; memberName: string; memberPhoto?: string | null; startedAt: string; endedAt: string | null; durationSeconds: number | null; note: string | null; source: string; editedAt: string | null }
 interface Person { id: number; name: string; title: string; photoVersion?: string | null }
-interface Client { slug: string; name: string; logo?: string | null }
+interface Client { slug: string; name: string; logo?: string | null; agentMode?: "github" | "needs_token" | null }
 interface Comment { id: number; authorId: number | null; authorName: string; body: string; createdAt: string }
 interface AgentOut { summary?: string; proposedChange?: string; steps?: { title: string; detail: string }[] }
 
@@ -94,10 +101,22 @@ function Work() {
 
   const setOpen = (id: number | null) => router.replace(`/work${id ? `?task=${id}` : ""}${clientFilter ? `${id ? "&" : "?"}client=${encodeURIComponent(clientFilter)}` : ""}`, { scroll: false });
 
-  async function runAgent(id: number) {
+  // While an agent is making a change somewhere, keep the board fresh.
+  const anyRunning = !!data?.tasks.some((t) => runActive(t.agentRun?.status));
+  useEffect(() => {
+    if (!anyRunning) return;
+    const t = setInterval(reload, 30_000);
+    return () => clearInterval(t);
+  }, [anyRunning, reload]);
+
+  async function runAgent(id: number, clientSlug?: string | null) {
+    const slug = clientSlug ?? data?.tasks.find((t) => t.id === id)?.clientSlug;
+    const carriesOut = data?.clients.find((c) => c.slug === slug)?.agentMode === "github";
     setRunning((s) => new Set(s).add(id));
     try {
-      await api(`/api/work-tasks/${id}/agent`, { method: "POST" });
+      // Connected code: the agent makes the change and opens a pull request. Otherwise it drafts.
+      if (carriesOut) await api("/api/agent-runs", { method: "POST", body: JSON.stringify({ workTaskId: id }) });
+      else await api(`/api/work-tasks/${id}/agent`, { method: "POST" });
     } catch (e) {
       setError(e instanceof Error ? e.message : "The agent hit an error.");
     } finally {
@@ -219,10 +238,11 @@ function Work() {
       )}
       {creating && data && (
         <NewTask clients={data.clients} people={data.people} onClose={() => setCreating(false)}
-          onCreated={(t, runNow) => { setCreating(false); reload(); if (runNow) runAgent(t.id); }} />
+          onCreated={(t, runNow) => { setCreating(false); reload(); if (runNow) runAgent(t.id, t.clientSlug); }} />
       )}
       {openId && data && (
         <TaskDrawer key={openId} id={openId} isOwner={data.isOwner} clients={data.clients} people={data.people}
+          agentMode={data.clients.find((c) => c.slug === data.tasks.find((t) => t.id === openId)?.clientSlug)?.agentMode ?? null}
           running={running.has(openId)} onClose={() => setOpen(null)} onChanged={() => { reload(); refreshTimer(); }}
           timingSince={timing === openId ? timer?.running?.startedAt ?? null : null} canTrack={!!timer?.canTrack} trackReason={timer?.reason}
           onTimer={() => toggleTimer(openId)}
@@ -259,7 +279,11 @@ function TaskCard({ t, client, assignee, running, canTrack, timingSince, onTimer
           </span>
         )}
         <span className="ml-auto flex items-center gap-1">
-          {(t.agentTaskKey || running) && (
+          {runActive(t.agentRun?.status) ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#0CA4C3]/10 px-2 py-0.5 font-medium text-[#0F6E84]"><Loader2 size={11} className="animate-spin" />Agent working</span>
+          ) : t.agentRun?.status === "done" && t.status === "review" ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-800"><Bot size={11} />Ready to review</span>
+          ) : (t.agentTaskKey || running) && (
             <span className={`inline-flex items-center gap-1 rounded-full bg-[#1D475E]/[0.07] px-2 py-0.5 font-medium text-[#1D475E] ${running ? "animate-pulse" : ""}`}>
               {running ? <Loader2 size={11} className="animate-spin" /> : <Bot size={11} />}{running ? "Drafting" : "Agent"}
             </span>
@@ -385,8 +409,8 @@ function NewTask({ clients, people, onClose, onCreated }: {
   );
 }
 
-function TaskDrawer({ id, isOwner, clients, people, running, onClose, onChanged, onRunAgent, onMove, timingSince, canTrack, trackReason, onTimer }: {
-  id: number; isOwner: boolean; clients: Client[]; people: Person[]; running: boolean;
+function TaskDrawer({ id, isOwner, clients, people, agentMode, running, onClose, onChanged, onRunAgent, onMove, timingSince, canTrack, trackReason, onTimer }: {
+  id: number; isOwner: boolean; clients: Client[]; people: Person[]; agentMode: Client["agentMode"]; running: boolean;
   onClose: () => void; onChanged: () => void; onRunAgent: () => void; onMove: (s: Status) => void;
   timingSince: string | null; canTrack: boolean; trackReason?: string; onTimer: () => void;
 }) {
@@ -504,13 +528,16 @@ function TaskDrawer({ id, isOwner, clients, people, running, onClose, onChanged,
             <TimeSection taskId={t.id} done={t.status === "done"} estimateMinutes={t.estimateMinutes} isOwner={isOwner}
               timingSince={timingSince} canTrack={canTrack} trackReason={trackReason} onTimer={onTimer} onChanged={onChanged} />
 
+            {agentMode && t.clientSlug && <AgentRunsSection taskId={t.id} isOwner={isOwner} agentMode={agentMode} onChanged={refresh} />}
+
+            {(agentMode !== "github" || !!out) && (
             <section className="rounded-2xl card-depth p-4 space-y-3 anim-rise">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="flex items-center gap-2 text-[15px] font-semibold text-[#131B30]"><Bot size={16} /> Agent</h3>
-                <button onClick={onRunAgent} disabled={running || !t.clientSlug}
+                <h3 className="flex items-center gap-2 text-[15px] font-semibold text-[#131B30]"><Bot size={16} /> {agentMode === "github" ? "Earlier draft" : "Agent"}</h3>
+                {agentMode !== "github" && <button onClick={onRunAgent} disabled={running || !t.clientSlug}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[#1D475E] px-3 py-2 text-[13px] font-semibold text-white hover:bg-[#163a4d] disabled:opacity-50">
                   {running ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}{running ? "Drafting…" : out ? "Run again" : "Run agent"}
-                </button>
+                </button>}
               </div>
               {!t.clientSlug && <p className="text-[13px] text-muted-foreground">Agents work on a client&apos;s site. Add a client to this task to use one.</p>}
               {running && <p className="text-[13px] text-muted-foreground">The agent is reading the site and writing the draft. This can take a minute or two.</p>}
@@ -525,6 +552,7 @@ function TaskDrawer({ id, isOwner, clients, people, running, onClose, onChanged,
                 </div>
               )}
             </section>
+            )}
 
             <section className="rounded-2xl card-depth p-4 space-y-3 anim-rise">
               <h3 className="text-[15px] font-semibold text-[#131B30]">Comments</h3>
@@ -753,4 +781,84 @@ function WithMentions({ text, people }: { text: string; people: Person[] }) {
   return <>{text.split(pattern).map((part, i) => (part.startsWith("@") && names.includes(part.slice(1))
     ? <span key={i} className="rounded bg-[#0CA4C3]/10 px-1 font-semibold text-[#0F6E84]">{part}</span>
     : <span key={i}>{part}</span>))}</>;
+}
+
+// The agent carrying the task out in the client's code: each round's pull
+// request, preview and notes, plus "hand to the agent" and "send it back".
+function AgentRunsSection({ taskId, isOwner, agentMode, onChanged }: { taskId: number; isOwner: boolean; agentMode: "github" | "needs_token"; onChanged: () => void }) {
+  const [runs, setRuns] = useState<AgentRun[] | null>(null);
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
+  const last = runs?.[runs.length - 1];
+  const active = runActive(last?.status);
+
+  useEffect(() => {
+    let alive = true;
+    api<{ runs: AgentRun[] }>(`/api/agent-runs?workTaskId=${taskId}`).then((d) => alive && setRuns(d.runs)).catch((e) => alive && setError(e.message));
+    return () => { alive = false; };
+  }, [taskId, tick]);
+  useEffect(() => {
+    if (!active) return;
+    const t = setInterval(() => setTick((n) => n + 1), 20_000);
+    return () => clearInterval(t);
+  }, [active]);
+
+  async function start() {
+    setBusy(true); setError(null);
+    try {
+      await api("/api/agent-runs", { method: "POST", body: JSON.stringify({ workTaskId: taskId, feedback: notes }) });
+      setNotes(""); setTick((n) => n + 1); onChanged();
+    } catch (e) { setError(e instanceof Error ? e.message : "Couldn't start the agent."); }
+    setBusy(false);
+  }
+
+  const link = "inline-flex items-center gap-1 font-semibold text-[#0394B2] hover:underline";
+  return (
+    <section className="rounded-2xl card-depth p-4 space-y-3 anim-rise">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2 text-[15px] font-semibold text-[#131B30]"><Bot size={16} /> Agent changes</h3>
+        {isOwner && agentMode === "github" && !active && !runs?.length && (
+          <button onClick={start} disabled={busy || !runs} className="inline-flex items-center gap-1.5 rounded-lg bg-[#0CA4C3] px-3 py-2 text-[13px] font-semibold text-white shadow-[0_2px_6px_rgba(12,164,195,0.3)] hover:bg-[#0394B2] disabled:opacity-60">
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />} Hand to the agent
+          </button>
+        )}
+      </div>
+      {agentMode === "needs_token" && <p className="text-[13px] text-muted-foreground">This client&apos;s code is set up, but GitHub isn&apos;t connected yet. Add GITHUB_AGENT_TOKEN in Vercel, then redeploy.</p>}
+      {runs && !runs.length && agentMode === "github" && (
+        <p className="text-[13px] text-muted-foreground">The agent makes this change in the client&apos;s code on its own branch, then opens a pull request with a preview link. You get an email when it&apos;s ready to review. Nothing goes live until you merge it.</p>
+      )}
+      {runs?.map((r) => (
+        <div key={r.id} className="space-y-1.5 rounded-xl border border-border/70 bg-white/70 px-3 py-2.5 text-[14px]">
+          <div className="flex flex-wrap items-center gap-2 text-[13px]">
+            <span className="font-semibold text-[#131B30]">Round {r.round}</span>
+            {runActive(r.status) ? <span className="inline-flex items-center gap-1 text-[#0F6E84]"><Loader2 size={12} className="animate-spin" /> Making the change…</span>
+              : r.status === "done" ? <span className="font-medium text-amber-800">Ready to review</span>
+              : r.status === "no_changes" ? <span className="text-muted-foreground">No files changed</span>
+              : <span className="font-medium text-red-600">Couldn&apos;t finish</span>}
+            <span className="ml-auto flex flex-wrap gap-3">
+              {r.previewUrl && <a href={r.previewUrl} target="_blank" rel="noreferrer" className={link}>Preview <ExternalLink size={12} /></a>}
+              {r.prUrl && <a href={r.prUrl} target="_blank" rel="noreferrer" className={link}>Pull request <ExternalLink size={12} /></a>}
+              {r.status === "failed" && r.ghRunUrl && <a href={r.ghRunUrl} target="_blank" rel="noreferrer" className={link}>Run log <ExternalLink size={12} /></a>}
+            </span>
+          </div>
+          {r.feedback && <p className="text-[13px] text-muted-foreground">Your notes: {r.feedback}</p>}
+          {r.summary && <p className="whitespace-pre-line leading-relaxed text-[#3E4F5E]">{r.summary}</p>}
+          {r.status === "done" && !r.previewUrl && <p className="text-[13px] text-muted-foreground">The preview is still building. It&apos;ll show here when it&apos;s ready.</p>}
+          {r.error && <p className="text-[13px] text-red-600">{r.error}</p>}
+        </div>
+      ))}
+      {isOwner && agentMode === "github" && !!runs?.length && !active && (
+        <div className="space-y-2">
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="What should the agent change? It works on the same branch and pull request."
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-[14px] outline-none focus:border-[#0CA4C3]/50 focus:ring-2 focus:ring-[#0CA4C3]/15" />
+          <button onClick={start} disabled={busy || !notes.trim()} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1D475E] px-3 py-2 text-[13px] font-semibold text-white hover:bg-[#163a4d] disabled:opacity-50">
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />} Send back to the agent
+          </button>
+        </div>
+      )}
+      {error && <p role="alert" className="text-[13px] text-red-600">{error}</p>}
+    </section>
+  );
 }

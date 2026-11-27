@@ -5,7 +5,7 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "data.mmg.studio";
 const RESERVED_SUBDOMAINS = new Set(["www", "app", "admin", "dashboard"]);
 
 // The cron routes (/api/clarity/snapshot, /api/cron/site-changes, /api/cron/feedback-emails, /api/cron/api-budget) check CRON_SECRET themselves, since Vercel's cron has no session cookie.
-const PUBLIC_PATHS = new Set(["/login", "/api/auth/login", "/api/auth/invite", "/api/track-config", "/api/clarity/snapshot", "/api/cron/site-changes", "/api/cron/feedback-emails", "/api/cron/api-budget"]);
+const PUBLIC_PATHS = new Set(["/login", "/api/auth/login", "/api/auth/invite", "/api/track-config", "/api/clarity/snapshot", "/api/cron/site-changes", "/api/cron/feedback-emails", "/api/cron/api-budget", "/api/agent-runs/callback"]);
 
 // Owner-only: changing clients, connections and spend limits, and managing the
 // team. Team members can read these screens but only the owner can change them.

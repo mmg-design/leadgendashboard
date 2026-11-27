@@ -84,3 +84,26 @@ export async function notifyOwner(
       `<p>${esc(actor.name)} commented on <strong>${esc(task.title)}</strong>${esc(where(clientName))}:</p><blockquote style="margin:12px 0;padding:10px 14px;border-left:3px solid #0CA4C3;background:#F3FAFB;white-space:pre-line">${esc(event.body)}</blockquote>${button(url, "Open the task")}`);
   }
 }
+
+// Tells the owner an agent finished a task in the client's code: ready to
+// review (with the preview and pull request), no changes, or couldn't finish.
+// Sent whoever started it, since the owner reviews every agent change. Never throws.
+export async function notifyAgentResult(task: WorkTask, clientName: string | null, origin: string, r: {
+  outcome: "done" | "no_changes" | "failed"; round: number; summary: string | null; prUrl: string | null; previewUrl: string | null; runUrl: string | null; error: string | null;
+}) {
+  const to = await ownerEmail();
+  if (!to) return;
+  const url = `${origin}/work?task=${task.id}`;
+  const round = r.round > 1 ? ` (round ${r.round})` : "";
+  const subject = r.outcome === "done" ? `Ready to review${round}: ${task.title}${where(clientName)}`
+    : r.outcome === "no_changes" ? `Agent made no changes: ${task.title}${where(clientName)}`
+    : `Agent couldn't finish: ${task.title}${where(clientName)}`;
+  const lead = r.outcome === "done" ? `The agent finished "${task.title}"${where(clientName)}${round}. It's in review: check the preview, then merge the pull request or send it back with notes.`
+    : r.outcome === "no_changes" ? `The agent worked on "${task.title}"${where(clientName)}${round} but didn't change any files.`
+    : `The agent couldn't finish "${task.title}"${where(clientName)}${round}: ${r.error || "the run failed"}.`;
+  const links = [r.previewUrl && `Preview: ${r.previewUrl}`, r.prUrl && `Pull request: ${r.prUrl}`, r.outcome === "failed" && r.runUrl && `Run log: ${r.runUrl}`, `Open the task: ${url}`].filter(Boolean).join("\n");
+  const buttons = [r.previewUrl && button(r.previewUrl, "Open the preview"), r.prUrl && button(r.prUrl, "Pull request"), button(url, "Open the task")].filter(Boolean).join("");
+  await mail(to, subject,
+    `${lead}${r.summary ? `\n\n${r.summary}` : ""}\n\n${links}`,
+    `<p>${esc(lead)}</p>${r.summary ? `<blockquote style="margin:12px 0;padding:10px 14px;border-left:3px solid #0CA4C3;background:#F3FAFB;white-space:pre-line">${esc(r.summary)}</blockquote>` : ""}${buttons}`);
+}

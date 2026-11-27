@@ -20,9 +20,13 @@ interface Item {
   evidence: string[]; path: string | null; url: string | null; context: string; status: "open" | "drafted" | "applied" | "done" | "dismissed";
   draftSummary: string | null; createdAt: string; updatedAt: string;
   assigned: { taskId: number; assigneeId: number | null; workStatus: string } | null;
+  run: RunInfo | null; // the agent carrying it out in the client's code
 }
+type RunStatus = "queued" | "running" | "finishing" | "done" | "no_changes" | "failed";
+interface RunInfo { status: RunStatus; round: number; prUrl: string | null; previewUrl: string | null; error?: string | null }
+const runActive = (s: RunStatus) => s === "queued" || s === "running" || s === "finishing";
 interface Person { id: number; name: string; title: string; photoVersion?: string | null }
-interface Client { slug: string; name: string; logo: string | null }
+interface Client { slug: string; name: string; logo: string | null; agentMode?: "github" | "needs_token" | null }
 interface Data { items: Item[]; clients: Client[]; people: Person[]; isOwner: boolean; me: number | null }
 
 const CATEGORIES: Record<Category, { label: string; color: string; Icon: typeof Bot }> = {
@@ -191,6 +195,23 @@ function QueueItem({ item, client, people, isOwner, me, onChange }: {
   };
   const assignee = item.assigned?.assigneeId ? people.find((p) => p.id === item.assigned!.assigneeId) : undefined;
   const canRun = item.type !== "link_prospect";
+  // The client's code is connected: the agent makes the change and opens a pull request.
+  const carriesOut = client?.agentMode === "github" && canRun;
+  const taskId = item.assigned?.taskId;
+  const active = !!item.run && runActive(item.run.status);
+
+  // While the agent works, check in every 30 seconds.
+  useEffect(() => {
+    if (!active || !taskId) return;
+    const t = setInterval(() => {
+      fetch(`/api/agent-runs?workTaskId=${taskId}`).then((r) => (r.ok ? r.json() : null)).then((d) => {
+        const last = d?.runs?.[d.runs.length - 1];
+        if (last) onChange({ run: { status: last.status, round: last.round, prUrl: last.prUrl, previewUrl: last.previewUrl, error: last.error } });
+      }).catch(() => {});
+    }, 30_000);
+    return () => clearInterval(t);
+  }, [active, taskId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const agentsHref = `/${item.clientSlug}?section=agents`;
 
   async function run() {
@@ -209,6 +230,22 @@ function QueueItem({ item, client, people, isOwner, me, onChange }: {
   }
   async function assign() {
     if (pick === null) return;
+    if (pick === AGENT && carriesOut) {
+      // The agent makes the change in the client's code and opens a pull request.
+      setBusy("assign"); setError(null);
+      try {
+        const r = await fetch("/api/agent-runs", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ client: item.clientSlug, key: item.key, context, dueDate: due || undefined }) });
+        const d = await r.json();
+        if (d.task) onChange({ assigned: { taskId: d.task.id, assigneeId: d.task.assigneeId, workStatus: d.task.status }, context });
+        if (!r.ok) throw new Error(d.error || "Couldn't start the agent.");
+        onChange({ run: { status: d.run.status, round: d.run.round, prUrl: null, previewUrl: null } });
+        setMode(null); setOpen(true);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Couldn't start the agent.");
+      } finally { setBusy(null); }
+      return;
+    }
     if (pick === AGENT) {
       // Hand it to the agent: track it on the Work board as agent-only (unless a
       // person already has it), then draft the fix now.
@@ -250,6 +287,8 @@ function QueueItem({ item, client, people, isOwner, me, onChange }: {
             <span className={`rounded-full px-2 py-0.5 font-semibold ${IMPACT[item.impact].cls}`}>{IMPACT[item.impact].label}</span>
             {item.status === "drafted" && <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">Draft ready</span>}
             {item.status === "applied" && <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">Applied</span>}
+            {item.run && runActive(item.run.status) && <span className="rounded-full bg-[#0CA4C3]/10 px-2 py-0.5 font-semibold text-[#0F6E84]">Agent working</span>}
+            {item.run?.status === "done" && <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-800">Ready to review</span>}
             <span className="text-muted-foreground">· {ago(item.createdAt)}</span>
           </div>
           <p className="text-[16px] font-semibold leading-snug text-[#001A2E]">{item.title}</p>
@@ -261,6 +300,7 @@ function QueueItem({ item, client, people, isOwner, me, onChange }: {
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-white pl-2 pr-2.5 text-[13px] font-semibold text-[#01384C] shadow-[0_1px_2px_rgba(7,61,143,0.06),0_3px_8px_rgba(7,61,143,0.05)] transition-all duration-200 hover:shadow-[0_1px_2px_rgba(7,61,143,0.08),0_6px_14px_rgba(7,61,143,0.08)]">
               {assignee ? <Avatar id={assignee.id} name={assignee.name} photoVersion={assignee.photoVersion} size={22} /> : item.assigned ? <Bot size={15} /> : <UserPlus size={15} />}
               {assignee ? assignee.name.split(" ")[0] : item.assigned ? "Agent" : "Assign"}
+              {active && <Loader2 size={13} className="animate-spin text-[#0CA4C3]" />}
             </button>
           ) : item.assigned?.assigneeId === me && me !== null ? (
             <Link href={`/work?task=${item.assigned.taskId}`} className="inline-flex items-center gap-1.5 rounded-full bg-[#0CA4C3]/10 px-3 py-1.5 text-[13px] font-semibold text-[#0F6E84]"><Check size={13} /> Assigned to you</Link>
@@ -281,6 +321,8 @@ function QueueItem({ item, client, people, isOwner, me, onChange }: {
           </button>
         </div>
       </div>
+
+      {item.run && <RunStrip run={item.run} taskId={taskId} />}
 
       {open && (
         <div className="mt-4 space-y-4 border-t border-border/60 pt-4 anim-rise">
@@ -330,7 +372,9 @@ function QueueItem({ item, client, people, isOwner, me, onChange }: {
                 <button onClick={() => setMode(null)} className="rounded-md px-3 py-2 text-[13px] text-[#3E4F5E] hover:bg-white">Cancel</button>
               </div>
               <p className="text-[12px] text-muted-foreground">
-                {pick === AGENT ? "The agent drafts the fix now, using your context. It's tracked on the Work board; nothing changes on the site until you apply it." : "They get an email and it lands in their queue, with your context at the top."}
+                {pick === AGENT && carriesOut ? `The agent makes the change in ${client?.name || "the client"}'s code on its own branch and opens a pull request with a preview link. The task moves to In progress, and you get an email when it's ready to review. Nothing goes live until you merge it.`
+                  : pick === AGENT ? "The agent drafts the fix now, using your context. It's tracked on the Work board; nothing changes on the site until you apply it."
+                  : "They get an email and it lands in their queue, with your context at the top."}
               </p>
             </div>
           )}
@@ -360,5 +404,38 @@ function QueueItem({ item, client, people, isOwner, me, onChange }: {
         </div>
       )}
     </article>
+  );
+}
+
+// Where the agent is with a change it's making in the client's code.
+function RunStrip({ run, taskId }: { run: RunInfo; taskId?: number }) {
+  const link = "inline-flex items-center gap-1 font-semibold text-[#0394B2] hover:underline";
+  const taskLink = taskId ? <Link href={`/work?task=${taskId}`} className={link}>Open the task <ExternalLink size={12} /></Link> : null;
+  if (runActive(run.status)) {
+    return (
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-[#0CA4C3]/25 bg-[#0CA4C3]/[0.05] px-3 py-2 text-[13px] text-[#01384C] anim-fade">
+        <Loader2 size={14} className="animate-spin text-[#0CA4C3]" />
+        <span className="flex-1">{run.round > 1 ? `Round ${run.round}: the` : "The"} agent is making the change on its own branch. You&apos;ll get an email when it&apos;s ready to review.</span>
+        {taskLink}
+      </div>
+    );
+  }
+  if (run.status === "done") {
+    return (
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-[13px] text-[#01384C] anim-fade">
+        <Check size={14} className="text-amber-700" />
+        <span className="flex-1 font-medium">Ready to review{run.round > 1 ? ` (round ${run.round})` : ""}</span>
+        {run.previewUrl ? <a href={run.previewUrl} target="_blank" rel="noreferrer" className={link}>Preview <ExternalLink size={12} /></a> : <span className="text-muted-foreground">Preview building…</span>}
+        {run.prUrl && <a href={run.prUrl} target="_blank" rel="noreferrer" className={link}>Pull request <ExternalLink size={12} /></a>}
+        {taskLink}
+      </div>
+    );
+  }
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-red-200 bg-red-50/60 px-3 py-2 text-[13px] text-[#01384C] anim-fade">
+      <X size={14} className="text-red-600" />
+      <span className="flex-1">{run.status === "no_changes" ? "The agent finished without changing any files." : `The agent couldn't finish${run.error ? `: ${run.error}` : "."}`}</span>
+      {taskLink}
+    </div>
   );
 }
