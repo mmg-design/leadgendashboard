@@ -304,6 +304,23 @@ async function initSchema(db: Client) {
     CREATE INDEX IF NOT EXISTS agent_runs_task ON agent_runs (work_task_id, id);
     CREATE INDEX IF NOT EXISTS agent_runs_status ON agent_runs (status);
 
+    -- The dashboard's own GitHub app (one row), made with GitHub's one-click
+    -- manifest flow. Its private key and secrets are stored encrypted.
+    CREATE TABLE IF NOT EXISTS github_app (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      app_id INTEGER NOT NULL,
+      slug TEXT NOT NULL,
+      client_id TEXT,
+      html_url TEXT,
+      owner_login TEXT,
+      pem_enc TEXT NOT NULL,
+      client_secret_enc TEXT,
+      webhook_secret_enc TEXT,
+      installation_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
     -- Time tracking: one row per stint on a task. ended_at is NULL while the
     -- timer runs; each person has at most one running timer. client_slug is
     -- copied in at the start so reports stay right if a task moves clients.

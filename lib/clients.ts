@@ -72,7 +72,14 @@ export interface ClientConfig {
       enabled: boolean;
       repo: string; // "owner/name"
       baseBranch?: string; // defaults to "main"
+      dir?: string; // where the site lives in the repo ("" = the root)
       previewUrl?: string;
+    };
+    // Where the website is built, chosen in settings. Decides how agents work
+    // on it: "github" changes the code and opens a pull request, "webflow"
+    // changes the Webflow site, "other" means drafts only.
+    site?: {
+      platform: "webflow" | "github" | "other";
     };
     // GoHighLevel sub-account Private Integration token, for "ghl_form" lead
     // events. Never reaches the browser (swapped for hasApiToken); the name and

@@ -6,6 +6,7 @@ import { listMembers } from "@/lib/team";
 import { logoUrl } from "@/lib/client-logo";
 import type { AgentTask, TaskStatus } from "@/lib/agent-tasks";
 import { executorFor, latestRuns, syncOpenRuns } from "@/lib/agent-runs";
+import { hasGitHubAccess } from "@/lib/github-app";
 
 // Every client's open agent recommendations in one list, newest first, with who
 // each one is assigned to. Filtering and sorting happen in the browser.
@@ -25,6 +26,7 @@ export async function GET(req: NextRequest) {
     listMembers(),
     latestRuns(),
   ]);
+  const access = await hasGitHubAccess();
   const live = new Set(clients.map((c) => c.slug));
   const assigned = new Map(linked.rows.map((r) => [`${r.client_slug}|${r.agent_task_key}`, { taskId: Number(r.id), assigneeId: r.assignee_id == null ? null : Number(r.assignee_id), workStatus: r.status as string }]));
 
@@ -58,7 +60,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     items,
-    clients: clients.map((c) => ({ slug: c.slug, name: c.name, logo: logoUrl(c), agentMode: executorFor(c) })),
+    clients: clients.map((c) => ({ slug: c.slug, name: c.name, logo: logoUrl(c), agentMode: executorFor(c, access) })),
     people: members.filter((m) => m.status === "active" || (viewer.isOwner && m.status === "invited")).map((m) => ({ id: m.id, name: m.name, title: m.title, photoVersion: m.photoVersion })),
     isOwner: viewer.isOwner,
     me: viewer.type === "member" ? viewer.member.id : null,
