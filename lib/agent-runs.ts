@@ -97,12 +97,17 @@ async function findPreview(repo: string, sha: string, template: string): Promise
     const ok = statuses.find((s) => s.state === "success" && (s.environment_url || s.target_url));
     if (ok) return ok.environment_url || ok.target_url || null;
   }
+  // The MMG agent workflow passes Cloudflare's details on as a commit status
+  // (tokens like ours can read statuses but not check runs).
+  const statuses = await gh<{ context: string; description?: string | null; target_url?: string | null }[]>(`/repos/${repo}/commits/${sha}/statuses?per_page=30`).catch(() => []);
+  const mmg = statuses.find((s) => s.context === "MMG preview");
+  if (mmg?.target_url && /^https:\/\//.test(mmg.target_url)) return mmg.target_url;
   const checks = await gh<{ check_runs: { output?: { summary?: string | null } }[] }>(`/repos/${repo}/commits/${sha}/check-runs?per_page=30`).catch(() => ({ check_runs: [] }));
-  for (const c of checks.check_runs) {
-    const text = c.output?.summary || "";
+  const texts = [mmg?.description || "", ...checks.check_runs.map((c) => c.output?.summary || "")];
+  for (const text of texts) {
     const url = text.match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev[^\s)\]]*/i);
     if (url) return url[0];
-    const version = text.match(/Version ID:\s*([0-9a-f]{8})/i);
+    const version = text.match(/(?:Version ID:|Cloudflare version)\s*([0-9a-f]{8})/i);
     if (version && template.includes("{version}")) return template.replace("{version}", version[1].toLowerCase());
   }
   return null;
